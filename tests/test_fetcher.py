@@ -10,12 +10,12 @@ from backend.scraper import fetcher as fetcher_module
 from backend.scraper.fetcher import FetchError, Page, PageFetcher
 
 
-def ok_response(text: str = "page text") -> SimpleNamespace:
-    return SimpleNamespace(status=200, get_all_text=lambda **kwargs: text)
+def ok_response(text: str = "page text", raw: bytes = b"<html>raw</html>") -> SimpleNamespace:
+    return SimpleNamespace(status=200, get_all_text=lambda **kwargs: text, body=raw)
 
 
 def status_response(status: int) -> SimpleNamespace:
-    return SimpleNamespace(status=status, get_all_text=lambda **kwargs: "")
+    return SimpleNamespace(status=status, get_all_text=lambda **kwargs: "", body=b"")
 
 
 @pytest.fixture
@@ -50,9 +50,9 @@ def script_get(monkeypatch: pytest.MonkeyPatch, outcomes: list[Any]) -> list[dic
 def test_fetch_returns_page_with_text(
     fetcher: PageFetcher, sleeps: list[float], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    calls = script_get(monkeypatch, [ok_response("hello world")])
+    calls = script_get(monkeypatch, [ok_response("hello world", raw=b'{"a": 1}')])
     page = fetcher.fetch("https://x.com/a")
-    assert page == Page(url="https://x.com/a", markdown="hello world")
+    assert page == Page(url="https://x.com/a", markdown="hello world", raw='{"a": 1}')
     assert calls[0]["headers"]["User-Agent"]  # honest UA sent
     assert sleeps == []
 

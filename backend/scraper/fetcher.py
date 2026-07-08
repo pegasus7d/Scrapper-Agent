@@ -25,7 +25,8 @@ _RATE_LIMIT_BACKOFF_FACTOR = 4
 @dataclass
 class Page:
     url: str
-    markdown: str
+    markdown: str  # cleaned page text, for HTML sources
+    raw: str  # undecorated body, for JSON API sources
 
 
 class FetchError(Exception):
@@ -54,7 +55,9 @@ class PageFetcher:
             raise FetchError(f"disallowed by robots.txt: {url}")
         response = self._get_with_retry(url)
         markdown = response.get_all_text(ignore_tags=("script", "style"))
-        return Page(url=url, markdown=markdown)
+        body = response.body
+        raw = body.decode("utf-8", "replace") if isinstance(body, bytes) else body
+        return Page(url=url, markdown=markdown, raw=raw)
 
     def _get_with_retry(self, url: str) -> Response:
         attempts = self._retries + 1
