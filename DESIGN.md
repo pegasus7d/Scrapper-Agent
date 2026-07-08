@@ -325,8 +325,10 @@ Per-module test plan (mirrors `backend/` one-to-one):
 | `test_pipeline.py`   | happy path saves items + finishes run; `FetchError` on one URL → recorded, loop continues; `ExtractionFailed` → recorded, loop continues; `MAX_PAGES_PER_RUN` stops the loop; visited URLs not re-fetched; cancel requested → loop stops, status `"cancelled"`; no API key → escalation disabled, run completes local-only |
 | `test_api.py`        | each endpoint happy path (FastAPI `TestClient`); POST `/api/runs` while active → 409; cancel endpoint sets the flag; filters + pagination on list endpoints (limit cap at 100) |
 
-CI gate (even if "CI" is just a local script at first): `pytest` green + `ruff check`
-+ `ruff format --check` before any change is considered done.
+CI gate (even if "CI" is just a local script at first): `pytest` green + `mypy`
+clean + `ruff check` + `ruff format --check` before any change is considered done.
+At each build-order step boundary, additionally smoke-test the new piece against
+the real world once (see CLAUDE.md "Testing").
 
 ## 8. Build order — one feature per step, one commit per step
 

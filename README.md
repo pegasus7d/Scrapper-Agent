@@ -76,6 +76,7 @@ Run before every commit (this is the definition of done):
 
 ```sh
 pytest                 # all unit tests — no network, no LLM calls
+mypy backend           # type checking
 ruff check .           # lint
 ruff format --check .  # formatting
 ```

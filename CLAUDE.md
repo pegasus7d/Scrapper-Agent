@@ -57,8 +57,13 @@ for anyone to review and understand. No slop.
   has a named test. A module with only happy-path tests is incomplete.
 - The per-module flow coverage table lives in `DESIGN.md` §7 — keep it in sync when
   adding flows.
-- Definition of done for any change: `pytest` green + `ruff check` + `ruff format
-  --check` pass.
+- Definition of done for any change: `pytest` green + `mypy` clean + `ruff check` +
+  `ruff format --check` pass. (mypy is what makes "type hints everywhere" enforceable
+  — ruff alone does not check type correctness.)
+- **Smoke test at step boundaries.** Unit tests mock all I/O, so they can never prove
+  the real integration works. Before a `DESIGN.md` §8 build-order step is called done,
+  run the new piece once for real (real Ollama, real fetch of one page) and say what
+  happened. Failures found here that unit tests missed → add the missing unit test.
 
 ## Git workflow — one feature at a time
 
@@ -72,6 +77,11 @@ for anyone to review and understand. No slop.
 - Commit messages: short imperative summary of the one change, e.g.
   `Add extraction cascade with escalation cap`. One line is usually enough.
 - Never commit `.env`, `scraper.db`, or generated artifacts — they are gitignored.
+- Work directly on `main` — no feature branches while this is a solo project with
+  small commits.
+- **No new dependencies without a stated reason.** Adding a package to
+  `pyproject.toml`/`package.json` requires one sentence in the commit message saying
+  why the stdlib or an existing dep can't do it.
 
 ## Conventions
 - Keep the orchestration loop hand-rolled and simple — no LangChain/CrewAI/AutoGen.
