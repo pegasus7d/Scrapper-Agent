@@ -15,6 +15,10 @@ follow it, and any deviation must update `DESIGN.md` in the same change.
   content hash — see DESIGN.md §2)
 - LLM cascade: cheap/small model for routine extraction, escalate to a stronger model
   only on validation failure or low confidence
+- **Currently running free-only**: there is no `ANTHROPIC_API_KEY` and that is
+  deliberate — everything runs on the local Ollama model. Build the escalation path
+  per DESIGN.md (it must work when a key appears later), but never require a key,
+  never prompt the user for one, and all smoke tests run local-only.
 
 ## Code Quality — non-negotiable
 
