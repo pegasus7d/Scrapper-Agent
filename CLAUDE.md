@@ -10,7 +10,8 @@ follow it, and any deviation must update `DESIGN.md` in the same change.
 - Python
 - `scrapling` for fetching pages (stealthy, adaptive — prefer over raw requests/bs4/Selenium)
 - `pydantic` for extraction schemas / validation
-- SQLite for storage (dedupe by source URL)
+- SQLite for storage (jobs dedupe on the item's permalink, questions on a normalized
+  content hash — see DESIGN.md §2)
 - LLM cascade: cheap/small model for routine extraction, escalate to a stronger model
   only on validation failure or low confidence
 
@@ -88,12 +89,12 @@ for anyone to review and understand. No slop.
   These add token overhead we don't need for this task.
 - Always feed the LLM cleaned text/markdown from Scrapling, never raw HTML — keeps
   token usage down.
-- Extraction schemas (`Job`, `InterviewQuestion`) live centrally and are the contract
+- Extraction schemas (`JobExtract`, `QuestionExtract` in `schemas.py`) are the contract
   between fetch and storage — validate every LLM extraction against them before saving.
 - `apply_url` should store the raw href, not a resolved redirect (avoid extra requests
   per job).
-- Build one source end-to-end before generalizing to more sources (see "Build order"
-  in IDEA.md).
+- Build one source end-to-end before generalizing to more sources (build order:
+  DESIGN.md §8).
 
 ## Sources
 - Prioritize sources without explicit anti-scraping ToS friction (LeetCode Discuss,

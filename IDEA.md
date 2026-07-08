@@ -75,9 +75,14 @@ for url in queue:
 2. Pick **one** interview-question source (e.g. LeetCode Discuss), do the same.
 3. Only after both MVPs work, generalize by swapping in more seed URLs/sources.
 
+## Decisions since this doc was written (authoritative details in DESIGN.md)
+- MVP sources: **Hacker News "Who is hiring?"** for jobs, **Reddit** (public `.json`
+  endpoints) for interview questions. LeetCode Discuss/Blind deferred (JS-heavy,
+  anti-bot).
+- Local model: **qwen2.5:7b-instruct via Ollama**; escalation tier: Claude Haiku.
+- Full technical contract (DB models, chunking, API, tests): see `DESIGN.md`.
+
 ## Open questions / not yet decided
 - Whether resume parsing should feed into job matching (separate feature, not scoped
   yet — resumes are PDFs/DOCX, so that's document parsing, not web scraping, and would
   use a different extraction path: `pdfplumber`/`python-docx` → LLM field extraction).
-- Which specific sources to start with for the MVP.
-- Local model choice for the cheap tier (candidates: Llama 3.1 8B, Qwen2.5-7B via Ollama).

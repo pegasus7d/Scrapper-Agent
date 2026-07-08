@@ -40,7 +40,8 @@ deviates from this design should update this file in the same change.
 - **Dependencies** are pinned in `pyproject.toml` (single source of truth — also holds
   the `ruff` config). Core: `fastapi`, `uvicorn`, `sqlalchemy`, `pydantic`,
   `scrapling`, `ollama` (official client for the local tier), `anthropic`,
-  `python-dotenv`, `pytest`, `ruff`. Frontend uses plain `npm` (boring > clever).
+  `python-dotenv`; dev: `pytest`, `mypy`, `ruff`. Frontend uses plain `npm`
+  (boring > clever).
 - **README.md** (written in step 0, kept current): setup commands, how to run the
   backend (`uvicorn`), frontend (`npm run dev`), and checks (`pytest`, `ruff`) — a
   new machine should go from clone to running app using only the README.
@@ -352,10 +353,12 @@ clean + `ruff check` + `ruff format --check` before any change is considered don
 At each build-order step boundary, additionally smoke-test the new piece against
 the real world once (see CLAUDE.md "Testing").
 
-## 8. Build order — one feature per step, one commit per step
+## 8. Build order — one feature at a time, small commits
 
-Workflow rule: each numbered step below is built, validated (`pytest` + `ruff`
-green), and **committed on its own** before the next step starts. No mixed commits.
+Workflow rule: each numbered step below is finished and validated (`pytest` + `mypy`
++ `ruff` green, plus the step-boundary smoke test) before the next step starts.
+Within a step, commit each module + its tests as it lands (see CLAUDE.md "Git
+workflow") — never mix two steps in one commit.
 
 0. Project scaffolding: git init + `.gitignore` (done), Python 3.12 venv,
    `pyproject.toml` with pinned deps + ruff config, `README.md`, empty package layout.
