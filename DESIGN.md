@@ -39,7 +39,11 @@ deviates from this design should update this file in the same change.
   or commit secrets.
 - **Dependencies** are pinned in `pyproject.toml` (single source of truth — also holds
   the `ruff` config). Core: `fastapi`, `uvicorn`, `sqlalchemy`, `pydantic`,
-  `scrapling`, `anthropic`, `python-dotenv`, `pytest`, `ruff`.
+  `scrapling`, `ollama` (official client for the local tier), `anthropic`,
+  `python-dotenv`, `pytest`, `ruff`. Frontend uses plain `npm` (boring > clever).
+- **README.md** (written in step 0, kept current): setup commands, how to run the
+  backend (`uvicorn`), frontend (`npm run dev`), and checks (`pytest`, `ruff`) — a
+  new machine should go from clone to running app using only the README.
 
 ## 2. Database models
 
@@ -123,6 +127,8 @@ backend/
     client.py          # LLMClient protocol + OllamaClient + FrontierClient
   scraper/
     fetcher.py         # fetch(url) -> Page(url, markdown) via scrapling
+    prompts.py         # extraction prompt templates (constants — prompts are part
+                       # of the contract, never inline f-strings in extractor.py)
     extractor.py       # extract(page, schema) -> validated model | Escalated | Failed
     sources.py         # per-source seed URLs + next-link discovery
     pipeline.py        # run_scrape(kind, source): the loop
@@ -184,7 +190,8 @@ extract(page, schema):
 
 Constants in `config.py`: `LOCAL_MODEL`, `FRONTIER_MODEL`, `MAX_ESCALATIONS_PER_RUN`,
 `FETCH_TIMEOUT_S`, `FETCH_RETRIES`, `MAX_PAGES_PER_RUN`, `REQUEST_DELAY_S`
-(politeness delay between fetches), `USER_AGENT`.
+(politeness delay between fetches), `USER_AGENT`, `API_PORT` (8000),
+`CORS_ORIGINS` (`http://localhost:5173` — the Vite dev server).
 
 ### Fetcher policy (fetcher.py)
 
@@ -219,6 +226,23 @@ The loop is synchronous and boring on purpose. A run is triggered from the API a
 executed in a background thread (FastAPI `BackgroundTasks`); its progress is readable
 from the `runs` row at any time — that is the entire "job status" mechanism, no
 Celery/queue infra.
+
+The whole of `run_scrape` is wrapped in one `try/except Exception` (the single
+allowed broad catch in the codebase): an unexpected crash marks the run `"failed"`
+with the error message instead of leaving a zombie `"running"` row.
+
+### MVP sources (decided — one of each kind)
+
+- **Jobs: Hacker News "Who is hiring?"** monthly thread. Plain server-rendered HTML,
+  no login, no anti-bot, explicitly public — and the postings are unstructured free
+  text, which is exactly the case that justifies LLM extraction over CSS selectors.
+  `sources.py` seeds the current month's thread; next-links = the thread's
+  pagination (`&p=2` …).
+- **Interview questions: Reddit** (`r/cscareerquestions`, `r/leetcode`) via the
+  public `.json` endpoints (append `.json` to any listing/thread URL) — structured
+  envelope, free-text posts, no login. LeetCode Discuss and Blind are deferred:
+  both are JS-heavy with anti-bot friction, better attempted after the pipeline is
+  proven (Scrapling's stealth fetcher exists for exactly that attempt).
 
 ## 4. API surface
 
@@ -309,9 +333,8 @@ CI gate (even if "CI" is just a local script at first): `pytest` green + `ruff c
 Workflow rule: each numbered step below is built, validated (`pytest` + `ruff`
 green), and **committed on its own** before the next step starts. No mixed commits.
 
-0. Project scaffolding: git init, `.gitignore` (`.env`, `scraper.db`, `.venv`,
-   `__pycache__`, `node_modules`, `dist`), `pyproject.toml` with pinned deps + ruff
-   config, empty package layout.
+0. Project scaffolding: git init + `.gitignore` (done), Python 3.12 venv,
+   `pyproject.toml` with pinned deps + ruff config, `README.md`, empty package layout.
 1. `config.py`, `schemas.py`, `db/` + tests — the foundations everything depends on.
 2. `llm/client.py`, `extractor.py` + tests — the cascade, proven against a fake LLM.
 3. `fetcher.py`, `sources.py` (ONE job source), `pipeline.py` + tests.

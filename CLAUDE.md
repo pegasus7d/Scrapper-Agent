@@ -65,8 +65,12 @@ for anyone to review and understand. No slop.
 - Work on exactly **one feature/step at a time** (build order in `DESIGN.md` §8).
   Finish it, validate it (`pytest` + `ruff` green), then **commit it** before starting
   the next. Never mix two features in one commit.
-- Commit messages: short imperative summary of the one feature, e.g.
-  `Add extraction cascade with escalation cap`.
+- **Commits stay very small.** The unit of a commit is the smallest reviewable,
+  green-tested change — one module + its test file is a commit; within a build-order
+  step, commit each module as it lands rather than the whole step at once. If a diff
+  is hard to review in one sitting, it should have been two commits.
+- Commit messages: short imperative summary of the one change, e.g.
+  `Add extraction cascade with escalation cap`. One line is usually enough.
 - Never commit `.env`, `scraper.db`, or generated artifacts — they are gitignored.
 
 ## Conventions
