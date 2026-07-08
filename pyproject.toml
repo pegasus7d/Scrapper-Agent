@@ -8,7 +8,7 @@ dependencies = [
     "uvicorn==0.40.0",
     "sqlalchemy==2.0.44",
     "pydantic==2.12.4",
-    "scrapling==0.3.10",
+    "scrapling[fetchers]==0.3.10",
     "ollama==0.6.1",
     "anthropic==0.75.0",
     "python-dotenv==1.2.1",
