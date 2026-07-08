@@ -59,7 +59,7 @@ display data, never queried by element, so a join table would be overkill.
 | location         | str, null     |                                            |
 | salary           | str, null     | raw string as posted; no parsing attempt   |
 | requirements     | JSON          | list[str]                                  |
-| posting_url      | str, not null | **unique** — the dedupe key                |
+| posting_url      | str, not null | **unique** — the dedupe key. The *item's own* permalink (e.g. the HN comment URL), never the listing-page URL — one page yields many jobs, so using the page URL would make every job after the first a false duplicate |
 | apply_url        | str, null     | raw href, never a resolved redirect        |
 | source           | str, not null | e.g. `"weworkremotely"`                    |
 | extraction_tier  | str, not null | `"local"` or `"frontier"` — which model    |
@@ -130,7 +130,7 @@ backend/
     prompts.py         # extraction prompt templates (constants — prompts are part
                        # of the contract, never inline f-strings in extractor.py)
     extractor.py       # extract(page, schema) -> validated model | Escalated | Failed
-    sources.py         # per-source seed URLs + next-link discovery
+    sources.py         # per-source seed URLs, page→item chunking, next-link discovery
     pipeline.py        # run_scrape(kind, source): the loop
   api/
     main.py            # FastAPI app factory, CORS, router mounting
@@ -160,6 +160,17 @@ class QuestionExtract(BaseModel):
     question: str
     round: str | None
 
+# sources.py — a page is split into per-item chunks BEFORE extraction.
+# Two reasons: (1) each item needs its own permalink for posting_url/dedupe,
+# (2) a whole listing page overflows what a 7B model can reliably process —
+# chunks keep every LLM call small.
+@dataclass
+class Chunk:
+    text: str      # one item's text (e.g. one HN top-level comment)
+    url: str       # that item's permalink — becomes posting_url / source_url
+
+def split_items(page: Page, source: str) -> list[Chunk]: ...
+
 # llm/client.py — one protocol, two implementations; extractor depends only on this
 class LLMClient(Protocol):
     def complete(self, prompt: str) -> str: ...
@@ -176,9 +187,9 @@ class ExtractionFailed(Exception): ...  # raised only after ALL tiers exhausted
 ### Cascade algorithm (extractor.py)
 
 ```
-extract(page, schema):
-  1. prompt local model with page.markdown + JSON schema of `schema`
-  2. parse response as JSON, validate each item against `schema`
+extract(chunk, schema):        # one chunk = one item's text, always small
+  1. prompt local model with chunk.text + JSON schema of `schema`
+  2. parse response as JSON, validate against `schema`
   3. valid            → return ExtractResult(items, tier="local")
   4. invalid/empty    → retry local ONCE with the validation errors appended
   5. still invalid    → if run escalation count < MAX_ESCALATIONS_PER_RUN:
@@ -215,8 +226,10 @@ run_scrape(kind, source):
       if repo.cancel_requested(run): break     # → status "cancelled"
       url = normalize(queue.pop(0));  skip if url in seen;  seen.add(url)
       page = fetcher.fetch(url)                 # FetchError → record, continue
-      result = extractor.extract(page, schema)  # ExtractionFailed → record, continue
-      repo.save_items(result.items, run, tier=result.tier)  # dedupes internally
+      for chunk in sources.split_items(page, source):
+          result = extractor.extract(chunk, schema)  # ExtractionFailed → record,
+          repo.save_items(result.items, run,         #   continue with next chunk
+                          url=chunk.url, tier=result.tier)  # dedupes internally
       queue += sources.next_links(page, source)
       sleep(REQUEST_DELAY_S)
   repo.finish_run(run)
@@ -236,11 +249,15 @@ with the error message instead of leaving a zombie `"running"` row.
 - **Jobs: Hacker News "Who is hiring?"** monthly thread. Plain server-rendered HTML,
   no login, no anti-bot, explicitly public — and the postings are unstructured free
   text, which is exactly the case that justifies LLM extraction over CSS selectors.
-  `sources.py` seeds the current month's thread; next-links = the thread's
-  pagination (`&p=2` …).
+  `sources.py` finds the current month's thread via the free Algolia HN API
+  (`hn.algolia.com/api/v1/search?tags=story,author_whoishiring`); next-links = the
+  thread's pagination (`&p=2` …). Chunking: one top-level comment = one `Chunk`,
+  with `url` = the comment permalink (`news.ycombinator.com/item?id=…`).
 - **Interview questions: Reddit** (`r/cscareerquestions`, `r/leetcode`) via the
   public `.json` endpoints (append `.json` to any listing/thread URL) — structured
-  envelope, free-text posts, no login. LeetCode Discuss and Blind are deferred:
+  envelope, free-text posts, no login. Chunking: one post (or one substantive
+  comment) = one `Chunk`, `url` = the post/comment permalink. LeetCode Discuss and
+  Blind are deferred:
   both are JS-heavy with anti-bot friction, better attempted after the pipeline is
   proven (Scrapling's stealth fetcher exists for exactly that attempt).
 
@@ -259,6 +276,11 @@ with the error message instead of leaving a zombie `"running"` row.
 All responses are Pydantic response models — no raw dicts out of routes. Errors use
 FastAPI's standard `{"detail": ...}` shape. List endpoints paginate with
 `?limit=` (default 20, max 100) and `?offset=`, and return `{items, total}`.
+
+The API binds to `127.0.0.1` only and has **no auth** — it is a local tool, never
+deployed as-is. The frontend keeps hand-written TypeScript types for these
+responses in one file (`frontend/src/api/types.ts`), updated whenever a response
+model changes.
 
 ## 5. LLM tiers
 
@@ -321,8 +343,8 @@ Per-module test plan (mirrors `backend/` one-to-one):
 | `test_repo.py`       | save job; duplicate `posting_url` skipped + counted; duplicate `question_hash` skipped (incl. case/whitespace variants); URL normalization strips tracking params; run lifecycle (create → counters → finish); stale `"running"` rows marked failed on startup; error list capped at 100 |
 | `test_extractor.py`  | local succeeds first try; local fails → retry succeeds; retry fails → frontier succeeds (tier recorded); frontier fails → `ExtractionFailed`; escalation cap reached → no frontier call made; malformed JSON from model → treated as invalid, not a crash |
 | `test_fetcher.py`    | returns `Page` with markdown; timeout → retry once → `FetchError`; 5xx → retry; 429 → longer backoff; non-200 → `FetchError`; robots.txt disallowed → `FetchError` without fetching |
-| `test_sources.py`    | seed URLs per source; next-link discovery finds pagination; ignores off-source links |
-| `test_pipeline.py`   | happy path saves items + finishes run; `FetchError` on one URL → recorded, loop continues; `ExtractionFailed` → recorded, loop continues; `MAX_PAGES_PER_RUN` stops the loop; visited URLs not re-fetched; cancel requested → loop stops, status `"cancelled"`; no API key → escalation disabled, run completes local-only |
+| `test_sources.py`    | seed URLs per source; `split_items` turns a canned HN page into chunks with comment permalinks; empty/deleted comments skipped; next-link discovery finds pagination; ignores off-source links |
+| `test_pipeline.py`   | happy path saves items + finishes run; one page → many chunks → many saved items with distinct `posting_url`s; `ExtractionFailed` on one chunk → recorded, remaining chunks still processed; `FetchError` on one URL → recorded, loop continues; `MAX_PAGES_PER_RUN` stops the loop; visited URLs not re-fetched; cancel requested → loop stops, status `"cancelled"`; no API key → escalation disabled, run completes local-only |
 | `test_api.py`        | each endpoint happy path (FastAPI `TestClient`); POST `/api/runs` while active → 409; cancel endpoint sets the flag; filters + pagination on list endpoints (limit cap at 100) |
 
 CI gate (even if "CI" is just a local script at first): `pytest` green + `mypy`
