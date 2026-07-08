@@ -189,8 +189,8 @@ class ExtractionFailed(Exception): ...  # raised only after ALL tiers exhausted
 ### Cascade algorithm (extractor.py)
 
 ```
-extract(chunk, schema):        # one chunk = one item's text, always small
-  1. prompt local model with chunk.text + JSON schema of `schema`
+extract(chunk.text, schema):   # one chunk = one item's text, always small
+  1. prompt local model with the chunk text + JSON schema of `schema`
   2. parse response as JSON, validate against `schema`
   3. valid            → return ExtractResult(items, tier="local")
   4. invalid/empty    → retry local ONCE with the validation errors appended
@@ -229,7 +229,7 @@ run_scrape(kind, source):
       url = normalize(queue.pop(0));  skip if url in seen;  seen.add(url)
       page = fetcher.fetch(url)                 # FetchError → record, continue
       for chunk in sources.split_items(page, source):
-          result = extractor.extract(chunk, schema)  # ExtractionFailed → record,
+          result = extractor.extract(chunk.text, schema)  # ExtractionFailed → record,
           repo.save_items(result.items, run,         #   continue with next chunk
                           url=chunk.url, tier=result.tier)  # dedupes internally
       queue += sources.next_links(page, source)
