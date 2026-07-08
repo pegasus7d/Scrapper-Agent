@@ -7,7 +7,8 @@ layout, API surface, cascade algorithm, test plan) is in `DESIGN.md` — code mu
 follow it, and any deviation must update `DESIGN.md` in the same change.
 
 ## Stack
-- Python
+- Python 3.12, env/packages managed with **uv** (`uv venv`, `uv pip install` — never
+  plain pip)
 - `scrapling` for fetching pages (stealthy, adaptive — prefer over raw requests/bs4/Selenium)
 - `pydantic` for extraction schemas / validation
 - SQLite for storage (jobs dedupe on the item's permalink, questions on a normalized

@@ -22,9 +22,9 @@ questions, and live scrape-run status.
 
 ## Prerequisites
 
-- **Python 3.12+** — macOS system Python (3.9) is too old:
+- **Python 3.12+** and **uv** (used for all env/package management):
   ```sh
-  brew install python@3.12
+  brew install python@3.12 uv
   ```
 - **Ollama** running locally, with the extraction model pulled:
   ```sh
@@ -40,12 +40,12 @@ questions, and live scrape-run status.
 ```sh
 git clone <repo-url> && cd scraper-agent
 
-# Create and activate a virtual environment (Python 3.12)
-python3.12 -m venv .venv
+# Create and activate a virtual environment (Python 3.12, via uv)
+uv venv --python 3.12 .venv
 source .venv/bin/activate
 
-# Install the backend with dev dependencies
-pip install -e ".[dev]"
+# Install the backend with dev dependencies (always uv pip, never plain pip)
+uv pip install -e ".[dev]"
 
 # Secrets (optional, for the escalation tier)
 echo "ANTHROPIC_API_KEY=sk-ant-..." > .env   # .env is gitignored

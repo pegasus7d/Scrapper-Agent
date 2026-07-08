@@ -27,8 +27,9 @@ deviates from this design should update this file in the same change.
 
 ### Prerequisites & secrets
 
-- **Python 3.12+** (system Python on this machine is 3.9 — install via Homebrew or
-  `uv`; the project venv must be 3.12+ because the code uses modern typing syntax).
+- **Python 3.12+** (system Python on this machine is 3.9), with **uv** for all env
+  and package management: `uv venv --python 3.12 .venv`, then `uv pip install` —
+  never plain pip.
 - **Ollama** installed and running, with the local model pulled
   (`ollama pull qwen2.5:7b-instruct`). At run start the pipeline pings Ollama; if
   unreachable, the run fails immediately with a clear error — no silent degradation.
