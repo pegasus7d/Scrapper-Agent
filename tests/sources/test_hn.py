@@ -1,4 +1,4 @@
-"""Tests for HN source logic: seeds, thread discovery, chunking."""
+"""Tests for HN sources: "Who is hiring?" jobs + interview-question search."""
 
 import json
 
@@ -48,11 +48,6 @@ def thread_page(raw: str = THREAD_RESPONSE) -> Page:
 def test_seed_urls_hn_points_at_algolia_search() -> None:
     assert "hn.algolia.com" in SEARCH_URL
     assert "whoishiring" in SEARCH_URL
-
-
-def test_seed_urls_unknown_source_raises() -> None:
-    with pytest.raises(ValueError, match="unknown source"):
-        seed_urls("linkedin")
 
 
 def test_next_links_picks_newest_hiring_thread_not_wants_to_be_hired() -> None:
@@ -107,15 +102,6 @@ def test_split_items_malformed_json_raises_value_error() -> None:
         split_items(thread_page("{{{ not json"), "hn")
 
 
-def test_unknown_source_raises_everywhere() -> None:
-    with pytest.raises(ValueError, match="unknown source"):
-        seed_urls("linkedin")
-    with pytest.raises(ValueError, match="unknown source"):
-        split_items(thread_page(), "linkedin")
-    with pytest.raises(ValueError, match="unknown source"):
-        next_links(thread_page(), "linkedin")
-
-
 QUESTION_TEXT = (
     "<p>Amazon SDE2 onsite &amp; phone screen: they asked me to design a rate "
     "limiter, then two graph problems. Behavioral round was all LP stories.</p>"
@@ -165,61 +151,3 @@ def test_interviews_malformed_payload_raises_value_error() -> None:
         split_items(interviews_page(json.dumps({"nope": 1})), "hn-interviews")
     with pytest.raises(ValueError):
         split_items(interviews_page("{{{ not json"), "hn-interviews")
-
-
-LONG_DESCRIPTION = (
-    "We build developer tools for distributed systems. You will design APIs, "
-    "review pull requests, and mentor junior engineers on a small remote team."
-)
-
-REMOTEOK_RESPONSE = json.dumps(
-    [
-        {"last_updated": 123, "legal": "please link back to RemoteOK"},
-        {
-            "id": "1",
-            "position": "Backend Engineer",
-            "company": "Acme Robotics",
-            "location": "Remote",
-            "salary_min": 90000,
-            "salary_max": 130000,
-            "description": f"<p>{LONG_DESCRIPTION}</p>",
-            "url": "https://remoteok.com/remote-jobs/1",
-            "apply_url": "https://remoteok.com/remote-jobs/1",
-        },
-        {"id": "2", "position": "Gardener", "company": "Ghar", "url": "https://remoteok.com/2"},
-        {"id": "3", "position": "No URL Role", "company": "X", "description": LONG_DESCRIPTION},
-    ]
-)
-
-
-def remoteok_page(raw: str = REMOTEOK_RESPONSE) -> Page:
-    return Page(url=seed_urls("remoteok")[0], markdown="", raw=raw)
-
-
-def test_remoteok_seed_url_is_the_public_api() -> None:
-    assert seed_urls("remoteok") == ["https://remoteok.com/api"]
-
-
-def test_remoteok_split_items_chunks_listings_with_own_url() -> None:
-    chunks = split_items(remoteok_page(), "remoteok")
-    assert len(chunks) == 1
-    assert chunks[0].url == "https://remoteok.com/remote-jobs/1"
-    assert "Backend Engineer at Acme Robotics" in chunks[0].text
-    assert "distributed systems" in chunks[0].text
-
-
-def test_remoteok_split_items_skips_legal_notice_short_and_urlless_listings() -> None:
-    urls = [chunk.url for chunk in split_items(remoteok_page(), "remoteok")]
-    assert "https://remoteok.com/2" not in urls  # too short (no description)
-    assert all("No URL" not in chunk.text for chunk in split_items(remoteok_page(), "remoteok"))
-
-
-def test_remoteok_next_links_is_empty() -> None:
-    assert next_links(remoteok_page(), "remoteok") == []
-
-
-def test_remoteok_malformed_payload_raises_value_error() -> None:
-    with pytest.raises(ValueError, match="not a RemoteOK"):
-        split_items(remoteok_page(json.dumps({"not": "a list"})), "remoteok")
-    with pytest.raises(ValueError):
-        split_items(remoteok_page("{{{ not json"), "remoteok")
