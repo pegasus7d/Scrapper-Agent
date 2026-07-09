@@ -8,7 +8,9 @@ raise FetchError for everything else — the pipeline records it and moves on.
 import logging
 import time
 from dataclasses import dataclass
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 from urllib.robotparser import RobotFileParser
 
 from curl_cffi.curl import CurlError
@@ -99,12 +101,32 @@ class PageFetcher:
         parser = self._robots.get(domain)
         if parser is None:
             parser = RobotFileParser(f"https://{domain}/robots.txt")
-            try:
-                parser.read()
-            except OSError as error:
-                # Unreachable robots.txt is treated as "no restrictions", the
-                # same interpretation browsers and crawlers use.
-                logger.warning("robots.txt unreadable for %s: %s", domain, error)
-                parser.parse(["User-agent: *", "Allow: /"])
+            parser.parse(self._fetch_robots_lines(domain))
             self._robots[domain] = parser
         return parser.can_fetch(self._user_agent, url)
+
+    def _fetch_robots_lines(self, domain: str) -> list[str]:
+        """Fetch robots.txt with our own honest UA, not RobotFileParser.read()'s
+        internal urlopen call — that sends urllib's generic default UA, which
+        some sites (e.g. WeWorkRemotely) 403 outright, silently producing a
+        false "disallow everything" even though the real robots.txt is open.
+        """
+        request = Request(f"https://{domain}/robots.txt", headers={"User-Agent": self._user_agent})
+        try:
+            with urlopen(request, timeout=self._timeout_s) as response:
+                body: bytes = response.read()
+                return body.decode("utf-8", "replace").splitlines()
+        except HTTPError as error:
+            if error.code == 404:
+                return ["User-agent: *", "Allow: /"]  # no robots.txt = no restrictions
+            if error.code in (401, 403):
+                # An explicit denial to our own honest, identified UA — respect it.
+                logger.warning("robots.txt forbidden for %s: %s", domain, error)
+                return ["User-agent: *", "Disallow: /"]
+            logger.warning("robots.txt error for %s: %s — treating as unrestricted", domain, error)
+            return ["User-agent: *", "Allow: /"]
+        except URLError as error:
+            # Unreachable robots.txt is treated as "no restrictions", the same
+            # interpretation browsers and crawlers use.
+            logger.warning("robots.txt unreachable for %s: %s", domain, error)
+            return ["User-agent: *", "Allow: /"]

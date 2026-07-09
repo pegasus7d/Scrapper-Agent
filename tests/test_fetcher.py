@@ -2,6 +2,8 @@
 
 from types import SimpleNamespace
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request
 
 import pytest
 from curl_cffi.curl import CurlError
@@ -110,16 +112,75 @@ def test_robots_disallowed_never_fetches(
     assert calls == []
 
 
+class _FakeRobotsResponse:
+    """Minimal urlopen()-compatible context manager over robots.txt text."""
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def __enter__(self) -> "_FakeRobotsResponse":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self._text.encode()
+
+
+def script_robots(monkeypatch: pytest.MonkeyPatch, outcomes: list[Any]) -> list[Request]:
+    """Make urlopen() return/raise queued outcomes; records the Request objects
+    so tests can assert on the User-Agent header actually sent."""
+    calls: list[Request] = []
+
+    def fake_urlopen(request: Request, timeout: float) -> _FakeRobotsResponse:
+        calls.append(request)
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return _FakeRobotsResponse(outcome)
+
+    monkeypatch.setattr(fetcher_module, "urlopen", fake_urlopen)
+    return calls
+
+
+def test_robots_fetched_with_our_own_honest_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    # RobotFileParser.read() sends urllib's generic default UA internally,
+    # which some sites (e.g. WeWorkRemotely) 403 outright — we fetch it
+    # ourselves instead, with the same UA every other request uses.
+    instance = PageFetcher(user_agent="test-agent/1.0")
+    calls = script_robots(monkeypatch, ["User-agent: *\nAllow: /"])
+    assert instance._allowed_by_robots("https://x.com/a") is True
+    assert calls[0].get_header("User-agent") == "test-agent/1.0"
+
+
+def test_robots_404_treated_as_allow_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    instance = PageFetcher()
+    script_robots(
+        monkeypatch, [HTTPError("https://x.com/robots.txt", 404, "not found", None, None)]
+    )
+    assert instance._allowed_by_robots("https://x.com/anything") is True
+
+
+def test_robots_403_treated_as_disallow_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Forbidden even to our own honest, identified UA — respect it.
+    instance = PageFetcher()
+    script_robots(
+        monkeypatch, [HTTPError("https://x.com/robots.txt", 403, "forbidden", None, None)]
+    )
+    assert instance._allowed_by_robots("https://x.com/anything") is False
+
+
+def test_robots_unreachable_treated_as_allow_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    instance = PageFetcher()
+    script_robots(monkeypatch, [URLError("connection refused")])
+    assert instance._allowed_by_robots("https://x.com/anything") is True
+
+
 def test_robots_parser_cached_per_domain(monkeypatch: pytest.MonkeyPatch) -> None:
     instance = PageFetcher()
-    reads: list[str] = []
-
-    def fake_read(self: Any) -> None:
-        reads.append(self.url)
-
-    monkeypatch.setattr(fetcher_module.RobotFileParser, "read", fake_read)
-    monkeypatch.setattr(fetcher_module.RobotFileParser, "can_fetch", lambda self, agent, url: True)
+    calls = script_robots(monkeypatch, ["User-agent: *\nAllow: /", "User-agent: *\nAllow: /"])
     assert instance._allowed_by_robots("https://x.com/a")
     assert instance._allowed_by_robots("https://x.com/b")
     assert instance._allowed_by_robots("https://y.com/c")
-    assert len(reads) == 2  # one robots.txt read per domain
+    assert len(calls) == 2  # one robots.txt fetch per domain
