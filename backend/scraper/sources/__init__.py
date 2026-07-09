@@ -1,43 +1,20 @@
-"""Source registry: formalized as a plugin architecture (PHASE3.md step 1).
+"""Source registry: formalized as a plugin architecture (PHASE3.md step 1),
+split by domain as of PHASE4.md step 1.
 
 Each platform is a `Source` — pure adapter logic (seed URLs, page→chunk
 splitting, link discovery), no HTTP calls of its own; fetching always goes
-through `fetcher.py`. Adding a platform means writing one new file and
-registering an instance below; `pipeline.py`'s calls
+through `fetcher.py`. A platform lives under `jobs/` or `questions/`, never
+both, and is registered in that domain's own small `SOURCES` dict; this
+module merges the two into one flat `SOURCES` so `pipeline.py`'s calls
 (`sources.seed_urls(...)`, `sources.split_items(...)`, `sources.Chunk`) never
-change — this module is re-exported flat exactly like `db/repo/__init__.py`.
+change — same re-export-flat pattern as `db/repo/__init__.py`.
 """
 
-from typing import Literal, Protocol
-
 from backend.scraper.fetcher import Page
-from backend.scraper.sources._base import Chunk
-from backend.scraper.sources.arbeitnow import Arbeitnow
-from backend.scraper.sources.github_questions import GitHubQuestions
-from backend.scraper.sources.hn import HNInterviews, HNJobs
-from backend.scraper.sources.remoteok import RemoteOK
-from backend.scraper.sources.weworkremotely import WeWorkRemotely
+from backend.scraper.sources import jobs, questions
+from backend.scraper.sources._base import Chunk, Source
 
-
-class Source(Protocol):
-    """One platform's adapter. `kind` drives the JOB_SOURCES/QUESTION_SOURCES
-    split below — a new source only needs to declare it once."""
-
-    kind: Literal["jobs", "questions"]
-
-    def seed_urls(self) -> list[str]: ...
-    def next_links(self, page: Page) -> list[str]: ...
-    def split_items(self, page: Page) -> list[Chunk]: ...
-
-
-SOURCES: dict[str, Source] = {
-    "hn": HNJobs(),
-    "remoteok": RemoteOK(),
-    "weworkremotely": WeWorkRemotely(),
-    "arbeitnow": Arbeitnow(),
-    "hn-interviews": HNInterviews(),
-    "github-questions": GitHubQuestions(),
-}
+SOURCES: dict[str, Source] = {**jobs.SOURCES, **questions.SOURCES}
 
 JOB_SOURCES = tuple(name for name, source in SOURCES.items() if source.kind == "jobs")
 QUESTION_SOURCES = tuple(name for name, source in SOURCES.items() if source.kind == "questions")
