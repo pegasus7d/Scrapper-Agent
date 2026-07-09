@@ -2,19 +2,10 @@ import { useState } from 'react'
 
 import { Dashboard } from './views/Dashboard'
 import { Jobs } from './views/Jobs'
+import { Questions } from './views/Questions'
 
 const VIEWS = ['dashboard', 'jobs', 'questions'] as const
 type View = (typeof VIEWS)[number]
-
-// Placeholder content — remaining views land as their own components in later commits.
-function ViewStub({ name }: { name: View }) {
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl font-semibold capitalize text-slate-900">{name}</h1>
-      <p className="mt-2 text-sm text-slate-500">Coming up in the build order.</p>
-    </div>
-  )
-}
 
 function NavButton({
   view,
@@ -54,7 +45,7 @@ export default function App() {
       <main className="flex-1">
         {view === 'dashboard' && <Dashboard />}
         {view === 'jobs' && <Jobs />}
-        {view === 'questions' && <ViewStub name={view} />}
+        {view === 'questions' && <Questions />}
       </main>
     </div>
   )
