@@ -1,7 +1,7 @@
 """Curated GitHub interview-question banks (PHASE3.md step 4).
 
-Reddit, LeetCode Discuss, and Blind all turned out to be unscrapable (§3,
-§10) — rather than find yet another forum, ingest permissively-licensed,
+Reddit, LeetCode Discuss, and Blind all turned out to be unscrapable
+(DESIGN.md §3, PHASE3.md) — rather than find yet another forum, ingest permissively-licensed,
 human-curated content instead. `h5bp/Front-end-Developer-Interview-Questions`
 (MIT licensed, 60k+ stars) is a flat markdown bullet list of real questions,
 no answers, no company attribution, served from `raw.githubusercontent.com`
