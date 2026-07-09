@@ -1,7 +1,7 @@
 import type { RunKind } from '../api/types'
 
-// Mirrors JOB_SOURCES / QUESTION_SOURCES in backend/scraper/sources.py.
+// Mirrors JOB_SOURCES / QUESTION_SOURCES in backend/scraper/sources/__init__.py.
 export const SOURCES: Record<RunKind, string[]> = {
-  jobs: ['hn', 'remoteok'],
+  jobs: ['hn', 'remoteok', 'weworkremotely'],
   questions: ['hn-interviews'],
 }

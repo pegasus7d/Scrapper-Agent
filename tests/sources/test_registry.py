@@ -32,4 +32,5 @@ def test_job_and_question_sources_are_disjoint_and_registered() -> None:
     assert set(JOB_SOURCES) & set(QUESTION_SOURCES) == set()
     assert "hn" in JOB_SOURCES
     assert "remoteok" in JOB_SOURCES
+    assert "weworkremotely" in JOB_SOURCES
     assert "hn-interviews" in QUESTION_SOURCES
