@@ -67,23 +67,36 @@ display data, never queried by element, so a join table would be overkill.
 | extraction_tier  | str, not null | `"local"` or `"frontier"` — which model    |
 | scraped_at       | datetime      | UTC, set by repo layer                     |
 | run_id           | int FK → runs |                                            |
+| starred          | bool, default false | user bookmark flag (DESIGN.md §9 step 8) |
 
 ### `interview_questions`
 | column           | type          | notes                                      |
 |------------------|---------------|--------------------------------------------|
 | id               | int PK        |                                            |
-| company          | str, not null |                                            |
+| company          | str, **null** | not every question is company-attributed — |
+|                  |               | curated GitHub question banks (§10) are generic, topic-based, no interview account behind them |
 | role             | str, null     |                                            |
 | question         | str, not null |                                            |
 | round            | str, null     | e.g. `"phone screen"`, `"onsite"`          |
 | source_url       | str, not null | indexed, **not** unique — one thread page  |
 |                  |               | can yield many questions                   |
 | question_hash    | str, not null | **unique** — sha256(company + question),   |
-|                  |               | the dedupe key                             |
+|                  |               | the dedupe key. `company` is normalized to |
+|                  |               | `""` when null before hashing              |
 | source           | str, not null |                                            |
 | extraction_tier  | str, not null |                                            |
 | scraped_at       | datetime      |                                            |
 | run_id           | int FK → runs |                                            |
+
+### `schedules`  (DESIGN.md §9 step 6)
+| column           | type            | notes                                     |
+|------------------|-----------------|--------------------------------------------|
+| id               | int PK          |                                            |
+| kind             | str             | `"jobs"` or `"questions"`                  |
+| source           | str             |                                            |
+| every_hours      | int             | 1–168 (one week)                           |
+| enabled          | bool            | toggle without deleting                    |
+| last_run_at      | datetime, null  | null = never run = due immediately         |
 
 ### `runs`  (one row per scrape run — observability)
 | column           | type          | notes                                      |
@@ -108,9 +121,10 @@ Duplicates are counted on the run row and skipped silently (logged at DEBUG).
 - URLs (`posting_url` and the pipeline's `seen` set): strip the fragment and known
   tracking query params (`utm_*`, `ref`, `gclid`, `fbclid`) — otherwise the same job
   reached via two links stores twice.
-- `question_hash` = sha256 of `company + question` after lowercasing and collapsing
-  all whitespace runs to a single space — otherwise trivial formatting differences
-  defeat the dedupe.
+- `question_hash` = sha256 of `(company or "") + question` after lowercasing and
+  collapsing all whitespace runs to a single space — otherwise trivial formatting
+  differences defeat the dedupe, and a null company (§10 step 4) still hashes
+  deterministically.
 
 **Stale-run recovery:** if the process crashes mid-run, its row stays `"running"`
 forever and every new `POST /api/runs` would 409. On app startup, any row with
@@ -123,22 +137,38 @@ backend/
   config.py            # all constants: model names, timeouts, retry counts, caps
   schemas.py           # Pydantic extraction contracts: JobExtract, QuestionExtract
   db/
-    models.py          # SQLAlchemy ORM models (the 3 tables)
-    repo.py            # save_job, save_question, create_run, finish_run, queries
+    models.py          # SQLAlchemy ORM models (the 4 tables)
+    repo/              # persistence, split by responsibility (all re-exported
+                       # flat via __init__.py — callers still write repo.foo(...))
+      _writes.py       # run lifecycle, dedupe normalization, save_job/save_question
+      _queries.py      # paginated lists, filters, export, dashboard stats
+      _schedules.py    # schedule CRUD, due_schedules(now)
   llm/
     client.py          # LLMClient protocol + OllamaClient + FrontierClient
   scraper/
-    fetcher.py         # fetch(url) -> Page(url, markdown) via scrapling
+    fetcher.py         # fetch(url) -> Page(url, markdown, raw) via scrapling —
+                       # the ONLY module that touches HTTP; every source below
+                       # goes through this one fetcher, never rolls its own
     prompts.py         # extraction prompt templates (constants — prompts are part
                        # of the contract, never inline f-strings in extractor.py)
     extractor.py       # extract(page, schema) -> validated model | Escalated | Failed
-    sources.py         # per-source seed URLs, page→item chunking, next-link discovery
+    sources/           # one file per platform, formalized as of phase 3 §10
+      __init__.py      # Source protocol + SOURCES registry + the seed_urls/
+                       # next_links/split_items dispatch functions pipeline.py calls
+      hn.py            # HN "Who is hiring?" (jobs) + HN comment search (questions)
+      remoteok.py       # RemoteOK jobs (phase 2 §9 step 7)
+      weworkremotely.py # WeWorkRemotely jobs, RSS (phase 3 §10)
+      arbeitnow.py      # Arbeitnow jobs, JSON API (phase 3 §10)
+      github_questions.py # curated question-bank repos (phase 3 §10)
     pipeline.py        # run_scrape(kind, source): the loop
+    scheduler.py        # background poll loop that starts due schedules
   api/
-    main.py            # FastAPI app factory, CORS, router mounting
+    main.py            # FastAPI app factory, CORS, router mounting, scheduler thread
     routes.py          # endpoint handlers (thin — call repo/pipeline, no logic)
+    dto.py              # Pydantic request/response models for routes.py
+    export.py           # CSV serialization for the export endpoints
 frontend/
-  (React + Vite + Tailwind app — see §6)
+  (React + Vite + Tailwind + shadcn/ui app — see §6)
 tests/
   (mirrors backend/ one test file per module — see §7)
 ```
@@ -157,12 +187,12 @@ class JobExtract(BaseModel):
     apply_url: str | None
 
 class QuestionExtract(BaseModel):
-    company: str
+    company: str | None  # None for generic, non-company-attributed question banks
     role: str | None
     question: str
     round: str | None
 
-# sources.py — a page is split into per-item chunks BEFORE extraction.
+# sources/__init__.py — a page is split into per-item chunks BEFORE extraction.
 # Two reasons: (1) each item needs its own permalink for posting_url/dedupe,
 # (2) a whole listing page overflows what a 7B model can reliably process —
 # chunks keep every LLM call small.
@@ -171,7 +201,16 @@ class Chunk:
     text: str      # one item's text (e.g. one HN top-level comment)
     url: str       # that item's permalink — becomes posting_url / source_url
 
-def split_items(page: Page, source: str) -> list[Chunk]: ...
+class Source(Protocol):
+    """One platform's adapter. Every method is pure — no fetching in here;
+    fetcher.py does the one and only HTTP call per URL (DESIGN.md §10)."""
+    def seed_urls(self) -> list[str]: ...
+    def next_links(self, page: Page) -> list[str]: ...
+    def split_items(self, page: Page) -> list[Chunk]: ...
+
+SOURCES: dict[str, Source] = {"hn": HNJobs(), "remoteok": RemoteOK(), ...}
+
+def split_items(page: Page, source: str) -> list[Chunk]: ...  # dispatches via SOURCES
 
 # llm/client.py — one protocol, two implementations; extractor depends only on this
 class LLMClient(Protocol):
@@ -378,6 +417,10 @@ clean + `ruff check` + `ruff format --check` before any change is considered don
 At each build-order step boundary, additionally smoke-test the new piece against
 the real world once (see CLAUDE.md "Testing").
 
+The table above is the MVP snapshot; later phases follow the same rule (mirror
+one test file per module) without restating it here. When a source module
+becomes a `sources/` package (§10), its tests mirror into `tests/sources/`.
+
 ## 8. Build order — one feature at a time, small commits
 
 Workflow rule: each numbered step below is finished and validated (`pytest` + `mypy`
@@ -433,3 +476,71 @@ step boundary before moving on.
 8. **Export & bookmarks.** CSV/JSON export endpoints for jobs/questions with the
    current filters applied + download buttons; a starred flag on jobs with a
    "starred only" filter.
+
+**Phase 2 (steps 1–8) is complete** — every step validated and smoke-tested.
+This step also triggered a size-driven refactor: `routes.py` and `repo.py` both
+crossed the 300-line cap, so `routes.py`'s Pydantic models moved to `api/dto.py`
+and `repo.py` became a `repo/` package (`_writes.py`, `_queries.py`,
+`_schedules.py`, re-exported flat via `__init__.py` — no call site changed).
+
+## 10. Phase 3 build order — plugin architecture + more platforms
+
+Same workflow rules as §8/§9. Two things motivated this phase: `sources.py`'s
+flat if/elif dispatch across three functions would hit the 300-line cap again
+the moment a 4th or 5th platform landed (the exact failure mode phase 2 step 8
+just hit for `routes.py`/`repo.py`) — so formalize the plugin shape *before*
+adding more platforms, not after. Second, the interview-questions source is
+still weak (HN comment search returns mostly meta-discussion, few real
+questions); rather than scrape another forum, ingest curated, permissively-
+licensed content instead.
+
+**Sources investigated and rejected before writing this section** (so nobody
+re-proposes them): **LeetCode Discuss** — `leetcode.com/robots.txt` disallows
+`/graphql` and `/forums`; Discuss is a client-rendered SPA that fetches
+everything through GraphQL, so even a stealth/browser fetch would pull data
+through a channel they've explicitly closed to crawlers. **Blind** — returns an
+anti-bot block page even for a plain `robots.txt` request. Both join Reddit
+(§3, disallows all crawling) on the "do not revisit" list.
+
+1. **Formalize the `Source` protocol + registry (backend, no behavior change).**
+   Convert `scraper/sources.py` into a `scraper/sources/` package: a `Source`
+   Protocol (`seed_urls`, `next_links`, `split_items` — no fetching, that stays
+   in `fetcher.py`), one file per existing platform (`hn.py`, `remoteok.py`),
+   and a `SOURCES` registry dict that the package's `__init__.py` dispatches
+   through. `pipeline.py`'s calls (`sources.seed_urls(...)` etc.) do not change.
+   Mirror the existing tests into `tests/sources/test_hn.py` etc. Smoke: full
+   test suite passes unchanged (same proof pattern as the `repo/` package split)
+   plus one real HN scrape to confirm the registry dispatch actually fetches.
+2. **WeWorkRemotely job source.** Public RSS feed per category (e.g.
+   `weworkremotely.com/categories/remote-programming-jobs.rss`) —
+   `robots.txt` is `Allow: /` for `User-agent: *` with only account/admin paths
+   disallowed. One `<item>` = one `Chunk`, `url` = the item's `<link>`.
+3. **Arbeitnow job source.** Public JSON API (`arbeitnow.com/api/job-board-api`),
+   `robots.txt` has no disallow rules at all. Structured fields (position,
+   company, location, description) still routed through the same LLM
+   extraction path as every other source, same reasoning as RemoteOK (§9 step 7).
+4. **GitHub curated question-bank source.** Ingests
+   `h5bp/Front-end-Developer-Interview-Questions` (MIT licensed, 60k+ stars) —
+   flat markdown bullet lists of real questions, no answers, no company
+   attribution — via `raw.githubusercontent.com`, which has no `robots.txt` at
+   all (it's GitHub's CDN, built for programmatic access, same category as
+   their REST API). One markdown file = one page; each top-level bullet
+   (including its sub-bullets) = one `Chunk`. Requires:
+   - `QuestionExtract.company` and `interview_questions.company` become
+     nullable (§2) — this source is genuinely companyless, not a gap in the
+     data. `question_hash` normalizes null company to `""` before hashing.
+   - The questions relevance-gate prompt (§9 step 2) relaxes the "a specific
+     company must be named" requirement to "a company is named, OR this is a
+     well-known generic technical/behavioral question" — the company-naming
+     rule was never really what filtered HN's junk (the rejected examples
+     *did* name a company); the "concretely stated, actually asked" criteria
+     did the real work, so relaxing this one clause doesn't reopen that hole.
+   - Smoke: real fetch + local-model extraction of a few bullets from the live
+     file, confirm `company: null` rows save correctly and dedupe against
+     re-runs the same way company-attributed ones do.
+
+**CLAUDE.md correction alongside step 1:** the original "Sources" section
+listed LeetCode Discuss, Blind, and "relevant subreddits" as example
+*low*-friction sources — every one of the three turned out to be high-friction
+or fully disallowed once actually checked. Fixed to reflect what's been
+verified, not what seemed plausible at the start.

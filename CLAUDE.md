@@ -109,6 +109,17 @@ for anyone to review and understand. No slop.
   DESIGN.md §8).
 
 ## Sources
-- Prioritize sources without explicit anti-scraping ToS friction (LeetCode Discuss,
-  Blind, relevant subreddits, open job boards). Glassdoor/LinkedIn are higher-friction
-  (login walls, anti-bot) — deprioritize unless specifically requested.
+- Prioritize sources without explicit anti-scraping ToS friction: open job board
+  APIs/RSS feeds (RemoteOK, WeWorkRemotely, Arbeitnow), and permissively-licensed
+  curated content (GitHub question banks) over scraping forums at all.
+- **Verify before proposing, not after.** Check `robots.txt` and licensing for any
+  new source before writing it into DESIGN.md — "seems public" is not verification.
+  Three sources were proposed early on the assumption they'd be low-friction and
+  turned out not to be once actually checked: **Reddit** (robots.txt disallows all
+  crawling — see DESIGN.md §3), **LeetCode Discuss** (robots.txt disallows
+  `/graphql` and `/forums`; Discuss is a GraphQL-driven SPA, so even a rendered
+  browser fetch pulls data through a channel they've closed to crawlers), and
+  **Blind** (blocks even a plain `robots.txt` request with an anti-bot page). Do
+  not revisit these without new evidence the policy changed.
+- Glassdoor/LinkedIn/Indeed are similarly high-friction (login walls, anti-bot) —
+  deprioritize unless specifically requested and re-verified.
