@@ -1,9 +1,11 @@
 import { useState } from 'react'
 
+import { Dashboard } from './views/Dashboard'
+
 const VIEWS = ['dashboard', 'jobs', 'questions'] as const
 type View = (typeof VIEWS)[number]
 
-// Placeholder content — each view lands as its own component in later commits.
+// Placeholder content — remaining views land as their own components in later commits.
 function ViewStub({ name }: { name: View }) {
   return (
     <div className="p-8">
@@ -49,7 +51,7 @@ export default function App() {
         ))}
       </aside>
       <main className="flex-1">
-        <ViewStub name={view} />
+        {view === 'dashboard' ? <Dashboard /> : <ViewStub name={view} />}
       </main>
     </div>
   )

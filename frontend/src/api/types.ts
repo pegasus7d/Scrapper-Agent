@@ -49,6 +49,10 @@ export interface Question {
   scraped_at: string
 }
 
+export interface RunCreated {
+  run_id: number
+}
+
 export interface Paginated<T> {
   items: T[]
   total: number
