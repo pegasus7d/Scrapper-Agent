@@ -64,6 +64,56 @@ doesn't need. Ruled out for this project's scale.
    correct per-run rows, plus a real manual multi-source run through the UI
    like phase 4 step 4's smoke test.
 
+5. **Himalayas job source.** Verified before writing this: `himalayas.app`'s
+   `robots.txt` is fully open (`Allow: /`), and `GET
+   /jobs/api?limit=20&offset=N` is a real public JSON API, no auth, returning
+   structured fields (title, company, salary range, location/timezone
+   restrictions) — confirmed with a real request, 100k+ jobs in the index.
+   New `sources/jobs/himalayas.py`: `next_links` computes the next
+   `offset` from the response's own `offset`/`limit`/`totalCount` fields
+   (no `links.next` field like Arbeitnow — has to be computed), bounded by
+   `MAX_PAGES_PER_RUN` like every source. Smoke: one real scrape confirming
+   pagination actually advances and chunks parse.
+6. **RemoteJobs.org job source.** Verified: `robots.txt` fully open, `GET
+   /api/v1/jobs?category=programming&limit=20&offset=N` is real, no auth,
+   structured JSON — confirmed with a real request. Same shape as step 5
+   (`sources/jobs/remotejobs.py`, offset-based pagination). Flag to check
+   during this step, not assume: its `companyLogo` CDN host is
+   `cdn-images.himalayas.app`, suggesting this may share underlying data
+   with Himalayas — the existing `posting_url` dedupe should catch true
+   duplicates, but confirm actual overlap with a real run before deciding
+   whether both sources pull their weight. Smoke: one real scrape.
+7. **FAQGURU questions source.** Verified: MIT licensed, 5.1k stars, plain
+   markdown files by topic (`javascript.md`, `react.md`, `nodejs.md`, ...)
+   under `raw.githubusercontent.com` — same no-`robots.txt`,
+   built-for-programmatic-access reasoning as the existing `h5bp` source
+   (DESIGN.md §3). Extends `sources/questions/github_questions.py` rather
+   than adding a new file: generalize `GitHubQuestions` to take
+   `owner_repo`/`branch`/`files` instead of hardcoded module constants, and
+   register a second instance (e.g. `"faqguru-questions"`) alongside the
+   existing `"github-questions"`. Not yet confirmed and must be checked in
+   this step, not assumed: whether FAQGURU's markdown files use the same
+   flat-bullet structure `_bullet_chunks` parses, or a different
+   heading/paragraph structure requiring its own extraction logic — the
+   README describes "questions along with answers," which may not be a
+   simple bullet list like `h5bp`'s. Smoke: real fetch + local-model
+   extraction of a few real entries, same as the original GitHub-questions
+   smoke test (PHASE3.md step 4).
+
+Explicitly considered and excluded from this phase: LinkedIn, Indeed,
+Glassdoor, and Naukri all verified hostile to scraping (LinkedIn's
+`robots.txt` states automated access is "strictly prohibited"; Indeed and
+Glassdoor disallow exactly the job/interview paths this app would want;
+Naukri's edge WAF blocks non-browser User-Agents, which conflicts with this
+project's honest-UA policy). Wellfound is Cloudflare-fronted and not fully
+verified. Y Combinator's `workatastartup.com` has an open `robots.txt` and a
+public job listing page, but stopped short of using its embedded Algolia
+search key to probe for an undocumented index name — if pursued later, the
+legitimate path is a plain HTML scrape via `ScraplingTransport`, not
+reverse-engineering the internal search API. Greenhouse/Lever/Ashby have
+real public per-company APIs but need a company-slug list, a different
+architecture than any current source — deferred.
+
 Open question to settle in step 1, not before: whether `run_scrape_task`
 needs its own SQLAlchemy session per invocation (the consumer thread can't
 share the request-scoped session `execute_run` currently expects) — likely

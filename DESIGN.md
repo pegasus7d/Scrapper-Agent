@@ -488,9 +488,11 @@ docs instead of code:
   protocol/registry, WeWorkRemotely, Arbeitnow, curated GitHub questions.
 - **`PHASE4.md`** — architecture for scale (done): domain-split sources,
   `Transport` protocol, per-source politeness, multi-select scrape UI.
-- **`PHASE5.md`** — Huey for scheduling and queueing (current): replaces
-  `scheduler.py`'s hand-rolled poll loop and the phase 4 frontend
-  queue-runner with `SqliteHuey` tasks/pipelines running in-process.
+- **`PHASE5.md`** — Huey, dependency audit, and 3 new sources (current):
+  replaces `scheduler.py`'s hand-rolled poll loop and the phase 4 frontend
+  queue-runner with `SqliteHuey` tasks/pipelines running in-process; drops
+  the oversized `motion` dependency; adds Himalayas, RemoteJobs.org, and
+  FAQGURU sources.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to

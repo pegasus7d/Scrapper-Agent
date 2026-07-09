@@ -101,6 +101,13 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   services, `huey.consumer.Consumer` runs in-process via a thread — no new
   infrastructure). Ruled out Celery: needs a Redis/Valkey broker, built for
   multi-user/distributed workloads this single-user local tool doesn't need.
+  Also: a dependency audit (`motion` pulls in the full `framer-motion/dom`
+  for one count-up animation that doesn't need it) and three new sources —
+  Himalayas, RemoteJobs.org, FAQGURU — each verified for real (`robots.txt`,
+  working API request, or license) before being added. LinkedIn, Indeed,
+  Glassdoor, and Naukri were all checked and rejected as hostile to
+  scraping, the same pattern phase 3 hit with Reddit/LeetCode
+  Discuss/Blind — checking first keeps saving real build time.
 
 ## What's durable vs. what compacts away
 

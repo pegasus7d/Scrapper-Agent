@@ -146,6 +146,6 @@ being built:
 
 Used so far: phase 1 (`PHASE1.md`, stop at step 6 — the MVP), phase 2
 (`PHASE2.md`, stop at step 8), phase 3 (`PHASE3.md`, stop at step 4), phase 4
-(`PHASE4.md`, stop at step 4), phase 5 (`PHASE5.md`, stop at step 3 — in
+(`PHASE4.md`, stop at step 4), phase 5 (`PHASE5.md`, stop at step 7 — in
 progress). When a new phase's build order is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.
