@@ -372,10 +372,11 @@ docs instead of code:
   queue-runner with `SqliteHuey` tasks/pipelines running in-process; drops
   the oversized `motion` dependency; adds Himalayas, RemoteJobs.org, and
   FAQGURU sources.
-- **[[PHASE6.md]]** — search, live updates, and cleanup (current):
+- **[[PHASE6.md]]** — search, live updates, and cleanup (done):
   schema-constrained local extraction + selectable local model, live run
   updates via SSE, `sqlite-vec` + FTS5 hybrid search, drops `recharts`,
-  README rewrite.
+  README rewrite, real bottleneck pass (no code change needed — nothing
+  measured slow at current scale).
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to

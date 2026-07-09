@@ -21,13 +21,15 @@ questions, and live scrape-run status.
 - Contributor rules (code quality, testing, git workflow): [[CLAUDE.md]]
 - How this project actually moves from idea to shipped phase: [[WORKFLOW.md]]
 
-> **Status:** phases 1–5 complete, phase 6 in progress (see [[WORKFLOW.md]] and
-> [[PHASE6.md]]). **9 sources** across jobs and questions — jobs: HN "Who is
-> hiring?", RemoteOK, WeWorkRemotely, Arbeitnow, Himalayas, RemoteJobs.org;
-> questions: HN comment search, GitHub's h5bp interview-questions bank, FAQGURU
+> **Status:** phases 1–6 complete (see [[WORKFLOW.md]] and [[PHASE6.md]]).
+> **9 sources** across jobs and questions — jobs: HN "Who is hiring?",
+> RemoteOK, WeWorkRemotely, Arbeitnow, Himalayas, RemoteJobs.org; questions:
+> HN comment search, GitHub's h5bp interview-questions bank, FAQGURU
 > (Reddit's robots.txt disallows crawling, so it's excluded — see [[DESIGN.md]]
 > §3, and `backend/scraper/sources/`'s own CLAUDE.md for the full
-> verify-before-adding history). Scheduling and multi-source queueing run
+> verify-before-adding history). Hybrid search (⌘K — `sqlite-vec` similarity +
+> FTS5 keyword, reciprocal rank fusion) and live run updates (SSE) are real,
+> not just planned. Scheduling and multi-source queueing run
 > through [[PHASE5.md|Huey]] (`SqliteHuey`, no Redis) — manual runs, a
 > once-a-minute periodic dispatch for user-defined schedules, and multi-select
 > batch runs all go through the same task pipeline.

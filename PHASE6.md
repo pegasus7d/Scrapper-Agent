@@ -314,5 +314,41 @@ here, all verified before writing this down (WORKFLOW.md rule 2):
    that `sqlite-vec` and FTS5 are in the mix?). Fix only what's actually
    measured as slow, in its own commit with the real before/after numbers
    stated — no speculative optimization.
+   **Done — no code change, real numbers below.** Measured against the real
+   live server and the real dev DB (84 jobs, 109 questions, ~23 runs), not
+   guessed:
+   - `GET /api/jobs`, `GET /api/questions`, `GET /api/stats` (filtered and
+     unfiltered): **1.6–4.2ms** end-to-end over 5+ real requests each.
+     `EXPLAIN QUERY PLAN` confirms `source`/`round`/`starred`/`status`
+     filters all do a full `SCAN` (no index on any of them) — but at this
+     row count a scan *is* the fast path; the measured response time
+     already includes it. Adding indexes now would be exactly the
+     "speculative optimization" this step says not to do — nothing here is
+     measured as slow.
+   - `GET /api/search`: **~20–35ms** steady state once Ollama's embed model
+     is warm (confirmed by timing `ollama.embed()` directly: 19–35ms). The
+     *first* search call after the server starts (or after Ollama idles the
+     model out) measured **703ms** — real, but it's Ollama's own model
+     cold-load cost, not `backend/db/search.py`'s query logic; no
+     application-level fix changes it (an app-level warmup ping was
+     considered and rejected: it would just move the 700ms cost to app
+     startup for a cost that only actually matters on someone's very first
+     search of a session).
+   - `POST /api/runs/batch`: **2.5ms** — confirms it's a pure Huey enqueue,
+     never blocks on the batch actually running, regardless of source count.
+   - SSE round-trip reduction (step 6's own claim, re-verified with a
+     number this time): captured `/api/runs/stream` on a real, currently-
+     running run for ~19s — **2 real frames** arrived, one per actual DB
+     change. The 3s-interval poll it replaced would have fired **~7 blind
+     requests** in the same window regardless of whether anything had
+     changed. Real, measured, proportional to how bursty the run's actual
+     activity is — not the "zero polls" framing from step 6's smoke test,
+     which measured a different (shorter, request-count) window; both are
+     real and consistent with each other.
 
-Next: not started yet — this is the current phase.
+Phase 6 (steps 1–9) is complete — every step validated and smoke-tested,
+including this investigation step, which correctly found nothing that
+needed fixing at the app's real current scale.
+
+Next: no phase 7 yet — propose next steps and wait to be asked, per
+[[WORKFLOW.md]] rule 7.
