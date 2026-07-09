@@ -252,9 +252,11 @@ with the error message instead of leaving a zombie `"running"` row.
   no login, no anti-bot, explicitly public — and the postings are unstructured free
   text, which is exactly the case that justifies LLM extraction over CSS selectors.
   `sources.py` finds the current month's thread via the free Algolia HN API
-  (`hn.algolia.com/api/v1/search?tags=story,author_whoishiring`); next-links = the
-  thread's pagination (`&p=2` …). Chunking: one top-level comment = one `Chunk`,
-  with `url` = the comment permalink (`news.ycombinator.com/item?id=…`).
+  (`hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring`); next-links =
+  the thread's items endpoint (`hn.algolia.com/api/v1/items/{id}`), which returns the
+  whole thread as JSON in one response — no pagination needed. Both endpoints are
+  parsed from `Page.raw` (the undecoded body). Chunking: one top-level comment = one
+  `Chunk`, with `url` = the comment permalink (`news.ycombinator.com/item?id=…`).
 - **Interview questions: Reddit** (`r/cscareerquestions`, `r/leetcode`) via the
   public `.json` endpoints (append `.json` to any listing/thread URL) — structured
   envelope, free-text posts, no login. Chunking: one post (or one substantive
