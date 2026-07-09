@@ -64,7 +64,7 @@ class QuestionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    company: str
+    company: str | None
     role: str | None
     question: str
     round: str | None

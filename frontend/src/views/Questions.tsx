@@ -22,7 +22,7 @@ function truncate(text: string, max = 90): string {
 
 function QuestionDrawer({ question, onClose }: { question: Question; onClose: () => void }) {
   return (
-    <Drawer title={question.company} onClose={onClose}>
+    <Drawer title={question.company ?? 'General'} onClose={onClose}>
       <p className="mt-1 text-sm text-muted-foreground">
         {question.role ?? 'role unknown'}
         {question.round && ` · ${question.round}`}
@@ -115,7 +115,7 @@ export function Questions() {
                 <td className="px-4 py-3 font-medium text-foreground">
                   {truncate(question.question)}
                 </td>
-                <td className="px-4 py-3">{question.company}</td>
+                <td className="px-4 py-3">{question.company ?? 'General'}</td>
                 <td className="px-4 py-3 text-muted-foreground">{question.role ?? '—'}</td>
                 <td className="px-4 py-3 text-muted-foreground">{question.round ?? '—'}</td>
                 <td className="px-4 py-3 text-muted-foreground">{formatTime(question.scraped_at)}</td>

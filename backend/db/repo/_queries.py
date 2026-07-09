@@ -132,7 +132,11 @@ def compute_stats(session: Session) -> Stats:
     """Compute the dashboard totals in one place, so routes stay logic-free."""
     jobs = _count(session, select(Job))
     questions = _count(session, select(InterviewQuestion))
-    companies_union = select(Job.company).union(select(InterviewQuestion.company))
+    # Null company (DESIGN.md §10 step 4 — generic question banks) doesn't count
+    # as a "company" in the distinct-companies total.
+    companies_union = select(Job.company).union(
+        select(InterviewQuestion.company).where(InterviewQuestion.company.is_not(None))
+    )
     companies = _count(session, companies_union)
     frontier = _count(session, select(Job).where(Job.extraction_tier == "frontier")) + _count(
         session, select(InterviewQuestion).where(InterviewQuestion.extraction_tier == "frontier")

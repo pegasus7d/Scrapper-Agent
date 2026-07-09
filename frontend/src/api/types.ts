@@ -40,7 +40,7 @@ export interface Job {
 
 export interface Question {
   id: number
-  company: string
+  company: string | null
   role: string | null
   question: string
   round: string | null

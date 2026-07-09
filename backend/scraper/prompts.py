@@ -19,13 +19,16 @@ _SCHEMA_CRITERIA = {
     "JobExtract": "",
     "QuestionExtract": (
         "Only extract a question if ALL of these hold: (1) it was actually asked "
-        "to a candidate in a real job interview for a tech/engineering role — not "
-        "general advice, chit-chat, or a question about something else (school, "
-        "immigration, personal life); (2) a specific company or employer is named "
-        "in the text; (3) the question itself is stated concretely, not merely "
-        "referenced ('they asked good questions' does not count). If nothing in "
-        'the text meets all three, respond with {"items": []} — do not force an '
-        "extraction."
+        "to a candidate in a real job interview for a tech/engineering role, OR it "
+        "is a well-known, concretely-stated technical/behavioral interview question "
+        "from a generic reference source (no specific interview account needed) — "
+        "not general advice, chit-chat, or a question about something else (school, "
+        "immigration, personal life); (2) if a specific company or employer is named "
+        "in the text, capture it in `company`; if none is named because this is a "
+        "generic reference question, set `company` to null — do not invent one; "
+        "(3) the question itself is stated concretely, not merely referenced "
+        "('they asked good questions' does not count). If nothing in the text meets "
+        'these, respond with {"items": []} — do not force an extraction.'
     ),
 }
 

@@ -56,7 +56,8 @@ class InterviewQuestion(Base):
     __tablename__ = "interview_questions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    company: Mapped[str]
+    # Null for generic, non-company-attributed question banks (DESIGN.md §10 step 4).
+    company: Mapped[str | None]
     role: Mapped[str | None]
     question: Mapped[str]
     round: Mapped[str | None]

@@ -25,9 +25,14 @@ class JobExtract(BaseModel):
 
 
 class QuestionExtract(BaseModel):
-    """One interview question extracted from a chunk."""
+    """One interview question extracted from a chunk.
 
-    company: NonEmptyStr
+    `company` is nullable: curated GitHub question banks (DESIGN.md §10 step 4)
+    are generic and topic-based, with no interview account behind them — that
+    is a real absence, not missing data.
+    """
+
+    company: NonEmptyStr | None
     role: str | None
     question: NonEmptyStr
     round: str | None

@@ -94,6 +94,22 @@ def test_duplicate_question_case_whitespace_variant_skipped(session: Session, ru
     assert run.items_duplicate == 1
 
 
+def test_question_hash_normalizes_null_company_to_empty_string() -> None:
+    assert repo.question_hash(None, "Design a cache.") == repo.question_hash("", "Design a cache.")
+
+
+def test_save_question_with_null_company_saves_and_dedupes(session: Session, run: Run) -> None:
+    generic = QuestionExtract(company=None, role=None, question="Explain closures.", round=None)
+    assert repo.save_question(
+        session, generic, source_url="https://gh.com/q/1", source="github", tier="local", run=run
+    )
+    saved = repo.save_question(
+        session, generic, source_url="https://gh.com/q/2", source="github", tier="local", run=run
+    )
+    assert saved is False  # same companyless question, different source_url — still a duplicate
+    assert run.items_duplicate == 1
+
+
 def test_run_lifecycle(session: Session) -> None:
     run = repo.create_run(session, kind="jobs", source="hn")
     assert run.status == "running"
@@ -225,10 +241,15 @@ def test_compute_stats_counts_and_escalation_rate(session: Session, run: Run) ->
     repo.save_question(
         session, QUESTION, source_url="https://r.com/t/1", source="reddit", tier="local", run=run
     )
+    generic = QuestionExtract(company=None, role=None, question="Explain closures.", round=None)
+    repo.save_question(
+        session, generic, source_url="https://gh.com/q/1", source="github", tier="local", run=run
+    )
     stats = repo.compute_stats(session)
-    assert (stats.jobs, stats.questions) == (4, 1)
-    assert stats.companies == 4  # Company 0/1/2 + Acme; the duplicate not double-counted
-    assert stats.escalation_rate == pytest.approx(0.2)  # 1 frontier item of 5
+    assert (stats.jobs, stats.questions) == (4, 2)
+    # Company 0/1/2 + Acme; the duplicate not double-counted, null company not counted.
+    assert stats.companies == 4
+    assert stats.escalation_rate == pytest.approx(1 / 6)  # 1 frontier item of 6
 
 
 def test_compute_stats_empty_db_is_all_zeros(session: Session) -> None:

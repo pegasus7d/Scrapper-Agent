@@ -39,9 +39,13 @@ def normalize_url(url: str) -> str:
     return urlunparse(parts._replace(query=urlencode(kept), fragment=""))
 
 
-def question_hash(company: str, question: str) -> str:
-    """Content hash used to dedupe questions across formatting differences."""
-    normalized = _WHITESPACE.sub(" ", f"{company} {question}".lower()).strip()
+def question_hash(company: str | None, question: str) -> str:
+    """Content hash used to dedupe questions across formatting differences.
+
+    A null company (DESIGN.md §10 step 4) normalizes to "" so it still hashes
+    deterministically instead of raising.
+    """
+    normalized = _WHITESPACE.sub(" ", f"{company or ''} {question}".lower()).strip()
     return hashlib.sha256(normalized.encode()).hexdigest()
 
 
