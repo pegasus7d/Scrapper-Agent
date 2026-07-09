@@ -4,11 +4,14 @@ An AI agent that scrapes **job postings** and **interview questions** from publi
 sources, extracts them into structured data with a two-tier LLM cascade, and serves
 them through a small web UI.
 
-**How it works, in one paragraph:** a Python pipeline fetches pages with
-[Scrapling](https://github.com/D4Vinci/Scrapling), hands the cleaned text to a local
-LLM (via Ollama) that extracts structured fields, validates the output against strict
+**How it works, in one paragraph:** a Python pipeline fetches pages through a
+`Transport` protocol — plain `httpx` by default, with
+[Scrapling](https://github.com/D4Vinci/Scrapling) available per-source for anything
+that genuinely needs stealth/JS rendering — hands the cleaned text to a local LLM
+(via Ollama) that extracts structured fields, validates the output against strict
 Pydantic schemas, and only escalates the rare failed pages to a paid frontier model
-(Claude Haiku) — so scraping thousands of pages costs approximately nothing. Results
+(Claude Haiku) — so scraping thousands of pages costs approximately nothing. Runs
+are scheduled and queued through Huey (`SqliteHuey`, no separate services). Results
 land in SQLite, deduplicated, and a FastAPI backend + React UI let you browse jobs,
 questions, and live scrape-run status.
 
@@ -18,9 +21,16 @@ questions, and live scrape-run status.
 - Contributor rules (code quality, testing, git workflow): [[CLAUDE.md]]
 - How this project actually moves from idea to shipped phase: [[WORKFLOW.md]]
 
-> **Status:** MVP complete — all build-order steps in [[DESIGN.md]] §8 are done.
-> Sources: HN "Who is hiring?" for jobs, HN comment search for interview questions
-> (Reddit's robots.txt disallows crawling — see [[DESIGN.md]] §3).
+> **Status:** phases 1–5 complete, phase 6 in progress (see [[WORKFLOW.md]] and
+> [[PHASE6.md]]). **9 sources** across jobs and questions — jobs: HN "Who is
+> hiring?", RemoteOK, WeWorkRemotely, Arbeitnow, Himalayas, RemoteJobs.org;
+> questions: HN comment search, GitHub's h5bp interview-questions bank, FAQGURU
+> (Reddit's robots.txt disallows crawling, so it's excluded — see [[DESIGN.md]]
+> §3, and `backend/scraper/sources/`'s own CLAUDE.md for the full
+> verify-before-adding history). Scheduling and multi-source queueing run
+> through [[PHASE5.md|Huey]] (`SqliteHuey`, no Redis) — manual runs, a
+> once-a-minute periodic dispatch for user-defined schedules, and multi-select
+> batch runs all go through the same task pipeline.
 
 ## Prerequisites
 
@@ -62,7 +72,10 @@ One command starts everything (backend on 8000, frontend on 5173; Ctrl-C stops b
 ```
 
 Open http://localhost:5173, click **New scrape**, pick a kind (`jobs` /
-`questions`) and a source, and watch the run progress on the dashboard.
+`questions`) and one or more sources (multi-select queues them and runs them
+one at a time server-side via Huey), and watch the run progress on the
+dashboard. Schedules (recurring runs on a fixed interval) are managed from
+the same UI and dispatched by a Huey periodic task that ticks once a minute.
 
 <details>
 <summary>Manual commands (what run.sh does)</summary>
