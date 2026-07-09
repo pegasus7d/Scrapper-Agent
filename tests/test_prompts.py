@@ -19,6 +19,17 @@ def test_question_prompt_uses_question_label() -> None:
     assert "question" in prompt
 
 
+def test_question_prompt_includes_relevance_criteria() -> None:
+    prompt = extraction_prompt(QuestionExtract, "They asked me to invert a tree.")
+    assert "specific company or employer is named" in prompt
+    assert "stated concretely" in prompt
+
+
+def test_job_prompt_has_no_extra_criteria_noise() -> None:
+    prompt = extraction_prompt(JobExtract, "We are hiring a backend engineer.")
+    assert "specific company or employer is named" not in prompt
+
+
 def test_unknown_schema_raises() -> None:
     class Unknown(JobExtract):
         pass
