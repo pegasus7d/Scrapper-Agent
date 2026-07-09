@@ -3,6 +3,7 @@
 import hashlib
 import logging
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -10,6 +11,7 @@ from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session
 
 from backend import config
+from backend.db import vectors
 from backend.db.models import Base, InterviewQuestion, Job, Run
 from backend.schemas import JobExtract, QuestionExtract
 
@@ -22,10 +24,18 @@ _WHITESPACE = re.compile(r"\s+")
 
 
 def make_engine(database_url: str = config.DATABASE_URL) -> Engine:
-    """Create an engine and ensure all tables exist."""
+    """Create an engine, ensure all tables exist, and load sqlite-vec.
+
+    Extension registration (vectors.register_vec_extension) must happen
+    before create_vec_tables, which issues a CREATE VIRTUAL TABLE ... USING
+    vec0 — that module only exists once the extension is loaded on the
+    connection (PHASE6.md step 7).
+    """
     engine = create_engine(database_url)
+    vectors.register_vec_extension(engine)
     Base.metadata.create_all(engine)
     _ensure_runs_model_column(engine)
+    vectors.create_vec_tables(engine)
     return engine
 
 
@@ -147,8 +157,15 @@ def save_job(
     source: str,
     tier: str,
     run: Run,
+    embed: Callable[[str], bytes] | None = None,
 ) -> bool:
-    """Save one job; returns False (counting a duplicate) if already stored."""
+    """Save one job; returns False (counting a duplicate) if already stored.
+
+    `embed`, when given, computes the job's embedding and inserts it into
+    the job_embeddings vec0 table in the same transaction (PHASE6.md step
+    7) — None everywhere except the real run path, so no test needs a real
+    Ollama call.
+    """
     url = normalize_url(posting_url)
     exists = session.scalar(select(Job.id).where(Job.posting_url == url))
     if exists is not None:
@@ -156,22 +173,27 @@ def save_job(
         session.commit()
         logger.debug("duplicate job skipped: %s", url)
         return False
-    session.add(
-        Job(
-            title=extract.title,
-            company=extract.company,
-            location=extract.location,
-            salary=extract.salary,
-            requirements=extract.requirements,
-            posting_url=url,
-            apply_url=extract.apply_url,
-            source=source,
-            extraction_tier=tier,
-            scraped_at=datetime.now(UTC),
-            run_id=run.id,
-        )
+    job = Job(
+        title=extract.title,
+        company=extract.company,
+        location=extract.location,
+        salary=extract.salary,
+        requirements=extract.requirements,
+        posting_url=url,
+        apply_url=extract.apply_url,
+        source=source,
+        extraction_tier=tier,
+        scraped_at=datetime.now(UTC),
+        run_id=run.id,
     )
+    session.add(job)
     run.items_saved += 1
+    if embed is not None:
+        session.flush()  # need job.id before the vec0 insert
+        text_for_embedding = f"{extract.title} at {extract.company}. " + " ".join(
+            extract.requirements
+        )
+        vectors.save_job_embedding(session, job.id, embed(text_for_embedding))
     session.commit()
     return True
 
@@ -184,8 +206,12 @@ def save_question(
     source: str,
     tier: str,
     run: Run,
+    embed: Callable[[str], bytes] | None = None,
 ) -> bool:
-    """Save one question; returns False (counting a duplicate) if already stored."""
+    """Save one question; returns False (counting a duplicate) if already stored.
+
+    `embed`: see save_job's docstring — same same-transaction contract.
+    """
     content_hash = question_hash(extract.company, extract.question)
     exists = session.scalar(
         select(InterviewQuestion.id).where(InterviewQuestion.question_hash == content_hash)
@@ -195,21 +221,23 @@ def save_question(
         session.commit()
         logger.debug("duplicate question skipped: %s", content_hash)
         return False
-    session.add(
-        InterviewQuestion(
-            company=extract.company,
-            role=extract.role,
-            question=extract.question,
-            round=extract.round,
-            source_url=normalize_url(source_url),
-            question_hash=content_hash,
-            source=source,
-            extraction_tier=tier,
-            scraped_at=datetime.now(UTC),
-            run_id=run.id,
-        )
+    question = InterviewQuestion(
+        company=extract.company,
+        role=extract.role,
+        question=extract.question,
+        round=extract.round,
+        source_url=normalize_url(source_url),
+        question_hash=content_hash,
+        source=source,
+        extraction_tier=tier,
+        scraped_at=datetime.now(UTC),
+        run_id=run.id,
     )
+    session.add(question)
     run.items_saved += 1
+    if embed is not None:
+        session.flush()  # need question.id before the vec0 insert
+        vectors.save_question_embedding(session, question.id, embed(extract.question))
     session.commit()
     return True
 

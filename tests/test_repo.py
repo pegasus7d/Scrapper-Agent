@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from backend import config
@@ -152,6 +152,72 @@ def test_save_question_with_null_company_saves_and_dedupes(session: Session, run
     )
     assert saved is False  # same companyless question, different source_url — still a duplicate
     assert run.items_duplicate == 1
+
+
+def _fake_blob() -> bytes:
+    # Real-shaped BLOB (config.EMBED_DIM float32s) — content doesn't matter,
+    # only that it lands in the vec0 table's rowid-keyed row.
+    return b"\x00" * (4 * config.EMBED_DIM)
+
+
+def test_save_job_with_embed_stores_vector_same_transaction(session: Session, run: Run) -> None:
+    calls: list[str] = []
+
+    def fake_embed(embed_text: str) -> bytes:
+        calls.append(embed_text)
+        return _fake_blob()
+
+    repo.save_job(
+        session,
+        JOB,
+        posting_url="https://x.com/j/1",
+        source="hn",
+        tier="local",
+        run=run,
+        embed=fake_embed,
+    )
+    assert len(calls) == 1
+    assert JOB.title in calls[0]
+    assert JOB.company in calls[0]
+    row = session.execute(text("SELECT rowid FROM job_embeddings")).fetchone()
+    assert row is not None
+
+
+def test_save_job_without_embed_stores_no_vector(session: Session, run: Run) -> None:
+    repo.save_job(session, JOB, posting_url="https://x.com/j/1", source="hn", tier="local", run=run)
+    row = session.execute(text("SELECT rowid FROM job_embeddings")).fetchone()
+    assert row is None
+
+
+def test_save_question_with_embed_stores_vector_same_transaction(
+    session: Session, run: Run
+) -> None:
+    calls: list[str] = []
+
+    def fake_embed(embed_text: str) -> bytes:
+        calls.append(embed_text)
+        return _fake_blob()
+
+    repo.save_question(
+        session,
+        QUESTION,
+        source_url="https://r.com/t/1",
+        source="reddit",
+        tier="local",
+        run=run,
+        embed=fake_embed,
+    )
+    assert calls == [QUESTION.question]
+    row = session.execute(text("SELECT rowid FROM question_embeddings")).fetchone()
+    assert row is not None
+
+
+def test_save_question_without_embed_stores_no_vector(session: Session, run: Run) -> None:
+    repo.save_question(
+        session, QUESTION, source_url="https://r.com/t/1", source="reddit", tier="local", run=run
+    )
+    row = session.execute(text("SELECT rowid FROM question_embeddings")).fetchone()
+    assert row is None
 
 
 def test_run_lifecycle(session: Session) -> None:

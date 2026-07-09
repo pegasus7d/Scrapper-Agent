@@ -41,7 +41,9 @@ def test_run_scrape_task_executes_existing_run(
 
     calls: list[int] = []
 
-    def fake_execute_run(session: Session, run: Run, fetcher: object, extractor: object) -> Run:
+    def fake_execute_run(
+        session: Session, run: Run, fetcher: object, extractor: object, embed: object = None
+    ) -> Run:
         calls.append(run.id)
         repo.finish_run(session, run)
         return run
@@ -75,7 +77,9 @@ def test_run_scrape_batch_item_creates_and_executes_a_run(
     monkeypatch.setattr(tasks.repo, "make_engine", lambda: engine)
     calls: list[tuple[str, str]] = []
 
-    def fake_execute_run(session: Session, run: Run, fetcher: object, extractor: object) -> Run:
+    def fake_execute_run(
+        session: Session, run: Run, fetcher: object, extractor: object, embed: object = None
+    ) -> Run:
         calls.append((run.kind, run.source))
         repo.finish_run(session, run)
         return run

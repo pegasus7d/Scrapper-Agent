@@ -38,10 +38,11 @@ questions, and live scrape-run status.
   ```sh
   brew install python@3.12 uv
   ```
-- **Ollama** running locally, with the extraction model pulled:
+- **Ollama** running locally, with the extraction and embedding models pulled:
   ```sh
   brew install ollama
   ollama pull qwen2.5:7b-instruct
+  ollama pull nomic-embed-text   # powers search (real 768-dim output, PHASE6.md step 7)
   ```
 - **Node.js 20+** (for the frontend): `brew install node`
 - *(Optional)* An Anthropic API key for the escalation tier. Without it the scraper

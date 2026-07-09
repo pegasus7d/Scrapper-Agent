@@ -17,6 +17,7 @@ from backend import config
 from backend.db import repo
 from backend.db.models import Run
 from backend.llm.client import FrontierClient, OllamaClient, ollama_available
+from backend.llm.embeddings import embed_text
 from backend.schemas import JobExtract, QuestionExtract
 from backend.scraper import sources
 from backend.scraper.extractor import ExtractionFailed, Extractor
@@ -52,6 +53,13 @@ def build_extractor(model: str = config.LOCAL_MODEL) -> Extractor[ExtractSchema]
     return Extractor[ExtractSchema](OllamaClient(model), frontier=FrontierClient(api_key))
 
 
+def build_embedder() -> Callable[[str], bytes]:
+    """Wire the real embedder (PHASE6.md step 7). A missing nomic-embed-text
+    pull surfaces as a real error on the first save, caught by execute_run's
+    existing broad except — no separate availability pre-check needed."""
+    return embed_text
+
+
 def build_fetcher(source: str) -> PageFetcher:
     """Wire a PageFetcher using the given source's own transport choice
     (PHASE4.md step 2) and politeness delay (PHASE4.md step 3) — most sources
@@ -69,12 +77,13 @@ def run_scrape(
     fetcher: PageFetcher,
     extractor: Extractor[ExtractSchema],
     sleep: Callable[[float], None] = time.sleep,
+    embed: Callable[[str], bytes] | None = None,
 ) -> Run:
     """Create a run and execute it to completion; returns the finished Run row."""
     if kind not in _SCHEMAS:
         raise ValueError(f"unknown kind: {kind}")
     run = repo.create_run(session, kind, source)
-    return execute_run(session, run, fetcher, extractor, sleep)
+    return execute_run(session, run, fetcher, extractor, sleep, embed)
 
 
 def execute_run(
@@ -83,16 +92,22 @@ def execute_run(
     fetcher: PageFetcher,
     extractor: Extractor[ExtractSchema],
     sleep: Callable[[float], None] = time.sleep,
+    embed: Callable[[str], bytes] | None = None,
 ) -> Run:
     """Execute an already-created run — the API creates the row first so it can
-    return the run id, then executes in a background thread (DESIGN.md §3)."""
+    return the run id, then executes in a background thread (DESIGN.md §3).
+
+    `embed`, when given, embeds and stores each saved item's vector
+    alongside it (PHASE6.md step 7) — None in every test, a real embedder
+    only at the actual run call site (tasks.py).
+    """
     try:
         if not ollama_available():
             repo.record_error(session, run, url="", error="ollama unreachable")
             repo.finish_run(session, run, "failed")
             return run
         schema = _SCHEMAS[run.kind]
-        status = _scrape_loop(session, run, run.source, schema, fetcher, extractor, sleep)
+        status = _scrape_loop(session, run, run.source, schema, fetcher, extractor, sleep, embed)
         run.escalations = extractor.escalations_used
         repo.finish_run(session, run, status)
     except Exception as error:  # the single allowed broad catch (DESIGN.md §3)
@@ -110,6 +125,7 @@ def _scrape_loop(
     fetcher: PageFetcher,
     extractor: Extractor[ExtractSchema],
     sleep: Callable[[float], None],
+    embed: Callable[[str], bytes] | None,
 ) -> str:
     """Walk the source's pages breadth-first; returns the terminal run status."""
     queue = sources.seed_urls(source)
@@ -134,7 +150,7 @@ def _scrape_loop(
         except ValueError as error:  # malformed payload — sources contract
             repo.record_error(session, run, url, str(error))
             continue
-        if not _extract_chunks(session, run, source, schema, extractor, chunks):
+        if not _extract_chunks(session, run, source, schema, extractor, chunks, embed):
             return "cancelled"
         queue.extend(links)
         sleep(sources.delay_for(source))
@@ -148,6 +164,7 @@ def _extract_chunks(
     schema: type[ExtractSchema],
     extractor: Extractor[ExtractSchema],
     chunks: list[sources.Chunk],
+    embed: Callable[[str], bytes] | None,
 ) -> bool:
     """Extract and save chunks; a failed chunk is recorded, not fatal.
 
@@ -168,14 +185,24 @@ def _extract_chunks(
             repo.record_error(session, run, chunk.url, str(error))
             continue
         for item in result.items:
-            _save_item(session, run, source, result.tier, chunk.url, item)
+            _save_item(session, run, source, result.tier, chunk.url, item, embed)
     return True
 
 
 def _save_item(
-    session: Session, run: Run, source: str, tier: str, url: str, item: ExtractSchema
+    session: Session,
+    run: Run,
+    source: str,
+    tier: str,
+    url: str,
+    item: ExtractSchema,
+    embed: Callable[[str], bytes] | None,
 ) -> bool:
     """Route one extracted item to the matching repo saver."""
     if isinstance(item, JobExtract):
-        return repo.save_job(session, item, posting_url=url, source=source, tier=tier, run=run)
-    return repo.save_question(session, item, source_url=url, source=source, tier=tier, run=run)
+        return repo.save_job(
+            session, item, posting_url=url, source=source, tier=tier, run=run, embed=embed
+        )
+    return repo.save_question(
+        session, item, source_url=url, source=source, tier=tier, run=run, embed=embed
+    )

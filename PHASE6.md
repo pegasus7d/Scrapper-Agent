@@ -235,6 +235,35 @@ here, all verified before writing this down (WORKFLOW.md rule 2):
    insert the vector alongside the row, same transaction. Smoke: save a real
    job/question through a real run, confirm its embedding actually lands in
    the `vec0` table (not just that save doesn't crash).
+   **Done.** Verified for real before writing any code: `sqlite_vec.load()`
+   takes a raw `sqlite3.Connection`, and the `dbapi_connection` SQLAlchemy's
+   `connect` event hands over is exactly that (not a wrapped object) —
+   confirmed with a real round-trip (`CREATE VIRTUAL TABLE ... USING
+   vec0`, insert, `MATCH ... AND k = N` similarity query) both against raw
+   `sqlite3` and through a real SQLAlchemy engine before touching
+   `make_engine()`. `nomic-embed-text` confirmed real 768-dim output via
+   `ollama.embed()` — needed its own `ollama pull`, now in README
+   prerequisites. Two `vec0` tables (`job_embeddings`,
+   `question_embeddings`), rowid-keyed to the item's own `jobs.id` /
+   `interview_questions.id`.
+   `repo.save_job`/`save_question` gained a keyword-only `embed: Callable[[str],
+   bytes] | None = None` — real embedding only at the actual run call site
+   (`pipeline.build_embedder()`, wired into `tasks.py`), `None` everywhere
+   else, so no test needs a real Ollama call (same DI pattern `LLMClient`
+   already uses). `embed` threaded through `run_scrape`/`execute_run`/
+   `_scrape_loop`/`_extract_chunks`/`_save_item`, all backward compatible
+   (appended after `sleep`, so no existing call site needed changes). A
+   missing `nomic-embed-text` pull surfaces as a real error on the first
+   save, caught by `execute_run`'s existing broad except — no separate
+   availability pre-check needed.
+   Smoke, against the real dev DB and a real live server: `make_engine()`
+   created both `vec0` tables on the existing `scraper.db` cleanly. Ran one
+   real job scrape (`arbeitnow`) and one real question scrape
+   (`faqguru-questions`), each cancelled right after saving real items.
+   Queried the vec0 tables directly (not just "save didn't crash"): job
+   74's embedding landed in `job_embeddings` with `vec_length() == 768`;
+   questions 100 and 101's embeddings landed in `question_embeddings`,
+   also `vec_length() == 768` — real vectors, right shape, right rowid.
 8. **Hybrid search endpoint + UI (backend + frontend).** New `GET
    /api/search?q=...&kind=jobs|questions`: embed the query the same way,
    run a `sqlite-vec` similarity query and an FTS5 keyword query in

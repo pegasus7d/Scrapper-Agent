@@ -14,6 +14,10 @@ load_dotenv()
 
 LOCAL_MODEL = "qwen2.5:7b-instruct"
 FRONTIER_MODEL = "claude-haiku-4-5-20251001"
+# nomic-embed-text: real 768-dim output confirmed via ollama.embed() (PHASE6.md
+# step 7) — needs its own `ollama pull nomic-embed-text`, documented in README.
+EMBED_MODEL = "nomic-embed-text"
+EMBED_DIM = 768
 MAX_ESCALATIONS_PER_RUN = 25
 FRONTIER_MAX_TOKENS = 2048
 FETCH_TIMEOUT_S = 20

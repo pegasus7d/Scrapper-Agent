@@ -14,7 +14,7 @@ from huey.consumer import Consumer
 from sqlalchemy.orm import Session
 
 from backend.db import repo
-from backend.scraper.pipeline import build_extractor, build_fetcher, execute_run
+from backend.scraper.pipeline import build_embedder, build_extractor, build_fetcher, execute_run
 
 huey = SqliteHuey("scraper-agent", filename="huey.db")
 
@@ -31,7 +31,13 @@ def run_scrape_task(run_id: int) -> None:
         run = repo.get_run(session, run_id)
         if run is None:  # pragma: no cover - the row was just created
             return
-        execute_run(session, run, build_fetcher(run.source), build_extractor(run.model))
+        execute_run(
+            session,
+            run,
+            build_fetcher(run.source),
+            build_extractor(run.model),
+            embed=build_embedder(),
+        )
 
 
 @huey.task()  # type: ignore[untyped-decorator]  # huey ships no stubs
@@ -48,7 +54,9 @@ def run_scrape_batch_item(kind: str, source: str, model: str) -> None:
     engine = repo.make_engine()
     with Session(engine) as session:
         run = repo.create_run(session, kind, source, model=model)
-        execute_run(session, run, build_fetcher(source), build_extractor(model))
+        execute_run(
+            session, run, build_fetcher(source), build_extractor(model), embed=build_embedder()
+        )
 
 
 def enqueue_batch(kind: str, sources: list[str], model: str) -> None:
