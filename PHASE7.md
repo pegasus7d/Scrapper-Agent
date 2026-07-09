@@ -224,6 +224,41 @@ down here (WORKFLOW.md rule 2):
    scrape" source picker or the search command palette, decide once step 3
    is real and there's something to wire up to. `npm run build` gate; real
    look in a browser with a real uploaded resume.
+   **Done — decided: neither existing surface, a new dedicated view.**
+   Derived positions are job *titles*, a different dimension from the
+   "New scrape" modal's *sources* (platforms to scrape from) — feeding
+   into that picker would conflate the two. Instead: a new `Resume` view
+   (added to the sidebar nav) that uploads a PDF, shows the converted
+   Markdown, shows derived positions as clickable badges, and clicking one
+   runs a real hybrid search (`GET /api/search`, phase 6 step 8) against
+   already-scraped jobs — ties the two features together directly rather
+   than just displaying positions inertly.
+   Real gap found before this even hit the browser: `apiPost` always sets
+   `Content-Type: application/json` and JSON-stringifies the body — not
+   usable for a file upload, which needs a browser-set
+   `multipart/form-data` boundary. Added a new `apiUpload()` client
+   function (no `Content-Type` header, `FormData` body) rather than
+   forcing the file through the JSON path. Also caught before shipping:
+   `/api/search` is a `GET` endpoint (phase 6 step 8), but the position
+   click-handler was first written calling it as a `POST` — a real
+   mismatch, not just a typo risk, since `apiPost` and `apiGet` have
+   different signatures and TypeScript didn't catch the wrong choice.
+   File-upload trigger uses a ref + hidden `<input>` (`fileInputRef.current
+   ?.click()`), not `Button`'s `asChild`-style slot pattern — checked this
+   codebase's actual `Button` component first (`@base-ui/react`, not
+   Radix) and confirmed it has no such prop before assuming the pattern
+   would work.
+   Smoke: real headless-Chromium run (Playwright) uploading the user's own
+   `resume-backend.pdf` through the actual UI — Markdown preview rendered
+   correctly, three real derived positions appeared as badges ("Backend
+   Engineer", "Software Engineer", "Software Engineer Intern"), clicking
+   one triggered a real search and rendered real matching jobs, selected
+   badge highlighted correctly, zero console errors. Honest finding, not
+   swept under the rug: the *returned* jobs' actual relevance was weak
+   (mostly non-technical roles) — not a bug in this step's code, but a
+   real reflection of the currently-scraped dataset being dominated by
+   non-engineering postings from earlier phases' smoke-test runs, not
+   enough genuine backend/software roles to rank well against yet.
 5. **Company discovery (backend).** New `Company` table (name, resolved
    slug, ATS provider, discovered_at, last_checked_at). A discovery job
    scrapes `ycombinator.com/companies` via `ScraplingTransport` (JS-rendered

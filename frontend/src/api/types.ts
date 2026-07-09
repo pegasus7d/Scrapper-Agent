@@ -80,3 +80,11 @@ export interface LocalModel {
   name: string
   size_bytes: number
 }
+
+export interface ResumeMarkdown {
+  markdown: string
+}
+
+export interface ResumePositions {
+  positions: string[]
+}

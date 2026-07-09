@@ -7,6 +7,7 @@ import { VIEWS, type View } from './lib/views'
 import { Dashboard } from './views/Dashboard'
 import { Jobs } from './views/Jobs'
 import { Questions } from './views/Questions'
+import { Resume } from './views/Resume'
 
 function NavButton({
   view,
@@ -55,6 +56,7 @@ export default function App() {
         {view === 'dashboard' && <Dashboard />}
         {view === 'jobs' && <Jobs />}
         {view === 'questions' && <Questions />}
+        {view === 'resume' && <Resume />}
       </main>
     </div>
   )

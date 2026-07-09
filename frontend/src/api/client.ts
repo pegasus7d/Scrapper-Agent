@@ -36,3 +36,9 @@ export function apiPost<T>(path: string, body?: unknown): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 }
+
+// No Content-Type header here on purpose — the browser sets the correct
+// multipart/form-data boundary itself; setting it manually breaks the upload.
+export function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  return request<T>(path, { method: 'POST', body: formData })
+}
