@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import { apiGet, apiPost } from '../api/client'
-import type { Paginated, Run, RunCreated, RunKind, Stats } from '../api/types'
+import { apiPost } from '../api/client'
+import type { Paginated, Run, RunKind, Stats } from '../api/types'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { NewScrapeModal } from '../components/NewScrapeModal'
 import { RunProgressPanel } from '../components/RunProgressPanel'
@@ -94,17 +94,8 @@ function useRunLifecycleToasts(runs: Run[]) {
 }
 
 interface Queue {
-  kind: RunKind
   sources: string[]
-  index: number
-}
-
-async function pollUntilTerminal(runId: number): Promise<void> {
-  for (;;) {
-    const run = await apiGet<Run>(`/runs/${runId}`)
-    if (run.status !== 'running') return
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-  }
+  startedAt: number
 }
 
 export function Dashboard() {
@@ -117,9 +108,27 @@ export function Dashboard() {
   const runItems = runs.data?.items ?? []
   const activeRun = runItems.find((run) => run.status === 'running')
 
+  // How many of the queue's sources have a run that's reached a terminal
+  // status since the batch was submitted — the backend (PHASE5.md step 3)
+  // runs them one at a time via a Huey pipeline, lazily creating each run
+  // row only when its turn comes up, so this is inferred from /runs rather
+  // than tracked client-side.
+  const queueDoneCount = queue
+    ? runItems.filter(
+        (run) =>
+          queue.sources.includes(run.source) &&
+          run.status !== 'running' &&
+          new Date(run.started_at).getTime() >= queue.startedAt
+      ).length
+    : 0
+
   useEffect(() => {
-    setPollMs(activeRun ? 3000 : undefined)
-  }, [activeRun])
+    setPollMs(activeRun || queue ? 3000 : undefined)
+  }, [activeRun, queue])
+
+  useEffect(() => {
+    if (queue && queueDoneCount >= queue.sources.length) setQueue(null)
+  }, [queue, queueDoneCount])
 
   useRunLifecycleToasts(runItems)
 
@@ -128,21 +137,20 @@ export function Dashboard() {
     runs.reload()
   }
 
-  // Runs the selected sources one at a time — the backend keeps its
-  // one-run-at-a-time invariant (DESIGN.md §6, PHASE4.md step 4), so the
-  // frontend queues them instead of firing them all at once.
+  // The backend keeps its one-run-at-a-time invariant (DESIGN.md §6) — one
+  // batch endpoint call queues every selected source as a single Huey
+  // pipeline that runs them in order, surviving a browser refresh unlike
+  // phase 4's client-side sequencing.
   async function startQueue(kind: RunKind, sources: string[]) {
-    for (let index = 0; index < sources.length; index++) {
-      setQueue({ kind, sources, index })
-      try {
-        const created = await apiPost<RunCreated>('/runs', { kind, source: sources[index] })
-        await pollUntilTerminal(created.run_id)
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : String(err))
-      }
-      runs.reload()
+    setQueue({ sources, startedAt: Date.now() })
+    try {
+      await apiPost('/runs/batch', { kind, sources })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+      setQueue(null)
+      return
     }
-    setQueue(null)
+    runs.reload()
   }
 
   return (
@@ -152,7 +160,8 @@ export function Dashboard() {
         <div className="flex items-center gap-3">
           {queue && (
             <p className="text-sm text-muted-foreground">
-              Scraping {queue.index + 1} of {queue.sources.length}: {queue.sources[queue.index]}…
+              Scraping {queueDoneCount + 1} of {queue.sources.length}:{' '}
+              {queue.sources[queueDoneCount]}…
             </p>
           )}
           <Button disabled={queue !== null} onClick={() => setShowModal(true)}>

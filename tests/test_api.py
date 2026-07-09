@@ -25,7 +25,18 @@ def engine() -> Engine:
 
 
 @pytest.fixture
-def client(engine: Engine, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def batch_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, list[str]]]:
+    calls: list[tuple[str, list[str]]] = []
+    monkeypatch.setattr(
+        routes, "enqueue_batch", lambda kind, sources: calls.append((kind, sources))
+    )
+    return calls
+
+
+@pytest.fixture
+def client(
+    engine: Engine, monkeypatch: pytest.MonkeyPatch, batch_calls: list[tuple[str, list[str]]]
+) -> TestClient:
     def fake_run_scrape_task(run_id: int) -> None:
         with Session(engine) as session:
             run = session.get(Run, run_id)
@@ -34,6 +45,9 @@ def client(engine: Engine, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     # Execution is the pipeline's job (tested in test_pipeline); here we only
     # verify the wiring: enqueuing the task runs it and finishes the run.
+    # enqueue_batch is faked the same way — batch_calls records what it
+    # would have queued, tested separately (Huey pipeline wiring is
+    # tested in test_tasks).
     monkeypatch.setattr(routes, "run_scrape_task", fake_run_scrape_task)
     return TestClient(create_app(engine, start_consumer=False))
 
@@ -80,6 +94,44 @@ def test_start_run_while_active_returns_409(client: TestClient, engine: Engine) 
 def test_start_run_rejects_unknown_kind_and_source(client: TestClient) -> None:
     assert client.post("/api/runs", json={"kind": "resumes", "source": "hn"}).status_code == 422
     assert client.post("/api/runs", json={"kind": "jobs", "source": "x"}).status_code == 422
+
+
+def test_start_run_batch_queues_the_pipeline(
+    client: TestClient, batch_calls: list[tuple[str, list[str]]]
+) -> None:
+    response = client.post(
+        "/api/runs/batch",
+        json={"kind": "jobs", "source": "x"},  # wrong shape, sanity check below
+    )
+    assert response.status_code == 422  # source instead of sources
+
+    response = client.post("/api/runs/batch", json={"kind": "jobs", "sources": ["hn", "remoteok"]})
+    assert response.status_code == 202
+    assert response.json() == {"queued": ["hn", "remoteok"]}
+    assert batch_calls == [("jobs", ["hn", "remoteok"])]
+
+
+def test_start_run_batch_while_active_returns_409(
+    client: TestClient, engine: Engine, batch_calls: list[tuple[str, list[str]]]
+) -> None:
+    with Session(engine) as session:
+        repo.create_run(session, kind="jobs", source="hn")
+    response = client.post("/api/runs/batch", json={"kind": "jobs", "sources": ["hn"]})
+    assert response.status_code == 409
+    assert batch_calls == []
+
+
+def test_start_run_batch_rejects_unknown_source(
+    client: TestClient, batch_calls: list[tuple[str, list[str]]]
+) -> None:
+    response = client.post("/api/runs/batch", json={"kind": "jobs", "sources": ["hn", "linkedin"]})
+    assert response.status_code == 422
+    assert batch_calls == []
+
+
+def test_start_run_batch_rejects_empty_sources(client: TestClient) -> None:
+    response = client.post("/api/runs/batch", json={"kind": "jobs", "sources": []})
+    assert response.status_code == 422
 
 
 def test_cancel_sets_flag_and_404s_when_not_running(client: TestClient, engine: Engine) -> None:

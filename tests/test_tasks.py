@@ -69,6 +69,37 @@ def test_run_scrape_task_missing_run_does_nothing(
     assert calls == []
 
 
+def test_run_scrape_batch_item_creates_and_executes_a_run(
+    engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tasks.repo, "make_engine", lambda: engine)
+    calls: list[tuple[str, str]] = []
+
+    def fake_execute_run(session: Session, run: Run, fetcher: object, extractor: object) -> Run:
+        calls.append((run.kind, run.source))
+        repo.finish_run(session, run)
+        return run
+
+    monkeypatch.setattr(tasks, "execute_run", fake_execute_run)
+
+    tasks.run_scrape_batch_item.call_local("jobs", "hn")
+
+    assert calls == [("jobs", "hn")]
+    with Session(engine) as session:
+        runs, total = repo.list_runs(session, limit=10, offset=0)
+        assert total == 1
+        assert runs[0].status == "completed"
+
+
+def test_enqueue_batch_enqueues_one_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    enqueued: list[object] = []
+    monkeypatch.setattr(tasks.huey, "enqueue", lambda pipeline: enqueued.append(pipeline))
+
+    tasks.enqueue_batch("jobs", ["hn", "remoteok", "arbeitnow"])
+
+    assert len(enqueued) == 1
+
+
 def _fake_run_scrape_task(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     calls: list[int] = []
     monkeypatch.setattr(tasks, "run_scrape_task", lambda run_id: calls.append(run_id))

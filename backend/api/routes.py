@@ -15,11 +15,13 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from backend.api.dto import (
+    BatchQueued,
     Cancelled,
     JobList,
     JobOut,
     QuestionList,
     QuestionOut,
+    RunBatchRequest,
     RunCreated,
     RunList,
     RunOut,
@@ -33,7 +35,7 @@ from backend.api.dto import (
 from backend.api.export import jobs_to_csv, questions_to_csv
 from backend.db import repo
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
-from backend.scraper.tasks import run_scrape_task
+from backend.scraper.tasks import enqueue_batch, run_scrape_task
 
 ExportFormat = Literal["csv", "json"]
 
@@ -68,6 +70,20 @@ def start_run(body: RunRequest, session: SessionDep) -> RunCreated:
     run = repo.create_run(session, body.kind, body.source)
     run_scrape_task(run.id)  # enqueues onto the Huey consumer, doesn't run inline
     return RunCreated(run_id=run.id)
+
+
+@router.post("/runs/batch", status_code=202)
+def start_run_batch(body: RunBatchRequest, session: SessionDep) -> BatchQueued:
+    """Multi-select sources (PHASE5.md step 3) — one Huey pipeline runs them
+    one at a time; unlike POST /runs, no run row is created here, since each
+    pipeline step lazily creates its own (see run_scrape_batch_item)."""
+    for source in body.sources:
+        if source not in _SOURCES_BY_KIND[body.kind]:
+            raise HTTPException(422, f"unknown source for {body.kind}: {source}")
+    if repo.active_run_exists(session):
+        raise HTTPException(409, "a run is already active")
+    enqueue_batch(body.kind, body.sources)
+    return BatchQueued(queued=body.sources)
 
 
 @router.post("/runs/{run_id}/cancel")

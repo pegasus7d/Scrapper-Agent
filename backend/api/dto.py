@@ -14,8 +14,17 @@ class RunRequest(BaseModel):
     source: str
 
 
+class RunBatchRequest(BaseModel):
+    kind: Literal["jobs", "questions"]
+    sources: list[str] = Field(min_length=1)
+
+
 class RunCreated(BaseModel):
     run_id: int
+
+
+class BatchQueued(BaseModel):
+    queued: list[str]
 
 
 class Cancelled(BaseModel):

@@ -32,6 +32,32 @@ def run_scrape_task(run_id: int) -> None:
         execute_run(session, run, build_fetcher(run.source), build_extractor())
 
 
+@huey.task()  # type: ignore[untyped-decorator]  # huey ships no stubs
+def run_scrape_batch_item(kind: str, source: str) -> None:
+    """One step of a multi-select batch pipeline (PHASE5.md step 3) — unlike
+    run_scrape_task, creates its own run row lazily right as this step
+    executes (mirrors pipeline.run_scrape's create-then-execute pattern), so
+    only one run is ever "running" at a time even while later sources in the
+    batch are still queued behind it. Must return None: execute_run's own
+    broad except (DESIGN.md §3) already turns any per-run failure into a
+    "failed" status rather than a raised exception — if that ever changed,
+    a raised exception here would stop the rest of the pipeline dead
+    (verified: Huey does not continue a .then() chain past a failed step)."""
+    engine = repo.make_engine()
+    with Session(engine) as session:
+        run = repo.create_run(session, kind, source)
+        execute_run(session, run, build_fetcher(source), build_extractor())
+
+
+def enqueue_batch(kind: str, sources: list[str]) -> None:
+    """Chain one run_scrape_batch_item per source into a single pipeline,
+    enqueued once — sources run strictly in order, one at a time."""
+    pipeline = run_scrape_batch_item.s(kind, sources[0])
+    for source in sources[1:]:
+        pipeline = pipeline.then(run_scrape_batch_item, kind, source)
+    huey.enqueue(pipeline)
+
+
 @huey.periodic_task(crontab(minute="*"))  # type: ignore[untyped-decorator]  # huey ships no stubs
 def dispatch_due_schedule(now: datetime | None = None) -> None:
     """Runs once a minute on the consumer's own scheduler — replaces the old
