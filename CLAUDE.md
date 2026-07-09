@@ -9,7 +9,12 @@ follow it, and any deviation must update `DESIGN.md` in the same change.
 ## Stack
 - Python 3.12, env/packages managed with **uv** (`uv venv`, `uv pip install` — never
   plain pip)
-- `scrapling` for fetching pages (stealthy, adaptive — prefer over raw requests/bs4/Selenium)
+- Fetching goes through a `Transport` protocol (`backend/scraper/transport.py`,
+  phase 4 §11 amendment): `httpx` is the default (every source so far is a plain
+  JSON/XML/text API — none need HTML cleaning or stealth), `scrapling` (stealthy,
+  adaptive) stays available and real as a per-source opt-in for anything that
+  genuinely needs it later. Don't add a source-specific HTTP client outside this
+  protocol — that's what it exists to prevent.
 - `pydantic` for extraction schemas / validation
 - SQLite for storage (jobs dedupe on the item's permalink, questions on a normalized
   content hash — see DESIGN.md §2)
@@ -135,6 +140,6 @@ and its final step number for the phase being built:
 ```
 
 Used so far: phase 1 (§8, stop at step 6 — the MVP), phase 2 (§9, stop at step
-8), phase 3 (§10, stop at step 4). When a new phase's build order is written,
-add its (§N, final step) pair here rather than re-deriving the prompt from
-scratch.
+8), phase 3 (§10, stop at step 4), phase 4 (§11, stop at step 4). When a new
+phase's build order is written, add its (§N, final step) pair here rather than
+re-deriving the prompt from scratch.

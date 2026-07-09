@@ -146,20 +146,35 @@ backend/
   llm/
     client.py          # LLMClient protocol + OllamaClient + FrontierClient
   scraper/
-    fetcher.py         # fetch(url) -> Page(url, markdown, raw) via scrapling —
-                       # the ONLY module that touches HTTP; every source below
-                       # goes through this one fetcher, never rolls its own
+    fetcher.py         # PageFetcher: robots.txt, honest UA, retry/backoff policy —
+                       # the ONLY module that touches HTTP; every source goes
+                       # through this one fetcher, never rolls its own. The actual
+                       # request execution is delegated to a Transport (below,
+                       # phase 4 §11 step 2), so the policy layer never changes
+                       # when the transport does.
+    transport.py       # Transport protocol + HttpxTransport (default — every
+                       # current source is a plain JSON/XML/text API, none need
+                       # HTML cleaning or stealth) + ScraplingTransport (opt-in,
+                       # for a source that genuinely needs it later)
     prompts.py         # extraction prompt templates (constants — prompts are part
                        # of the contract, never inline f-strings in extractor.py)
     extractor.py       # extract(page, schema) -> validated model | Escalated | Failed
-    sources/           # one file per platform, formalized as of phase 3 §10
-      __init__.py      # Source protocol + SOURCES registry + the seed_urls/
-                       # next_links/split_items dispatch functions pipeline.py calls
-      hn.py            # HN "Who is hiring?" (jobs) + HN comment search (questions)
-      remoteok.py       # RemoteOK jobs (phase 2 §9 step 7)
-      weworkremotely.py # WeWorkRemotely jobs, RSS (phase 3 §10)
-      arbeitnow.py      # Arbeitnow jobs, JSON API (phase 3 §10)
-      github_questions.py # curated question-bank repos (phase 3 §10)
+    sources/           # split by domain as of phase 4 §11 step 1 — a platform
+                       # lives under jobs/ or questions/, never both
+      __init__.py      # Source protocol + merges jobs/questions registries into
+                       # one SOURCES dict + the seed_urls/next_links/split_items
+                       # dispatch functions pipeline.py calls (unchanged surface)
+      _base.py         # shared Chunk, clean_html, MIN_CHUNK_CHARS
+      jobs/
+        __init__.py    # this domain's registry dict
+        hn.py          # HN "Who is hiring?" (phase 1 §8)
+        remoteok.py    # RemoteOK (phase 2 §9 step 7)
+        weworkremotely.py # WeWorkRemotely, RSS (phase 3 §10 step 2)
+        arbeitnow.py   # Arbeitnow, JSON API (phase 3 §10 step 3)
+      questions/
+        __init__.py    # this domain's registry dict
+        hn.py          # HN comment search (phase 2 §9 step 2)
+        github_questions.py # curated question-bank repos (phase 3 §10 step 4)
     pipeline.py        # run_scrape(kind, source): the loop
     scheduler.py        # background poll loop that starts due schedules
   api/
@@ -203,7 +218,14 @@ class Chunk:
 
 class Source(Protocol):
     """One platform's adapter. Every method is pure — no fetching in here;
-    fetcher.py does the one and only HTTP call per URL (DESIGN.md §10)."""
+    fetcher.py does the one and only HTTP call per URL (DESIGN.md §10). `kind`
+    places it in JOB_SOURCES/QUESTION_SOURCES; `transport` and `delay_s`
+    (phase 4 §11 steps 2 and 4) pick this source's transport and politeness
+    delay, defaulting to the common case so most sources declare neither."""
+    kind: Literal["jobs", "questions"]
+    transport: Literal["httpx", "scrapling"]  # default "httpx" — see transport.py
+    delay_s: float  # default config.REQUEST_DELAY_S; override for stricter/looser sites
+
     def seed_urls(self) -> list[str]: ...
     def next_links(self, page: Page) -> list[str]: ...
     def split_items(self, page: Page) -> list[Chunk]: ...
@@ -211,6 +233,17 @@ class Source(Protocol):
 SOURCES: dict[str, Source] = {"hn": HNJobs(), "remoteok": RemoteOK(), ...}
 
 def split_items(page: Page, source: str) -> list[Chunk]: ...  # dispatches via SOURCES
+
+# transport.py — the transport a Source's own `transport` attribute selects;
+# PageFetcher's robots.txt/retry/backoff policy stays identical either way
+class Transport(Protocol):
+    def get(self, url: str, *, timeout: int, headers: dict[str, str]) -> TransportResponse: ...
+
+@dataclass
+class TransportResponse:
+    status: int
+    body: bytes | str
+    text: str  # cleaned page text where the transport can produce one, else ""
 
 # llm/client.py — one protocol, two implementations; extractor depends only on this
 class LLMClient(Protocol):
@@ -245,16 +278,26 @@ Constants in `config.py`: `LOCAL_MODEL`, `FRONTIER_MODEL`, `MAX_ESCALATIONS_PER_
 (politeness delay between fetches), `USER_AGENT`, `API_PORT` (8000),
 `CORS_ORIGINS` (`http://localhost:5173` — the Vite dev server).
 
-### Fetcher policy (fetcher.py)
+### Fetcher policy (fetcher.py) and transport (transport.py, phase 4 §11 step 2)
 
-- Identify honestly: send the `USER_AGENT` constant (project name + contact), don't
-  spoof a browser unless a source demonstrably requires Scrapling's stealth mode.
-- Respect `robots.txt`: check via `urllib.robotparser` (cached per domain); a
-  disallowed URL raises `FetchError("disallowed by robots.txt")` and is recorded
-  like any other fetch failure.
+- Identify honestly: send the `USER_AGENT` constant (project name + contact) on
+  every request this project makes, including fetching `robots.txt` itself —
+  the WeWorkRemotely bug (§10 step 2) was exactly a request that didn't.
+- Respect `robots.txt`: fetched with our own honest UA (not `RobotFileParser`'s
+  internal default), cached per domain; a disallowed URL raises
+  `FetchError("disallowed by robots.txt")` and is recorded like any other
+  fetch failure.
 - Retry once (`FETCH_RETRIES = 1`) with a short backoff on timeout or HTTP 5xx.
-  HTTP 429 → back off `4 × REQUEST_DELAY_S` before the retry. Any other non-200,
-  or a failed retry → `FetchError`. The pipeline records it and continues.
+  HTTP 429 → back off `4 × REQUEST_DELAY_S` (or the source's own `delay_s`
+  override) before the retry. Any other non-200, or a failed retry →
+  `FetchError`. The pipeline records it and continues.
+- **Transport is a `Source`-level choice, not a global one.** `PageFetcher`
+  owns the policy above regardless of transport; it delegates the actual
+  request to whichever `Transport` the run's source declares (default
+  `"httpx"` — every source so far is a plain JSON/XML/text API and none
+  read `Page.markdown`, so Scrapling's HTML-cleaning and stealth mode are
+  currently unused weight). `"scrapling"` stays available and real, not
+  removed, for a future source that genuinely needs stealth/JS-rendering.
 
 ### Pipeline loop (pipeline.py)
 
@@ -344,7 +387,8 @@ React + Vite + Tailwind, light theme: white/near-white background, one accent co
 
 1. **Dashboard** — stat cards (total jobs, total questions, companies, escalation
    rate), recent runs table with live status (poll `/api/runs` every 3s while a run
-   is active), "New scrape" button → small modal (kind + source dropdowns).
+   is active), "New scrape" button → small modal (kind + source checkboxes,
+   multi-select as of phase 4 §11 step 3 — see below).
 2. **Jobs** — searchable/filterable table: title, company, location, salary, source,
    scraped date. Row click opens a detail drawer with requirements list + posting /
    apply links.
@@ -375,6 +419,14 @@ items-per-run and escalation trend, and a live progress panel for the active run
 the UI is thin (fetch → render) and all logic lives behind the tested API. Any
 change touching `frontend/` must pass `npm run build` (strict `tsc` + Vite build)
 as part of the definition of done. Revisit if UI-side logic grows.
+
+**Multi-select scrapes (phase 4 §11 step 3).** The backend keeps its existing
+one-run-at-a-time invariant (`POST /api/runs` still takes one `{kind, source}`
+and 409s while a run is active) — no backend change. The modal's source picker
+becomes checkboxes; on submit the frontend queues the selected sources and
+runs them one at a time: start a run, poll `/api/runs/{id}` to a terminal
+status, then start the next. A small queue indicator ("Scraping 2 of 4:
+remoteok…") reuses the existing toast/skeleton patterns, nothing new.
 
 ## Logging
 
@@ -544,3 +596,66 @@ listed LeetCode Discuss, Blind, and "relevant subreddits" as example
 *low*-friction sources — every one of the three turned out to be high-friction
 or fully disallowed once actually checked. Fixed to reflect what's been
 verified, not what seemed plausible at the start.
+
+## 11. Phase 4 build order — architecture for scale, not just more sources
+
+Same workflow rules as §8/§9/§10. Phase 3 added three sources on top of the
+plugin architecture from its own step 1; phase 4 is about the two axes that
+get more valuable the more sources exist, done now while there are only 6
+(cheap) rather than retrofitted at 15 (expensive) — plus one piece of UI
+polish that doesn't depend on either.
+
+1. **Split `sources/` by domain, not just by platform (backend, no behavior
+   change).** Today `sources/` separates by *platform* (one file per site) but
+   not by *domain* — `hn.py` even mixes `HNJobs` and `HNInterviews` in one
+   file, and the registry is one flat dict distinguished only by reading each
+   entry's `.kind`. Split into `sources/jobs/` and `sources/questions/`
+   subpackages (§3), each with its own small registry; the top-level
+   `sources/__init__.py` merges both into one `SOURCES` dict so
+   `pipeline.py`'s calls (`sources.seed_urls(...)`, `sources.Chunk`, etc.)
+   don't change at all — same re-export-flat pattern as the `repo/` package
+   split (§9 step 8). `_base.py` (`Chunk`, `clean_html`, `MIN_CHUNK_CHARS`)
+   stays shared at the top level; the one-line `_HN_PERMALINK` format string
+   used by both HN sources is small enough to just duplicate rather than
+   share (CLAUDE.md: "three lines is better than a premature abstraction").
+   Smoke: full test suite passes unchanged, plus one real HN jobs scrape and
+   one real HN interview-questions scrape to confirm both halves of the split
+   still dispatch correctly.
+2. **Extract a `Transport` protocol from `fetcher.py` (backend).** Confirmed
+   before writing this: no source's `split_items` reads `Page.markdown` —
+   every one of the 6 sources so far is a plain JSON/XML/plain-text API, so
+   Scrapling's HTML-cleaning and stealth-fetch capability (the whole reason
+   it was chosen originally, per CLAUDE.md's Stack section) sit completely
+   unused. Define `Transport` (`get(url, *, timeout, headers) ->
+   TransportResponse`) in `transport.py` (§3); `PageFetcher` keeps every bit
+   of its policy (robots.txt, retry/backoff, honest UA) unchanged and just
+   delegates the request to whichever transport it's given. Add
+   `HttpxTransport` (promote the existing `httpx` dev dependency to a regular
+   one — it's already pinned, just needs to stop being test-only) as the new
+   default; keep `ScraplingTransport` as a real, still-tested alternative, not
+   removed — available the moment a source genuinely needs stealth/JS
+   rendering. Each `Source` declares `transport: Literal["httpx", "scrapling"]
+   = "httpx"`; the code that builds a run's `PageFetcher` reads the source's
+   choice. Existing `test_fetcher.py` fixtures move from monkeypatching
+   `ScraplingFetcher.get` directly to faking the `Transport` protocol — less
+   coupled to Scrapling's internals, more coupled to the actual contract.
+   Smoke: one real scrape via `HttpxTransport` (any current source) and one
+   real scrape forced onto `ScraplingTransport` (prove it still genuinely
+   works, even though nothing defaults to it).
+3. **Per-source politeness override, riding on step 2's metadata (backend).**
+   `REQUEST_DELAY_S`/`FETCH_RETRIES` are global today; Arbeitnow's own API
+   terms literally say "please do not abuse," while GitHub's CDN can take
+   more load than a small job board. Add `delay_s: float =
+   config.REQUEST_DELAY_S` to `Source` (§3) — most sources don't override it;
+   the pipeline's `sleep(...)` call between pages reads the run's source's
+   `delay_s` instead of the global constant directly. Smoke: not needed on
+   its own (no new network path) — covered by step 2's smoke tests re-running
+   with a source that sets a non-default `delay_s`.
+4. **Multi-select sources in the "New scrape" modal (frontend only).** No
+   backend change — the existing one-run-at-a-time invariant already fits
+   this. `NewScrapeModal` becomes checkboxes; on submit, queue the selected
+   sources and run them one at a time (start → poll `/api/runs/{id}` to a
+   terminal status → start the next), matching the UI section's description
+   above. `npm run build` gate as usual; no real backend smoke test needed
+   since nothing server-side changes, but do one real manual multi-source run
+   through the UI before calling this step done.
