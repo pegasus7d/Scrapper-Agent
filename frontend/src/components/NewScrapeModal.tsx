@@ -1,7 +1,23 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
 import type { RunCreated, RunKind } from '../api/types'
+import { Button } from './ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select'
 
 // Mirrors JOB_SOURCES / QUESTION_SOURCES in backend/scraper/sources.py.
 const SOURCES: Record<RunKind, string[]> = {
@@ -17,7 +33,6 @@ interface Props {
 export function NewScrapeModal({ onClose, onStarted }: Props) {
   const [kind, setKind] = useState<RunKind>('jobs')
   const [source, setSource] = useState(SOURCES.jobs[0] ?? '')
-  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   function selectKind(next: RunKind) {
@@ -27,73 +42,65 @@ export function NewScrapeModal({ onClose, onStarted }: Props) {
 
   async function start() {
     setBusy(true)
-    setError(null)
     try {
       await apiPost<RunCreated>('/runs', { kind, source })
+      toast.success(`Started ${kind} scrape from ${source}`)
       onStarted()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      toast.error(err instanceof Error ? err.message : String(err))
       setBusy(false)
     }
   }
 
-  const selectStyle =
-    'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ' +
-    'focus:border-indigo-400 focus:outline-none'
-
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/30">
-      <div className="w-80 rounded-xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-slate-900">New scrape</h2>
-        <label className="mt-4 block text-sm font-medium text-slate-600">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New scrape</DialogTitle>
+        </DialogHeader>
+
+        <label className="block text-sm font-medium text-muted-foreground">
           Kind
-          <select
-            className={selectStyle}
-            value={kind}
-            onChange={(e) => selectKind(e.target.value as RunKind)}
-          >
-            <option value="jobs">jobs</option>
-            <option value="questions">questions</option>
-          </select>
+          <Select value={kind} onValueChange={(v) => selectKind(v as RunKind)}>
+            <SelectTrigger className="mt-1 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="jobs">jobs</SelectItem>
+              <SelectItem value="questions">questions</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
-        <label className="mt-3 block text-sm font-medium text-slate-600">
+
+        <label className="block text-sm font-medium text-muted-foreground">
           Source
-          <select
-            className={selectStyle}
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-          >
-            {SOURCES[kind].map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          <Select value={source} onValueChange={(v) => setSource(v ?? '')}>
+            <SelectTrigger className="mt-1 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SOURCES[kind].map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
         {SOURCES[kind].length === 0 && (
-          <p className="mt-2 text-xs text-slate-500">No sources for this kind yet.</p>
+          <p className="text-xs text-muted-foreground">No sources for this kind yet.</p>
         )}
-        {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            onClick={onClose}
-          >
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white
-              hover:bg-indigo-700 disabled:opacity-50"
-            disabled={busy || source === ''}
-            onClick={() => void start()}
-          >
+          </Button>
+          <Button disabled={busy || source === ''} onClick={() => void start()}>
             Start
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
