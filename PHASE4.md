@@ -65,4 +65,11 @@ plus one piece of UI polish that doesn't depend on either.
    nothing server-side changes, but do one real manual multi-source run
    through the UI before calling this step done.
 
-Next: not started yet — this is the current phase.
+**Phase 4 (steps 1–4) is complete** — every step validated and smoke-tested.
+No bugs surfaced this phase; every smoke test passed clean on the first try,
+including a real two-source queue run (`github-questions` then
+`hn-interviews`) through the live API for step 4, driven through the exact
+start → poll → start-next sequence the UI performs.
+
+Next: no phase 5 yet — propose next steps and wait to be asked, per
+`WORKFLOW.md` rule 7.

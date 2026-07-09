@@ -83,14 +83,18 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   Arbeitnow, and a curated GitHub question-bank source replacing the blocked
   LeetCode Discuss idea (+ fixed the URL-fragment normalization bug; made
   `QuestionExtract.company` nullable for genuinely companyless questions).
-- **Phase 4 — `PHASE4.md` (in progress, started 2026-07-09).** Split `sources/`
-  into `jobs/`/`questions/` subpackages, extract a `Transport` protocol
-  (`httpx` default, `scrapling` opt-in — confirmed no source needs Scrapling's
-  actual HTML-cleaning/stealth capability), per-source politeness delay,
-  multi-select sources in the "New scrape" modal. This DESIGN.md restructure
-  itself (§8 index + one `PHASE{N}.md` file per phase, instead of everything
-  inline) landed alongside the phase, prompted by the same doc-size concern
-  that motivated phase 4's own step 1.
+- **Phase 4 — `PHASE4.md` (done 2026-07-09).** Split `sources/` into
+  `jobs/`/`questions/` subpackages, extracted a `Transport` protocol (`httpx`
+  default, `scrapling` opt-in — confirmed no source needs Scrapling's actual
+  HTML-cleaning/stealth capability), per-source politeness delay (Arbeitnow
+  doubled, GitHub Questions quartered), multi-select sources in the "New
+  scrape" modal (Dashboard now owns queueing selected sources one at a time).
+  No bugs surfaced this phase — every step's smoke test passed clean on the
+  first try, including a real two-source queue run (`github-questions` then
+  `hn-interviews`) through the live API. This DESIGN.md restructure itself
+  (§8 index + one `PHASE{N}.md` file per phase, instead of everything inline)
+  landed alongside the phase, prompted by the same doc-size concern that
+  motivated phase 4's own step 1.
 
 ## What's durable vs. what compacts away
 

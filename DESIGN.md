@@ -486,7 +486,7 @@ docs instead of code:
   shadcn/ui, dashboard, dark mode, scheduling, RemoteOK, export/bookmarks.
 - **`PHASE3.md`** — plugin architecture + more platforms (done): `Source`
   protocol/registry, WeWorkRemotely, Arbeitnow, curated GitHub questions.
-- **`PHASE4.md`** — architecture for scale (current): domain-split sources,
+- **`PHASE4.md`** — architecture for scale (done): domain-split sources,
   `Transport` protocol, per-source politeness, multi-select scrape UI.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
