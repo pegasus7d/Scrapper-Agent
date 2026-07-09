@@ -78,3 +78,27 @@ def test_question_missing_required_field_fails() -> None:
 def test_question_empty_question_fails() -> None:
     with pytest.raises(ValidationError):
         QuestionExtract.model_validate({**VALID_QUESTION, "question": ""})
+
+
+@pytest.mark.parametrize("literal", ["null", "NULL", "None", "n/a", " null "])
+def test_question_null_like_strings_normalize_to_none(literal: str) -> None:
+    # Confirmed real: a local-model extraction landed with role="null" and
+    # round="null" (JSON string, not JSON null) in production data — schema-
+    # constrained decoding (PHASE6.md step 2) doesn't stop this, since the
+    # string still satisfies a `string | null` field's type.
+    question = QuestionExtract.model_validate(
+        {**VALID_QUESTION, "role": literal, "round": literal, "company": literal}
+    )
+    assert question.role is None
+    assert question.round is None
+    assert question.company is None
+
+
+@pytest.mark.parametrize("literal", ["null", "NULL", "None", "n/a"])
+def test_job_null_like_strings_normalize_to_none(literal: str) -> None:
+    job = JobExtract.model_validate(
+        {**VALID_JOB, "location": literal, "salary": literal, "apply_url": literal}
+    )
+    assert job.location is None
+    assert job.salary is None
+    assert job.apply_url is None

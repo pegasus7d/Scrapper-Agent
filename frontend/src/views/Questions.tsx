@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { Paginated, Question } from '../api/types'
 import { Drawer } from '../components/Drawer'
 import { Pagination } from '../components/Pagination'
+import { Badge } from '../components/ui/badge'
 import { useApi } from '../hooks/useApi'
 import { formatTime } from '../lib/format'
 
@@ -101,7 +102,6 @@ export function Questions() {
               <th className="px-4 py-2 font-medium">Question</th>
               <th className="px-4 py-2 font-medium">Company</th>
               <th className="px-4 py-2 font-medium">Role</th>
-              <th className="px-4 py-2 font-medium">Round</th>
               <th className="px-4 py-2 font-medium">Scraped</th>
             </tr>
           </thead>
@@ -113,11 +113,15 @@ export function Questions() {
                 onClick={() => setSelected(question)}
               >
                 <td className="px-4 py-3 font-medium text-foreground">
-                  {truncate(question.question)}
+                  <span className="align-middle">{truncate(question.question)}</span>
+                  {question.round && (
+                    <Badge variant="secondary" className="ml-2 align-middle">
+                      {question.round}
+                    </Badge>
+                  )}
                 </td>
                 <td className="px-4 py-3">{question.company ?? 'General'}</td>
                 <td className="px-4 py-3 text-muted-foreground">{question.role ?? '—'}</td>
-                <td className="px-4 py-3 text-muted-foreground">{question.round ?? '—'}</td>
                 <td className="px-4 py-3 text-muted-foreground">{formatTime(question.scraped_at)}</td>
               </tr>
             ))}

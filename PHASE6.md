@@ -140,6 +140,32 @@ here, all verified before writing this down (WORKFLOW.md rule 2):
    company-less sources don't display an empty column. `npm run build` gate;
    real look in a browser confirming both a company-attributed row (with a
    round badge) and a generic row (without one) render correctly.
+   **Done.** Landed as planned: the `Round` table column is gone, replaced
+   by an inline `Badge` shown only when `question.round` is set.
+   Real bug caught while doing this step's own required browser smoke
+   test, unrelated to the UI change itself: the real dev DB had one row
+   (`github-questions`, local tier) with `role` and `round` both set to the
+   literal four-character string `"null"`, not an actual SQL/JSON null —
+   the local model emitted a JSON *string* `"null"` for a nullable field,
+   which schema-constrained decoding (step 2) doesn't catch, since a
+   string still satisfies a `string | null` field's type. Without a fix,
+   step 4's own badge would have rendered the word "null" as if it were a
+   real round. Fixed at the actual contract boundary
+   (`backend/schemas.py`): a shared `field_validator` on every nullable
+   string field in both `JobExtract` and `QuestionExtract` normalizes
+   null-like strings (`"null"`, `"none"`, `"n/a"`, case-insensitive) to
+   `None` before validation. Confirmed this wasn't `round`-specific — the
+   same bad row also had `role="null"`. Regression tests added
+   (parametrized over both schemas); the one real bad row in `scraper.db`
+   corrected by hand.
+   Smoke: `npm run build` green. No source currently produces a non-null
+   `round` in the real DB (all current sources are generic reference
+   banks, confirmed via a direct query), so a temporary realistic row was
+   inserted for the visual check, then deleted afterward — real headless-
+   Chromium screenshot (Playwright, same tool used for phase 5's `motion`
+   check) confirmed: the company-attributed row shows an "onsite" badge
+   inline next to the question, every generic "General" row shows no
+   badge and no empty column, zero console errors.
 5. **Drop `recharts` for a hand-rolled SVG bar chart (frontend).** Same move
    as phase 5 step 4's `motion` fix: `RunsChart.tsx` renders one simple
    grouped bar chart (two series, ≤10 categories) but `recharts` alone costs
