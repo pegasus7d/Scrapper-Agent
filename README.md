@@ -53,6 +53,18 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env   # .env is gitignored
 
 ## Running
 
+One command starts everything (backend on 8000, frontend on 5173; Ctrl-C stops both):
+
+```sh
+./run.sh
+```
+
+Open http://localhost:5173, click **New scrape**, pick a kind (`jobs` /
+`questions`) and a source, and watch the run progress on the dashboard.
+
+<details>
+<summary>Manual commands (what run.sh does)</summary>
+
 **Backend** (from the repo root, venv active):
 
 ```sh
@@ -67,8 +79,7 @@ npm install
 npm run dev        # serves the UI at http://localhost:5173
 ```
 
-Open http://localhost:5173, click **New scrape**, pick a kind (`jobs` /
-`questions`) and a source, and watch the run progress on the dashboard.
+</details>
 
 ## Checks
 
