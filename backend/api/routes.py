@@ -36,8 +36,9 @@ from backend.api.dto import (
 )
 from backend.api.export import jobs_to_csv, questions_to_csv
 from backend.api.stream import run_updates
-from backend.db import repo
+from backend.db import repo, search
 from backend.llm.client import list_local_models
+from backend.llm.embeddings import embed_text
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
 from backend.scraper.tasks import enqueue_batch, run_scrape_task
 
@@ -222,6 +223,25 @@ def get_stats(session: SessionDep) -> StatsOut:
         questions=stats.questions,
         companies=stats.companies,
         escalation_rate=stats.escalation_rate,
+    )
+
+
+@router.get("/search")
+def search_items(
+    session: SessionDep, q: str, kind: Literal["jobs", "questions"], limit: LimitParam = 20
+) -> JobList | QuestionList:
+    """Hybrid search (PHASE6.md step 8): embeds `q` once, then merges a
+    sqlite-vec similarity query and an FTS5 keyword query via reciprocal
+    rank fusion (backend/db/search.py)."""
+    if not q.strip():
+        raise HTTPException(422, "q must not be empty")
+    embedding = embed_text(q)
+    if kind == "jobs":
+        jobs = search.search_jobs(session, q, embedding, limit)
+        return JobList(items=[JobOut.model_validate(j) for j in jobs], total=len(jobs))
+    questions = search.search_questions(session, q, embedding, limit)
+    return QuestionList(
+        items=[QuestionOut.model_validate(item) for item in questions], total=len(questions)
     )
 
 

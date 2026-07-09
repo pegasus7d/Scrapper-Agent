@@ -274,6 +274,39 @@ here, all verified before writing this down (WORKFLOW.md rule 2):
    Smoke: a real natural-language query ("remote python roles", "questions
    about closures") against real scraped data, confirm results are
    genuinely relevant, not just non-empty.
+   **Done.** New `backend/db/fts.py` (FTS5 tables, mirrors `vectors.py`'s
+   structure) and `backend/db/search.py` (the actual hybrid query + RRF
+   merge, kept out of `_queries.py` since it's raw SQL against virtual
+   tables, not ORM queries). `save_job`/`save_question` now always index
+   into FTS5 (pure local SQLite, no reason to gate it — unlike the vec0
+   embedding, which stays behind `embed`). FTS5 queries go through a
+   safe OR-of-terms builder, never raw user text passed straight into
+   FTS5's own MATCH syntax. `GET /api/search` reuses the existing
+   `JobOut`/`QuestionOut`/`JobList`/`QuestionList` shapes exactly as
+   planned. Frontend: extended the existing ⌘K `CommandPalette` (not a
+   dedicated view — there was already a natural home) to hybrid-search
+   both jobs and questions in parallel and show two result groups;
+   debounce bumped 200ms → 300ms since each keystroke now costs a real
+   Ollama embed call, not a free substring match.
+   One real gap found and fixed while testing: `test_api.py`'s `engine`
+   fixture built its own engine by hand (`create_engine` +
+   `Base.metadata.create_all`, for `StaticPool` support `repo.make_engine`
+   doesn't take) and had silently drifted out of sync with what
+   `make_engine` actually does — 6 existing tests broke the moment
+   `save_job`/`save_question` started unconditionally touching FTS5,
+   because that fixture's DB never got the vec0/FTS5 setup calls. Fixed by
+   mirroring `make_engine`'s real setup in the fixture.
+   Smoke, against real freshly-scraped data (existing rows predate this
+   feature and were never backfilled, same scope choice as step 7 — a
+   couple of fresh runs were needed for anything to be indexed):
+   `"how do you compare two javascript objects"` ranked *"How to compare
+   two objects in JavaScript?"* first out of real FAQGURU questions;
+   `"array intersection problem"` ranked the actual intersection question
+   first; `"remote project coordinator role"` ranked a real "Project
+   Coordinator (Fully Remote, UK)" RemoteOK listing first — checked via
+   both a direct `GET /api/search` call and a real headless-Chromium run
+   of the ⌘K palette (Playwright), same top result in both, zero console
+   errors.
 9. **Bottleneck pass (investigation, backend + frontend).** Not guessing —
    profile real things once the above land: API response times under a real
    multi-source batch (does SSE actually reduce round-trips measurably?),

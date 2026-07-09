@@ -11,7 +11,7 @@ from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session
 
 from backend import config
-from backend.db import vectors
+from backend.db import fts, vectors
 from backend.db.models import Base, InterviewQuestion, Job, Run
 from backend.schemas import JobExtract, QuestionExtract
 
@@ -36,6 +36,7 @@ def make_engine(database_url: str = config.DATABASE_URL) -> Engine:
     Base.metadata.create_all(engine)
     _ensure_runs_model_column(engine)
     vectors.create_vec_tables(engine)
+    fts.create_fts_tables(engine)
     return engine
 
 
@@ -161,10 +162,11 @@ def save_job(
 ) -> bool:
     """Save one job; returns False (counting a duplicate) if already stored.
 
-    `embed`, when given, computes the job's embedding and inserts it into
-    the job_embeddings vec0 table in the same transaction (PHASE6.md step
-    7) — None everywhere except the real run path, so no test needs a real
-    Ollama call.
+    Always indexed into job_search_fts for keyword search (PHASE6.md step
+    8) — pure local SQLite, no reason to gate it. `embed`, when given,
+    additionally computes the job's embedding and inserts it into the
+    job_embeddings vec0 table, same transaction (PHASE6.md step 7) — None
+    everywhere except the real run path, so no test needs a real Ollama call.
     """
     url = normalize_url(posting_url)
     exists = session.scalar(select(Job.id).where(Job.posting_url == url))
@@ -188,8 +190,17 @@ def save_job(
     )
     session.add(job)
     run.items_saved += 1
+    session.flush()  # need job.id before the fts5/vec0 inserts
+    fts.index_job(
+        session,
+        job.id,
+        title=extract.title,
+        company=extract.company,
+        location=extract.location,
+        salary=extract.salary,
+        requirements=extract.requirements,
+    )
     if embed is not None:
-        session.flush()  # need job.id before the vec0 insert
         text_for_embedding = f"{extract.title} at {extract.company}. " + " ".join(
             extract.requirements
         )
@@ -210,7 +221,8 @@ def save_question(
 ) -> bool:
     """Save one question; returns False (counting a duplicate) if already stored.
 
-    `embed`: see save_job's docstring — same same-transaction contract.
+    Always indexed into question_search_fts; `embed`: see save_job's
+    docstring — same same-transaction contract.
     """
     content_hash = question_hash(extract.company, extract.question)
     exists = session.scalar(
@@ -235,8 +247,11 @@ def save_question(
     )
     session.add(question)
     run.items_saved += 1
+    session.flush()  # need question.id before the fts5/vec0 inserts
+    fts.index_question(
+        session, question.id, question=extract.question, company=extract.company, role=extract.role
+    )
     if embed is not None:
-        session.flush()  # need question.id before the vec0 insert
         vectors.save_question_embedding(session, question.id, embed(extract.question))
     session.commit()
     return True

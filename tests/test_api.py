@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from backend import config
 from backend.api import routes
 from backend.api.main import create_app
-from backend.db import repo
+from backend.db import fts, repo, vectors
 from backend.db.models import Base, Run
 from backend.llm.client import LocalModel
 from backend.schemas import JobExtract, QuestionExtract
@@ -19,10 +19,15 @@ from backend.schemas import JobExtract, QuestionExtract
 def engine() -> Engine:
     # StaticPool shares the one in-memory connection across the TestClient's
     # worker threads; a plain :memory: engine would give each thread its own DB.
+    # Mirrors repo.make_engine()'s setup (can't call it directly here: it
+    # always calls plain create_engine(), which wouldn't get StaticPool).
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
+    vectors.register_vec_extension(engine)
     Base.metadata.create_all(engine)
+    vectors.create_vec_tables(engine)
+    fts.create_fts_tables(engine)
     return engine
 
 
@@ -282,6 +287,40 @@ def test_stats_totals(client: TestClient, engine: Engine) -> None:
         "companies": 4,
         "escalation_rate": 0.0,
     }
+
+
+def _fake_embed_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    # search.py takes a pre-computed embedding and never calls Ollama
+    # itself (tested for real in test_search.py) — only the route handler
+    # calls embed_text, so that's the one thing to fake here.
+    monkeypatch.setattr(routes, "embed_text", lambda q: b"\x00" * (4 * config.EMBED_DIM))  # noqa: ARG005
+
+
+def test_search_jobs_matches_by_keyword(
+    client: TestClient, engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seed_items(engine)
+    _fake_embed_text(monkeypatch)
+    # "Engineer" alone would OR-match all three seeded jobs (FTS5 tokenizes
+    # on whitespace) — "2" alone is the token unique to job 2.
+    body = client.get("/api/search", params={"q": "2", "kind": "jobs"}).json()
+    assert body["total"] == 1
+    assert body["items"][0]["title"] == "Engineer 2"
+
+
+def test_search_questions_matches_by_keyword(
+    client: TestClient, engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seed_items(engine)
+    _fake_embed_text(monkeypatch)
+    body = client.get("/api/search", params={"q": "linked list", "kind": "questions"}).json()
+    assert body["total"] == 1
+    assert body["items"][0]["question"] == "Reverse a linked list."
+
+
+def test_search_rejects_empty_query(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_embed_text(monkeypatch)
+    assert client.get("/api/search", params={"q": "  ", "kind": "jobs"}).status_code == 422
 
 
 def test_create_and_list_schedules(client: TestClient) -> None:
