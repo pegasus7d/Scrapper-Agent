@@ -13,6 +13,7 @@ dependencies = [
     "anthropic==0.75.0",
     "python-dotenv==1.2.1",
     "httpx==0.28.1",
+    "huey==3.1.1",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +41,10 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 python_version = "3.12"
 strict = true
 packages = ["backend"]
+
+[[tool.mypy.overrides]]
+module = ["huey", "huey.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

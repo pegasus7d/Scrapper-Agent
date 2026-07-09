@@ -9,7 +9,7 @@ import logging
 from collections.abc import Iterator
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
@@ -32,8 +32,8 @@ from backend.api.dto import (
 )
 from backend.api.export import jobs_to_csv, questions_to_csv
 from backend.db import repo
-from backend.scraper.pipeline import build_extractor, build_fetcher, execute_run
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
+from backend.scraper.tasks import run_scrape_task
 
 ExportFormat = Literal["csv", "json"]
 
@@ -55,30 +55,18 @@ LimitParam = Annotated[int, Query(ge=1, le=100)]
 OffsetParam = Annotated[int, Query(ge=0)]
 
 
-def _execute_in_thread(engine: Engine, run_id: int) -> None:
-    """Background half of POST /runs — fresh session, real fetcher and cascade."""
-    with Session(engine) as session:
-        run = repo.get_run(session, run_id)
-        if run is None:  # pragma: no cover - the row was just created
-            logger.error("run %s vanished before execution", run_id)
-            return
-        execute_run(session, run, build_fetcher(run.source), build_extractor())
-
-
 def _attachment(filename: str) -> dict[str, str]:
     return {"Content-Disposition": f'attachment; filename="{filename}"'}
 
 
 @router.post("/runs", status_code=201)
-def start_run(
-    body: RunRequest, background: BackgroundTasks, session: SessionDep, request: Request
-) -> RunCreated:
+def start_run(body: RunRequest, session: SessionDep) -> RunCreated:
     if body.source not in _SOURCES_BY_KIND[body.kind]:
         raise HTTPException(422, f"unknown source for {body.kind}: {body.source}")
     if repo.active_run_exists(session):
         raise HTTPException(409, "a run is already active")
     run = repo.create_run(session, body.kind, body.source)
-    background.add_task(_execute_in_thread, request.app.state.engine, run.id)
+    run_scrape_task(run.id)  # enqueues onto the Huey consumer, doesn't run inline
     return RunCreated(run_id=run.id)
 
 

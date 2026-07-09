@@ -16,10 +16,16 @@ from backend.api.routes import router
 from backend.db import repo
 from backend.scraper.pipeline import build_extractor
 from backend.scraper.scheduler import run_scheduler_loop
+from backend.scraper.tasks import run_consumer
 
 
-def create_app(engine: Engine | None = None, *, start_scheduler: bool = True) -> FastAPI:
-    """Build the app; tests pass their own engine and disable the scheduler thread."""
+def create_app(
+    engine: Engine | None = None,
+    *,
+    start_scheduler: bool = True,
+    start_consumer: bool = True,
+) -> FastAPI:
+    """Build the app; tests pass their own engine and disable both threads."""
     config.configure_logging()
     if engine is None:
         engine = repo.make_engine()
@@ -41,4 +47,6 @@ def create_app(engine: Engine | None = None, *, start_scheduler: bool = True) ->
             target=run_scheduler_loop, args=(engine, build_extractor), daemon=True
         )
         thread.start()
+    if start_consumer:
+        threading.Thread(target=run_consumer, daemon=True).start()
     return app
