@@ -35,7 +35,7 @@ def client(engine: Engine, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     # Execution is the pipeline's job (tested in test_pipeline); here we only
     # verify the wiring: the background task runs and finishes the run.
     monkeypatch.setattr(routes, "_execute_in_thread", fake_execute)
-    return TestClient(create_app(engine))
+    return TestClient(create_app(engine, start_scheduler=False))
 
 
 def seed_items(engine: Engine) -> None:
@@ -138,10 +138,45 @@ def test_stats_totals(client: TestClient, engine: Engine) -> None:
     }
 
 
+def test_create_and_list_schedules(client: TestClient) -> None:
+    created = client.post("/api/schedules", json={"kind": "jobs", "source": "hn", "every_hours": 6})
+    assert created.status_code == 201
+    assert created.json()["enabled"] is True
+    assert created.json()["last_run_at"] is None
+
+    body = client.get("/api/schedules").json()
+    assert len(body) == 1
+    assert body[0]["source"] == "hn"
+
+
+def test_create_schedule_rejects_unknown_source(client: TestClient) -> None:
+    response = client.post(
+        "/api/schedules", json={"kind": "jobs", "source": "bogus", "every_hours": 6}
+    )
+    assert response.status_code == 422
+
+
+def test_create_schedule_rejects_out_of_range_interval(client: TestClient) -> None:
+    response = client.post(
+        "/api/schedules", json={"kind": "jobs", "source": "hn", "every_hours": 0}
+    )
+    assert response.status_code == 422
+
+
+def test_toggle_schedule_flips_enabled_and_404s_when_missing(client: TestClient) -> None:
+    created = client.post(
+        "/api/schedules", json={"kind": "jobs", "source": "hn", "every_hours": 6}
+    ).json()
+    toggled = client.post(f"/api/schedules/{created['id']}/toggle", json={"enabled": False})
+    assert toggled.status_code == 200
+    assert toggled.json()["enabled"] is False
+    assert client.post("/api/schedules/999/toggle", json={"enabled": True}).status_code == 404
+
+
 def test_startup_recovers_stale_runs(engine: Engine) -> None:
     with Session(engine) as session:
         repo.create_run(session, kind="jobs", source="hn")
-    create_app(engine)
+    create_app(engine, start_scheduler=False)
     with Session(engine) as session:
         run = session.get(Run, 1)
         assert run is not None

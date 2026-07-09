@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
@@ -119,6 +119,27 @@ class StatsOut(BaseModel):
     escalation_rate: float
 
 
+class ScheduleRequest(BaseModel):
+    kind: Literal["jobs", "questions"]
+    source: str
+    every_hours: int = Field(ge=1, le=24 * 7)
+
+
+class ToggleRequest(BaseModel):
+    enabled: bool
+
+
+class ScheduleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    kind: str
+    source: str
+    every_hours: int
+    enabled: bool
+    last_run_at: datetime | None
+
+
 def _execute_in_thread(engine: Engine, run_id: int) -> None:
     """Background half of POST /runs — fresh session, real fetcher and cascade."""
     with Session(engine) as session:
@@ -203,3 +224,24 @@ def get_stats(session: SessionDep) -> StatsOut:
         companies=stats.companies,
         escalation_rate=stats.escalation_rate,
     )
+
+
+@router.get("/schedules")
+def list_schedules(session: SessionDep) -> list[ScheduleOut]:
+    return [ScheduleOut.model_validate(s) for s in repo.list_schedules(session)]
+
+
+@router.post("/schedules", status_code=201)
+def create_schedule(body: ScheduleRequest, session: SessionDep) -> ScheduleOut:
+    if body.source not in _SOURCES_BY_KIND[body.kind]:
+        raise HTTPException(422, f"unknown source for {body.kind}: {body.source}")
+    schedule = repo.create_schedule(session, body.kind, body.source, body.every_hours)
+    return ScheduleOut.model_validate(schedule)
+
+
+@router.post("/schedules/{schedule_id}/toggle")
+def toggle_schedule(schedule_id: int, body: ToggleRequest, session: SessionDep) -> ScheduleOut:
+    schedule = repo.set_schedule_enabled(session, schedule_id, body.enabled)
+    if schedule is None:
+        raise HTTPException(404, "schedule not found")
+    return ScheduleOut.model_validate(schedule)

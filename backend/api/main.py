@@ -4,6 +4,8 @@ Run locally with:  uvicorn --factory backend.api.main:create_app --port 8000
 The API binds to localhost and has no auth — it is a local tool (DESIGN.md §4).
 """
 
+import threading
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import Engine
@@ -12,10 +14,12 @@ from sqlalchemy.orm import Session
 from backend import config
 from backend.api.routes import router
 from backend.db import repo
+from backend.scraper.pipeline import build_extractor
+from backend.scraper.scheduler import run_scheduler_loop
 
 
-def create_app(engine: Engine | None = None) -> FastAPI:
-    """Build the app; tests pass their own engine, production uses the default."""
+def create_app(engine: Engine | None = None, *, start_scheduler: bool = True) -> FastAPI:
+    """Build the app; tests pass their own engine and disable the scheduler thread."""
     config.configure_logging()
     if engine is None:
         engine = repo.make_engine()
@@ -31,4 +35,10 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(router, prefix="/api")
+
+    if start_scheduler:
+        thread = threading.Thread(
+            target=run_scheduler_loop, args=(engine, build_extractor), daemon=True
+        )
+        thread.start()
     return app

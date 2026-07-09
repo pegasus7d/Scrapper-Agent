@@ -280,14 +280,14 @@ def list_schedules(session: Session) -> list[Schedule]:
     return list(session.scalars(select(Schedule).order_by(Schedule.id)).all())
 
 
-def set_schedule_enabled(session: Session, schedule_id: int, enabled: bool) -> bool:
-    """Flip a schedule's enabled flag; returns False when it doesn't exist."""
+def set_schedule_enabled(session: Session, schedule_id: int, enabled: bool) -> Schedule | None:
+    """Flip a schedule's enabled flag; returns None when it doesn't exist."""
     schedule = session.get(Schedule, schedule_id)
     if schedule is None:
-        return False
+        return None
     schedule.enabled = enabled
     session.commit()
-    return True
+    return schedule
 
 
 def due_schedules(session: Session, now: datetime) -> list[Schedule]:

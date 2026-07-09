@@ -234,9 +234,10 @@ def test_create_and_list_schedules(session: Session) -> None:
 
 def test_set_schedule_enabled_toggles_and_reports_missing(session: Session) -> None:
     schedule = repo.create_schedule(session, kind="jobs", source="hn", every_hours=6)
-    assert repo.set_schedule_enabled(session, schedule.id, False) is True
+    updated = repo.set_schedule_enabled(session, schedule.id, False)
+    assert updated is not None and updated.enabled is False
     assert repo.list_schedules(session)[0].enabled is False
-    assert repo.set_schedule_enabled(session, 999, True) is False
+    assert repo.set_schedule_enabled(session, 999, True) is None
 
 
 def test_due_schedules_never_run_is_due_immediately(session: Session) -> None:
