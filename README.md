@@ -16,9 +16,9 @@ questions, and live scrape-run status.
 - Technical contract (DB models, modules, API, test plan): [`DESIGN.md`](DESIGN.md)
 - Contributor rules (code quality, testing, git workflow): [`CLAUDE.md`](CLAUDE.md)
 
-> **Status:** design phase complete; backend/frontend are being built step by step
-> (see build order in `DESIGN.md` §8). Sections below describe how running the app
-> will work; commands are updated as each piece lands.
+> **Status:** MVP complete — all build-order steps in `DESIGN.md` §8 are done.
+> Sources: HN "Who is hiring?" for jobs, HN comment search for interview questions
+> (Reddit's robots.txt disallows crawling — see `DESIGN.md` §3).
 
 ## Prerequisites
 
@@ -56,7 +56,7 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env   # .env is gitignored
 **Backend** (from the repo root, venv active):
 
 ```sh
-uvicorn backend.api.main:app --reload --port 8000
+uvicorn --factory backend.api.main:create_app --port 8000
 ```
 
 **Frontend** (separate terminal):
