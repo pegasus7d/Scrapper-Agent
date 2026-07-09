@@ -113,7 +113,8 @@ def _scrape_loop(
         except ValueError as error:  # malformed payload — sources contract
             repo.record_error(session, run, url, str(error))
             continue
-        _extract_chunks(session, run, source, schema, extractor, chunks)
+        if not _extract_chunks(session, run, source, schema, extractor, chunks):
+            return "cancelled"
         queue.extend(links)
         sleep(config.REQUEST_DELAY_S)
     return "completed"
@@ -126,9 +127,15 @@ def _extract_chunks(
     schema: type[ExtractSchema],
     extractor: Extractor[ExtractSchema],
     chunks: list[sources.Chunk],
-) -> None:
-    """Extract and save every chunk; a failed chunk is recorded, not fatal."""
+) -> bool:
+    """Extract and save chunks; a failed chunk is recorded, not fatal.
+
+    One page can carry hundreds of chunks at ~20s of LLM time each, so cancel
+    is re-checked between chunks — returns False when the run was cancelled.
+    """
     for chunk in chunks:
+        if repo.cancel_requested(session, run):
+            return False
         try:
             result = extractor.extract(chunk.text, schema)
         except ExtractionFailed as error:
@@ -136,6 +143,7 @@ def _extract_chunks(
             continue
         for item in result.items:
             _save_item(session, run, source, result.tier, chunk.url, item)
+    return True
 
 
 def _save_item(

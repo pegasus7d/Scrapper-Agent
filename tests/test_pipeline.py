@@ -208,6 +208,30 @@ def test_cancel_request_stops_loop_with_cancelled_status(
     assert fetcher.fetched == [urls[0]]  # second URL never fetched
 
 
+def test_cancel_mid_page_stops_remaining_chunks(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chunks = [Chunk("ad 1", "https://l.com/i/1"), Chunk("ad 2", "https://l.com/i/2")]
+    world = fake_sources([LISTING], chunks={LISTING: chunks})
+
+    class CancellingClient:
+        """Cancels the run while the first chunk is being extracted."""
+
+        def complete(self, prompt: str) -> str:
+            assert repo.request_cancel(session, run_id=1)
+            return job_json("Role")
+
+    run = scrape(
+        session,
+        monkeypatch,
+        sources=world,
+        fetcher=FakeFetcher({LISTING: page(LISTING)}),
+        extractor=Extractor[ExtractSchema](CancellingClient(), frontier=None),
+    )
+    assert run.status == "cancelled"
+    assert run.items_saved == 1  # first chunk finished, second never started
+
+
 def test_malformed_payload_recorded_and_loop_continues(
     session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
