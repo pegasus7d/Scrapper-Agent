@@ -123,3 +123,18 @@ for anyone to review and understand. No slop.
   not revisit these without new evidence the policy changed.
 - Glassdoor/LinkedIn/Indeed are similarly high-friction (login walls, anti-bot) —
   deprioritize unless specifically requested and re-verified.
+
+## Autonomous build loop
+
+Every build-order section (DESIGN.md §8, §9, §10, ...) is meant to be driven
+unattended with `/loop`. Reuse this exact prompt, swapping the section number
+and its final step number for the phase being built:
+
+```
+/loop Work on the project at /Users/debayanbiswas/scraper-agent. Each iteration: read CLAUDE.md and DESIGN.md, look at git log to see what is already done, then implement ONLY the smallest next unit from the phase N build order in DESIGN.md §N. Validate with pytest, mypy, ruff check, ruff format --check, and npm run build for frontend changes; fix until green; then make one small commit. At each step boundary, run the real smoke test described in CLAUDE.md before moving to the next step. Follow every rule in CLAUDE.md strictly. Stop the loop when §N step M is complete and all checks pass.
+```
+
+Used so far: phase 1 (§8, stop at step 6 — the MVP), phase 2 (§9, stop at step
+8), phase 3 (§10, stop at step 4). When a new phase's build order is written,
+add its (§N, final step) pair here rather than re-deriving the prompt from
+scratch.
