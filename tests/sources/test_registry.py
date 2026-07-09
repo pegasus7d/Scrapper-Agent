@@ -41,6 +41,7 @@ def test_job_and_question_sources_are_disjoint_and_registered() -> None:
     assert "remotejobs" in JOB_SOURCES
     assert "hn-interviews" in QUESTION_SOURCES
     assert "github-questions" in QUESTION_SOURCES
+    assert "faqguru-questions" in QUESTION_SOURCES
 
 
 def test_most_sources_default_to_httpx_transport() -> None:
@@ -61,3 +62,8 @@ def test_arbeitnow_doubles_the_politeness_delay() -> None:
 def test_github_questions_relaxes_the_politeness_delay() -> None:
     # GitHub's raw CDN has no robots.txt and can take more load (PHASE4.md step 3).
     assert delay_for("github-questions") == config.REQUEST_DELAY_S / 4
+
+
+def test_faqguru_questions_relaxes_the_politeness_delay() -> None:
+    # Same GitHub raw CDN reasoning as github-questions (PHASE5.md step 7).
+    assert delay_for("faqguru-questions") == config.REQUEST_DELAY_S / 4
