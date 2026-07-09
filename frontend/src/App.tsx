@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Dashboard } from './views/Dashboard'
+import { Jobs } from './views/Jobs'
 
 const VIEWS = ['dashboard', 'jobs', 'questions'] as const
 type View = (typeof VIEWS)[number]
@@ -51,7 +52,9 @@ export default function App() {
         ))}
       </aside>
       <main className="flex-1">
-        {view === 'dashboard' ? <Dashboard /> : <ViewStub name={view} />}
+        {view === 'dashboard' && <Dashboard />}
+        {view === 'jobs' && <Jobs />}
+        {view === 'questions' && <ViewStub name={view} />}
       </main>
     </div>
   )
