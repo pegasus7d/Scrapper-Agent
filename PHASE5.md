@@ -63,6 +63,40 @@ doesn't need. Ruled out for this project's scale.
    multi-source batch through the live API, confirm sequential execution and
    correct per-run rows, plus a real manual multi-source run through the UI
    like phase 4 step 4's smoke test.
+4. **Dependency audit, backend and frontend (unrelated to Huey — bundled in
+   here at explicit request rather than its own phase).** Same discipline
+   that found Scrapling sat unused for HTML-cleaning in phase 4: check every
+   dependency's actual usage against its capability, not what it "seems" to
+   need. One finding already verified: the frontend production bundle is
+   888 KB, over Vite's 500 KB warning threshold; `motion` (used in exactly
+   one place — `AnimatedNumber.tsx`'s stat-card count-up) pulls in the full
+   `framer-motion/dom` build, including gesture/layout/SVG-path engines this
+   app never touches. Its `motion/mini` subpath is *not* a safe swap —
+   confirmed by an actual failed build: `animateMini` only animates a DOM
+   element/selector, not a plain number, which is exactly what this
+   component needs. Replace the one `animate()` call with a hand-rolled
+   `requestAnimationFrame` tween (~15 lines, no library) and drop `motion`
+   entirely. Then: (a) run a real bundle visualizer against the frontend —
+   not just reading import statements, which only show intent, not what
+   survives tree-shaking — before concluding anything about `recharts`,
+   `@base-ui/react`, `cmdk`, or `lucide-react`; (b) re-check every
+   `pyproject.toml` dependency the same way (backend already got this
+   treatment once in phase 4 — Scrapling → `Transport` abstraction — so this
+   is mainly confirming nothing else backend-side is similarly
+   over-provisioned, not expecting a repeat finding). Smoke: `npm run build`
+   with the real before/after bundle size stated, plus a real look at the
+   dashboard's count-up animation in a browser to confirm it still looks
+   right after the hand-rolled replacement. **Done**: measured 888.38 KB →
+   827.08 KB (−61.3 KB, −283 modules); verified in a real headless-Chromium
+   browser (zero console errors, a live 87→88 stat transition confirmed
+   working); backend re-check found nothing. **Not acted on, reported for a
+   decision instead**: a real marginal-contribution measurement (temporarily
+   removing each library and rebuilding) found `recharts` alone accounts for
+   ~351 KB (42% of the remaining 827 KB) for one simple grouped bar chart,
+   and `cmdk` accounts for ~49 KB for the command palette — unlike `motion`,
+   `recharts` was a deliberate, CLAUDE.md-documented phase 2 choice, not
+   silently unused, so swapping or lazy-loading it is a bigger call than
+   this audit's scope covers on its own.
 
 5. **Himalayas job source.** Verified before writing this: `himalayas.app`'s
    `robots.txt` is fully open (`Allow: /`), and `GET
@@ -87,18 +121,35 @@ doesn't need. Ruled out for this project's scale.
    markdown files by topic (`javascript.md`, `react.md`, `nodejs.md`, ...)
    under `raw.githubusercontent.com` — same no-`robots.txt`,
    built-for-programmatic-access reasoning as the existing `h5bp` source
-   (DESIGN.md §3). Extends `sources/questions/github_questions.py` rather
-   than adding a new file: generalize `GitHubQuestions` to take
-   `owner_repo`/`branch`/`files` instead of hardcoded module constants, and
-   register a second instance (e.g. `"faqguru-questions"`) alongside the
-   existing `"github-questions"`. Not yet confirmed and must be checked in
-   this step, not assumed: whether FAQGURU's markdown files use the same
-   flat-bullet structure `_bullet_chunks` parses, or a different
-   heading/paragraph structure requiring its own extraction logic — the
-   README describes "questions along with answers," which may not be a
-   simple bullet list like `h5bp`'s. Smoke: real fetch + local-model
-   extraction of a few real entries, same as the original GitHub-questions
-   smoke test (PHASE3.md step 4).
+   (DESIGN.md §3). Planned to extend `sources/questions/github_questions.py`
+   by generalizing `GitHubQuestions` to take `owner_repo`/`branch`/`files`
+   instead of hardcoded module constants — **did not do that**, because the
+   thing this step said to check turned out to matter: a real fetch showed
+   FAQGURU's files open with a table-of-contents preamble, then the real
+   content as `### Question` headings followed by prose/code-block answers —
+   not `h5bp`'s flat bullet list at all. Reusing `_bullet_chunks` would have
+   silently produced zero chunks, so `FaqguruQuestions` got its own
+   heading-based parser in the same file instead of a generalized shared one.
+   Second real finding, from the smoke test itself: chunking on the full
+   question+answer text tanked local-model extraction (1/15 chunks
+   extracted) — `QuestionExtract` has no answer field anyway, so `Chunk.text`
+   was changed to the bare question only, which measured 12/15 (80%) on the
+   same real chunks. Smoke: real fetch + local-model extraction of real
+   entries (same as PHASE3.md step 4's original), plus a real run through
+   the live API confirming `company: null` rows save correctly with proper
+   GitHub blob line-anchor `source_url`s, before cancelling the long-running
+   full 280-chunk scan.
+
+**Phase 5 (steps 1–7) is complete** — every step validated and smoke-tested.
+Two real bugs surfaced by the required smoke tests, each fixed in its own
+commit: step 4's docs entry above was itself missing from this file until
+being caught here (the code shipped in commit `322f5b6` but the plan was
+never actually written down) — fixed by writing it in now rather than
+silently leaving the gap; and step 7's answer-text-in-chunk issue, above.
+One decision deliberately deferred rather than made unilaterally: whether to
+also address `recharts`'s 351 KB bundle contribution (step 4) — a bigger,
+more consequential call than a dependency audit's scope covers alone, since
+unlike `motion` it was a deliberate, documented choice.
 
 Explicitly considered and excluded from this phase: LinkedIn, Indeed,
 Glassdoor, and Naukri all verified hostile to scraping (LinkedIn's
@@ -114,10 +165,10 @@ reverse-engineering the internal search API. Greenhouse/Lever/Ashby have
 real public per-company APIs but need a company-slug list, a different
 architecture than any current source — deferred.
 
-Open question to settle in step 1, not before: whether `run_scrape_task`
-needs its own SQLAlchemy session per invocation (the consumer thread can't
-share the request-scoped session `execute_run` currently expects) — likely
-mirrors how `run_scheduler_loop` already opens its own `Session(engine)` per
-cycle today.
+Open question, settled in step 1: `run_scrape_task` does open its own
+SQLAlchemy session per invocation (`repo.make_engine()` + `Session(engine)`
+inside the task body) — confirmed to mirror `run_scheduler_loop`'s old
+session-per-cycle pattern exactly, as predicted.
 
-Next: not started yet — this is the current phase.
+Next: no phase 6 yet — propose next steps and wait to be asked, per
+`WORKFLOW.md` rule 7.

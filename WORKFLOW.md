@@ -95,19 +95,25 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   (§8 index + one `PHASE{N}.md` file per phase, instead of everything inline)
   landed alongside the phase, prompted by the same doc-size concern that
   motivated phase 4's own step 1.
-- **Phase 5 — `PHASE5.md` (in progress, started 2026-07-09).** Replace
-  `scheduler.py`'s hand-rolled poll loop and phase 4's frontend queue-runner
-  with `huey` (verified: MIT licensed, `SqliteHuey` needs zero extra
-  services, `huey.consumer.Consumer` runs in-process via a thread — no new
-  infrastructure). Ruled out Celery: needs a Redis/Valkey broker, built for
-  multi-user/distributed workloads this single-user local tool doesn't need.
-  Also: a dependency audit (`motion` pulls in the full `framer-motion/dom`
-  for one count-up animation that doesn't need it) and three new sources —
-  Himalayas, RemoteJobs.org, FAQGURU — each verified for real (`robots.txt`,
-  working API request, or license) before being added. LinkedIn, Indeed,
-  Glassdoor, and Naukri were all checked and rejected as hostile to
-  scraping, the same pattern phase 3 hit with Reddit/LeetCode
-  Discuss/Blind — checking first keeps saving real build time.
+- **Phase 5 — `PHASE5.md` (done 2026-07-09).** Replaced `scheduler.py`'s
+  hand-rolled poll loop and phase 4's frontend queue-runner with `huey`
+  (verified: MIT licensed, `SqliteHuey` needs zero extra services,
+  `huey.consumer.Consumer` runs in-process via a thread — no new
+  infrastructure; ruled out Celery, needs a Redis/Valkey broker, built for
+  multi-user/distributed workloads this single-user local tool doesn't
+  need). Dependency audit dropped `motion` (measured 888.38 KB → 827.08 KB)
+  and surfaced but deliberately didn't act on `recharts`'s 351 KB bundle
+  contribution — a documented phase 2 choice, not silently unused like
+  `motion`, so left for a decision rather than swapped unilaterally. Three
+  new sources — Himalayas, RemoteJobs.org, FAQGURU — each verified for real
+  before being added; LinkedIn, Indeed, Glassdoor, and Naukri were checked
+  and rejected as hostile, the same pattern phase 3 hit with Reddit/LeetCode
+  Discuss/Blind. Two real bugs surfaced by the required smoke tests: step 4's
+  own build-order entry was missing from `PHASE5.md` despite the code having
+  shipped (caught and fixed while closing out the phase); and FAQGURU's
+  chunks tanked local-model extraction (1/15) when they included the answer
+  body — `QuestionExtract` has no answer field, so chunking on the bare
+  question alone fixed it (12/15).
 
 ## What's durable vs. what compacts away
 

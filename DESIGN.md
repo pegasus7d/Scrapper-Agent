@@ -171,12 +171,17 @@ backend/
         remoteok.py    # RemoteOK (PHASE2.md step 7)
         weworkremotely.py # WeWorkRemotely, RSS (PHASE3.md step 2)
         arbeitnow.py   # Arbeitnow, JSON API (PHASE3.md step 3)
+        himalayas.py   # Himalayas, JSON API (PHASE5.md step 5)
+        remotejobs.py  # RemoteJobs.org, JSON API (PHASE5.md step 6)
       questions/
         __init__.py    # this domain's registry dict
         hn.py          # HN comment search (PHASE2.md step 2)
-        github_questions.py # curated question-bank repos (PHASE3.md step 4)
+        github_questions.py # curated question-bank repos: h5bp (PHASE3.md
+                       # step 4) and FAQGURU (PHASE5.md step 7), two
+                       # different markdown structures, two parsers
     pipeline.py        # run_scrape(kind, source): the loop
-    tasks.py           # Huey wiring (PHASE5.md steps 1-2): run_scrape_task,
+    tasks.py           # Huey wiring (PHASE5.md): run_scrape_task,
+                       # run_scrape_batch_item + enqueue_batch (step 3),
                        # dispatch_due_schedule periodic task, in-process consumer
   api/
     main.py            # FastAPI app factory, CORS, router mounting, consumer thread
@@ -357,6 +362,7 @@ with the error message instead of leaving a zombie `"running"` row.
 | method | path                  | purpose                                        |
 |--------|-----------------------|------------------------------------------------|
 | POST   | `/api/runs`           | start a run: `{kind, source}` → `{run_id}` (409 if a run is already active) |
+| POST   | `/api/runs/batch`     | queue multiple sources as one Huey pipeline: `{kind, sources}` → `{queued}` (PHASE5.md step 3; 409 if a run is already active) |
 | POST   | `/api/runs/{id}/cancel` | request cancellation; run stops at the next loop iteration |
 | GET    | `/api/runs`           | list runs, newest first                        |
 | GET    | `/api/runs/{id}`      | one run incl. live counters + errors           |
@@ -489,7 +495,7 @@ docs instead of code:
   protocol/registry, WeWorkRemotely, Arbeitnow, curated GitHub questions.
 - **`PHASE4.md`** — architecture for scale (done): domain-split sources,
   `Transport` protocol, per-source politeness, multi-select scrape UI.
-- **`PHASE5.md`** — Huey, dependency audit, and 3 new sources (current):
+- **`PHASE5.md`** — Huey, dependency audit, and 3 new sources (done):
   replaces `scheduler.py`'s hand-rolled poll loop and the phase 4 frontend
   queue-runner with `SqliteHuey` tasks/pipelines running in-process; drops
   the oversized `motion` dependency; adds Himalayas, RemoteJobs.org, and
