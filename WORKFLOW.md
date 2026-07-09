@@ -95,6 +95,12 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   (§8 index + one `PHASE{N}.md` file per phase, instead of everything inline)
   landed alongside the phase, prompted by the same doc-size concern that
   motivated phase 4's own step 1.
+- **Phase 5 — `PHASE5.md` (in progress, started 2026-07-09).** Replace
+  `scheduler.py`'s hand-rolled poll loop and phase 4's frontend queue-runner
+  with `huey` (verified: MIT licensed, `SqliteHuey` needs zero extra
+  services, `huey.consumer.Consumer` runs in-process via a thread — no new
+  infrastructure). Ruled out Celery: needs a Redis/Valkey broker, built for
+  multi-user/distributed workloads this single-user local tool doesn't need.
 
 ## What's durable vs. what compacts away
 
