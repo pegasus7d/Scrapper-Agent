@@ -4,10 +4,9 @@ Read [[DESIGN.md]] first for the system contract; this file only holds phase 7's
 step-by-step build order and rationale. See [[WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as [[PHASE1.md]]–[[PHASE6.md]]. **Scoped but not started** —
-per WORKFLOW.md rule 3, docs land first, on their own commit, before any code.
-Three research threads, requested directly rather than proposed, each verified
-before being written down here (WORKFLOW.md rule 2):
+Same workflow rules as [[PHASE1.md]]–[[PHASE6.md]]. Three research threads,
+requested directly rather than proposed, each verified before being written
+down here (WORKFLOW.md rule 2):
 
 - **Migration tooling.** `repo._ensure_runs_model_column()` (phase 6 step 3) is
   a one-off, hand-rolled `PRAGMA table_info` + `ALTER TABLE` check — it exists
@@ -98,12 +97,7 @@ before being written down here (WORKFLOW.md rule 2):
   real target roles are known, this direction becomes the concrete way to
   check whether specific companies are hiring for them.
 
-## Build order (draft — not started, confirm before running `/loop`)
-
-Numbered for reference; each item above needs its own confirmation loop
-(WORKFLOW.md rule 1: discuss scope before building) before this is locked in
-as an actual `/loop`-driven sequence, the same way PHASE6.md's steps were
-negotiated across several turns before any code landed.
+## Build order
 
 1. **Alembic wired in, current schema captured as-is (backend).** Add
    `alembic` to `pyproject.toml`. Initialize, point `env.py` at `Base.metadata`
@@ -164,5 +158,4 @@ negotiated across several turns before any code landed.
    the exact UI shape once step 8 is real. `npm run build` gate; real look
    in a browser.
 
-Next: not started — propose refinements or confirm this build order before
-driving it with `/loop`, per [[WORKFLOW.md]] rule 1.
+Next: in progress — driven by `/loop`, one step at a time.

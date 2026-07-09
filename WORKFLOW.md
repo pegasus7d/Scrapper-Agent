@@ -151,7 +151,7 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   genuinely cutting round-trips vs. the old poll) and correctly concluded
   no code change was needed at the app's real current scale — not forcing
   a change just to have done something.
-- **Phase 7 — [[PHASE7.md]] (scoped, not started, 2026-07-10).** Three
+- **Phase 7 — [[PHASE7.md]] (in progress, started 2026-07-10).** Three
   action items requested directly rather than proposed: real migration
   tooling (Alembic, replacing phase 6 step 3's hand-rolled schema patch),
   resume PDF upload → Markdown → LLM-derived job-search positions
