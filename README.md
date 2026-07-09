@@ -14,6 +14,7 @@ questions, and live scrape-run status.
 
 - Product idea and rationale: [`IDEA.md`](IDEA.md)
 - Technical contract (DB models, modules, API, test plan): [`DESIGN.md`](DESIGN.md)
+- Module contracts, extraction cascade, fetcher/pipeline internals: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - Contributor rules (code quality, testing, git workflow): [`CLAUDE.md`](CLAUDE.md)
 
 > **Status:** MVP complete — all build-order steps in `DESIGN.md` §8 are done.
