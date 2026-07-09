@@ -192,6 +192,33 @@ down here (WORKFLOW.md rule 2):
    the resume Markdown, validated the same way `JobExtract`/`QuestionExtract`
    are. Smoke: run against the user's real resume, manually confirm every
    generated position is defensible from its actual content.
+   **Done, and reused more than planned.** Rather than a second, parallel
+   LLM-calling mechanism, this reuses the *exact same* `Extractor` cascade
+   (retry once, optional frontier escalation) job/question extraction
+   already uses — one new schema (`ResumePosition`, singular: one title per
+   item, same list-of-items shape `Extractor` already expects) plus one
+   new `_SCHEMA_LABELS`/`_SCHEMA_CRITERIA` entry in `prompts.py`, not a new
+   prompt-building or retry system. The generic "Extract every {label}"
+   template phrasing is a little imprecise for a synthesis task (nothing
+   is literally "extracted" from a resume the way a job posting's title
+   is) — the criteria text says so explicitly ("you are synthesizing, not
+   extracting literal matches") so the model doesn't treat this like
+   copying text out.
+   `derive_search_positions(markdown, extractor)` takes its `Extractor` as
+   an injected parameter (`build_resume_extractor()` at the real call
+   site) rather than building one internally — same dependency-injection
+   discipline `pipeline.py`'s `execute_run(extractor=...)` already uses,
+   the only way a test can substitute a fake without a real Ollama call.
+   Smoke: real resume Markdown (from step 2's real
+   `resume-backend.pdf`) through the live API returned exactly three
+   positions — "Backend Engineer", "Software Engineer", "Distributed
+   Systems Engineer" — each genuinely defensible: the first two are
+   verbatim from the resume's own summary line and job title, the third
+   is explicitly named in the summary and backed by real distributed-
+   tracing/microservices/pipeline work described further down. No
+   hallucinated roles despite tangential resume content (DuckDB,
+   analytics dashboards) that a less careful prompt might have latched
+   onto.
 4. **Resume upload UI (frontend).** A real place to upload a PDF and see the
    derived positions — likely feeding directly into the existing "New
    scrape" source picker or the search command palette, decide once step 3

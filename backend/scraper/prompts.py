@@ -11,6 +11,7 @@ from pydantic import BaseModel
 _SCHEMA_LABELS = {
     "JobExtract": "job posting",
     "QuestionExtract": "interview question",
+    "ResumePosition": "job title this candidate should search for",
 }
 
 # Extra criteria per schema, appended to the base template — the relevance gate
@@ -31,6 +32,15 @@ _SCHEMA_CRITERIA = {
         "(3) the question itself is stated concretely, not merely referenced "
         "('they asked good questions' does not count). If nothing in the text meets "
         'these, respond with {"items": []} — do not force an extraction.'
+    ),
+    "ResumePosition": (
+        "The text below is a candidate's resume, not a job posting — you are "
+        "synthesizing, not extracting literal matches. Based ONLY on the "
+        "actual experience, skills, and seniority level stated in the resume, "
+        'list specific, searchable job titles (e.g. "Backend Engineer", '
+        '"Distributed Systems Engineer"), never vague categories '
+        '("Software") or a title requiring skills/years the resume does not '
+        "show. Do not invent a role the resume doesn't support."
     ),
 }
 

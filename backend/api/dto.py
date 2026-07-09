@@ -139,3 +139,7 @@ class ScheduleOut(BaseModel):
 
 class ResumeMarkdown(BaseModel):
     markdown: str
+
+
+class ResumePositionsOut(BaseModel):
+    positions: list[str]

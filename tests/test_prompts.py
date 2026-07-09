@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.schemas import JobExtract, QuestionExtract
+from backend.schemas import JobExtract, QuestionExtract, ResumePosition
 from backend.scraper.prompts import extraction_prompt, retry_prompt, wrapper_schema
 
 
@@ -35,6 +35,15 @@ def test_question_prompt_allows_generic_companyless_questions() -> None:
     prompt = extraction_prompt(QuestionExtract, "They asked me to invert a tree.")
     assert "generic reference source" in prompt
     assert "set `company` to null" in prompt
+
+
+def test_resume_position_prompt_frames_synthesis_not_extraction() -> None:
+    # PHASE7.md step 3: this schema doesn't hold literal matches in the
+    # text the way JobExtract/QuestionExtract do — the prompt must say so.
+    prompt = extraction_prompt(ResumePosition, "Backend Engineer, 3 years Python.")
+    assert "synthesizing, not extracting" in prompt
+    assert "Do not invent a role the resume doesn't support" in prompt
+    assert "Backend Engineer, 3 years Python." in prompt
 
 
 def test_unknown_schema_raises() -> None:

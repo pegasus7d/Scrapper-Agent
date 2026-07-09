@@ -14,6 +14,7 @@ from backend.db import migrate, repo, vectors
 from backend.db.models import Run
 from backend.llm.client import LocalModel
 from backend.schemas import JobExtract, QuestionExtract
+from backend.scraper.extractor import ExtractionFailed
 
 
 @pytest.fixture
@@ -344,6 +345,28 @@ def test_upload_resume_rejects_non_pdf(client: TestClient) -> None:
         files={"file": ("resume.pdf", b"not a real pdf", "application/pdf")},
     )
     assert response.status_code == 422
+
+
+def test_resume_positions_returns_derived_titles(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        routes, "derive_search_positions", lambda markdown, extractor: ["Backend Engineer"]
+    )
+    response = client.post("/api/resume/positions", json={"markdown": "some resume text"})
+    assert response.status_code == 200
+    assert response.json() == {"positions": ["Backend Engineer"]}
+
+
+def test_resume_positions_maps_extraction_failure_to_502(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail(markdown: str, extractor: object) -> list[str]:
+        raise ExtractionFailed("local model failed twice, escalation disabled: bad json")
+
+    monkeypatch.setattr(routes, "derive_search_positions", fail)
+    response = client.post("/api/resume/positions", json={"markdown": "some resume text"})
+    assert response.status_code == 502
 
 
 def test_create_and_list_schedules(client: TestClient) -> None:

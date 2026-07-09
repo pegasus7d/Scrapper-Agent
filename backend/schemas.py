@@ -59,3 +59,11 @@ class QuestionExtract(BaseModel):
     _normalize_nullable = field_validator("company", "role", "round", mode="before")(
         _none_if_null_like
     )
+
+
+class ResumePosition(BaseModel):
+    """One job title/role worth searching for, derived from a resume
+    (PHASE7.md step 3) — not a scraped item, but the same
+    validate-before-trusting discipline applies."""
+
+    title: NonEmptyStr
