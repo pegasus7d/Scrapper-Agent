@@ -7,6 +7,7 @@ import logging
 import xml.etree.ElementTree as ET
 from typing import Literal
 
+from backend import config
 from backend.scraper.fetcher import Page
 from backend.scraper.sources._base import MIN_CHUNK_CHARS, Chunk, clean_html
 
@@ -20,6 +21,7 @@ class WeWorkRemotely:
 
     kind: Literal["jobs", "questions"] = "jobs"
     transport: Literal["httpx", "scrapling"] = "httpx"
+    delay_s: float = config.REQUEST_DELAY_S
 
     def seed_urls(self) -> list[str]:
         return [_RSS_URL]

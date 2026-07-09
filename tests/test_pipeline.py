@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend import config
 from backend.db import repo
 from backend.db.models import Job, Run
 from backend.llm.client import FrontierClient
@@ -14,8 +15,9 @@ from backend.schemas import JobExtract, QuestionExtract
 from backend.scraper import pipeline
 from backend.scraper.extractor import Extractor
 from backend.scraper.fetcher import FetchError, Page, PageFetcher
-from backend.scraper.pipeline import ExtractSchema, build_extractor, run_scrape
+from backend.scraper.pipeline import ExtractSchema, build_extractor, build_fetcher, run_scrape
 from backend.scraper.sources import Chunk
+from backend.scraper.transport import HttpxTransport, ScraplingTransport
 
 LISTING = "https://l.com/listing"
 GARBAGE = "not json at all"
@@ -76,6 +78,7 @@ def fake_sources(
         seed_urls=lambda source: list(seeds),
         split_items=lambda page, source: (chunks or {}).get(page.url, []),
         next_links=lambda page, source: (links or {}).get(page.url, []),
+        delay_for=lambda source: 0.0,
     )
 
 
@@ -341,3 +344,20 @@ def test_build_extractor_with_api_key_enables_frontier(
 ) -> None:
     monkeypatch.setattr(pipeline.config, "anthropic_api_key", lambda: "sk-test")
     assert isinstance(build_extractor()._frontier, FrontierClient)
+
+
+def test_build_fetcher_defaults_to_httpx_transport() -> None:
+    fetcher = build_fetcher("hn")
+    assert isinstance(fetcher._transport, HttpxTransport)
+    assert fetcher._delay_s == config.REQUEST_DELAY_S
+
+
+def test_build_fetcher_honors_a_source_forced_onto_scrapling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(pipeline.sources, "transport_for", lambda source: "scrapling")
+    assert isinstance(build_fetcher("hn")._transport, ScraplingTransport)
+
+
+def test_build_fetcher_honors_arbeitnows_doubled_delay() -> None:
+    assert build_fetcher("arbeitnow")._delay_s == config.REQUEST_DELAY_S * 2

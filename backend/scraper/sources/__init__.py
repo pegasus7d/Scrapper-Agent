@@ -49,12 +49,18 @@ def transport_for(source: str) -> Literal["httpx", "scrapling"]:
     return _get(source).transport
 
 
+def delay_for(source: str) -> float:
+    """This source's own politeness delay between page fetches (PHASE4.md step 3)."""
+    return _get(source).delay_s
+
+
 __all__ = [
     "Chunk",
     "JOB_SOURCES",
     "QUESTION_SOURCES",
     "SOURCES",
     "Source",
+    "delay_for",
     "next_links",
     "seed_urls",
     "split_items",

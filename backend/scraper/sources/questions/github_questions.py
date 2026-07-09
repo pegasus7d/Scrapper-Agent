@@ -18,6 +18,7 @@ import logging
 import re
 from typing import Literal
 
+from backend import config
 from backend.scraper.fetcher import Page
 from backend.scraper.sources._base import Chunk, collapse_whitespace
 
@@ -43,6 +44,9 @@ class GitHubQuestions:
 
     kind: Literal["jobs", "questions"] = "questions"
     transport: Literal["httpx", "scrapling"] = "httpx"
+    # GitHub's raw CDN has no robots.txt and is built for programmatic access —
+    # it can take more load than a small job board, so skip the global delay.
+    delay_s: float = config.REQUEST_DELAY_S / 4
 
     def seed_urls(self) -> list[str]:
         return [_RAW_URL.format(file=name) for name in _FILES]

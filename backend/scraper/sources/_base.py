@@ -31,10 +31,14 @@ class Source(Protocol):
     (`sources/__init__.py`) — a new source only needs to declare it once.
     `transport` (PHASE4.md step 2) picks this source's `Transport`, defaulting
     to `"httpx"` since no current source needs Scrapling's HTML-cleaning or
-    stealth fetch."""
+    stealth fetch. `delay_s` (PHASE4.md step 3) is this source's own
+    politeness delay between page fetches, defaulting to
+    `config.REQUEST_DELAY_S`; a source overrides it for a stricter or looser
+    site than that global default fits."""
 
     kind: Literal["jobs", "questions"]
     transport: Literal["httpx", "scrapling"]
+    delay_s: float
 
     def seed_urls(self) -> list[str]: ...
     def next_links(self, page: Page) -> list[str]: ...

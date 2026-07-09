@@ -49,8 +49,12 @@ def build_extractor() -> Extractor[ExtractSchema]:
 
 def build_fetcher(source: str) -> PageFetcher:
     """Wire a PageFetcher using the given source's own transport choice
-    (PHASE4.md step 2) — most sources default to the plain HttpxTransport."""
-    return PageFetcher(transport=_TRANSPORTS[sources.transport_for(source)]())
+    (PHASE4.md step 2) and politeness delay (PHASE4.md step 3) — most sources
+    default to the plain HttpxTransport and the global REQUEST_DELAY_S."""
+    return PageFetcher(
+        transport=_TRANSPORTS[sources.transport_for(source)](),
+        delay_s=sources.delay_for(source),
+    )
 
 
 def run_scrape(
@@ -128,7 +132,7 @@ def _scrape_loop(
         if not _extract_chunks(session, run, source, schema, extractor, chunks):
             return "cancelled"
         queue.extend(links)
-        sleep(config.REQUEST_DELAY_S)
+        sleep(sources.delay_for(source))
     return "completed"
 
 

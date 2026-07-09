@@ -2,13 +2,16 @@
 
 import pytest
 
+from backend import config
 from backend.scraper.fetcher import Page
 from backend.scraper.sources import (
     JOB_SOURCES,
     QUESTION_SOURCES,
+    delay_for,
     next_links,
     seed_urls,
     split_items,
+    transport_for,
 )
 
 BLANK_PAGE = Page(url="https://x.com", markdown="", raw="{}")
@@ -36,3 +39,23 @@ def test_job_and_question_sources_are_disjoint_and_registered() -> None:
     assert "arbeitnow" in JOB_SOURCES
     assert "hn-interviews" in QUESTION_SOURCES
     assert "github-questions" in QUESTION_SOURCES
+
+
+def test_most_sources_default_to_httpx_transport() -> None:
+    for source in ("hn", "remoteok", "weworkremotely", "hn-interviews"):
+        assert transport_for(source) == "httpx"
+
+
+def test_most_sources_use_the_global_politeness_delay() -> None:
+    for source in ("hn", "remoteok", "weworkremotely", "hn-interviews"):
+        assert delay_for(source) == config.REQUEST_DELAY_S
+
+
+def test_arbeitnow_doubles_the_politeness_delay() -> None:
+    # Its own API terms say "please do not abuse" (PHASE4.md step 3).
+    assert delay_for("arbeitnow") == config.REQUEST_DELAY_S * 2
+
+
+def test_github_questions_relaxes_the_politeness_delay() -> None:
+    # GitHub's raw CDN has no robots.txt and can take more load (PHASE4.md step 3).
+    assert delay_for("github-questions") == config.REQUEST_DELAY_S / 4

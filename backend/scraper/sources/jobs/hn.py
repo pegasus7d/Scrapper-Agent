@@ -10,6 +10,7 @@ import logging
 from typing import Any, Literal
 from urllib.parse import urlparse
 
+from backend import config
 from backend.scraper.fetcher import Page
 from backend.scraper.sources._base import MIN_CHUNK_CHARS, Chunk, clean_html
 
@@ -29,6 +30,7 @@ class HNJobs:
 
     kind: Literal["jobs", "questions"] = "jobs"
     transport: Literal["httpx", "scrapling"] = "httpx"
+    delay_s: float = config.REQUEST_DELAY_S
 
     def seed_urls(self) -> list[str]:
         return [_ALGOLIA_SEARCH_URL]

@@ -10,6 +10,7 @@ import json
 import logging
 from typing import Literal
 
+from backend import config
 from backend.scraper.fetcher import Page
 from backend.scraper.sources._base import MIN_CHUNK_CHARS, Chunk, clean_html, collapse_whitespace
 
@@ -23,6 +24,9 @@ class Arbeitnow:
 
     kind: Literal["jobs", "questions"] = "jobs"
     transport: Literal["httpx", "scrapling"] = "httpx"
+    # Arbeitnow's own API terms say "please do not abuse" — double the
+    # global politeness delay between paginated pages.
+    delay_s: float = config.REQUEST_DELAY_S * 2
 
     def seed_urls(self) -> list[str]:
         return [_API_URL]

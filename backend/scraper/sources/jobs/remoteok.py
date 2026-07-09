@@ -8,6 +8,7 @@ import json
 import logging
 from typing import Literal
 
+from backend import config
 from backend.scraper.fetcher import Page
 from backend.scraper.sources._base import MIN_CHUNK_CHARS, Chunk, clean_html, collapse_whitespace
 
@@ -21,6 +22,7 @@ class RemoteOK:
 
     kind: Literal["jobs", "questions"] = "jobs"
     transport: Literal["httpx", "scrapling"] = "httpx"
+    delay_s: float = config.REQUEST_DELAY_S
 
     def seed_urls(self) -> list[str]:
         return [_REMOTEOK_API_URL]
