@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
 import type { RunCreated, RunKind } from '../api/types'
+import { SOURCES } from '../lib/sources'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -18,12 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-
-// Mirrors JOB_SOURCES / QUESTION_SOURCES in backend/scraper/sources.py.
-const SOURCES: Record<RunKind, string[]> = {
-  jobs: ['hn'],
-  questions: ['hn-interviews'],
-}
 
 interface Props {
   onClose: () => void

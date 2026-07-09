@@ -7,6 +7,7 @@ import { AnimatedNumber } from '../components/AnimatedNumber'
 import { NewScrapeModal } from '../components/NewScrapeModal'
 import { RunProgressPanel } from '../components/RunProgressPanel'
 import { RunsChart } from '../components/RunsChart'
+import { SchedulesPanel } from '../components/SchedulesPanel'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Skeleton } from '../components/ui/skeleton'
@@ -135,6 +136,10 @@ export function Dashboard() {
           <RunProgressPanel run={activeRun} />
         </div>
       )}
+
+      <div className="mt-6">
+        <SchedulesPanel />
+      </div>
 
       {runItems.length > 0 && (
         <div className="mt-6 rounded-xl border border-border bg-card p-5">

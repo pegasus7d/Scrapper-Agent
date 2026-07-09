@@ -64,3 +64,12 @@ export interface Stats {
   companies: number
   escalation_rate: number
 }
+
+export interface Schedule {
+  id: number
+  kind: string
+  source: string
+  every_hours: number
+  enabled: boolean
+  last_run_at: string | null
+}
