@@ -1,4 +1,3 @@
-import { animate } from 'motion'
 import { useEffect, useRef, useState } from 'react'
 
 interface Props {
@@ -6,8 +5,13 @@ interface Props {
   formatter?: (value: number) => string
 }
 
+const DURATION_MS = 500
+
 // Counts up from the previous value to the new one whenever it changes —
-// the one deliberate motion usage for this step (PHASE2.md step 5); the
+// hand-rolled requestAnimationFrame tween instead of pulling in `motion`
+// for one simple numeric animation (PHASE5.md step 4: `motion` pulled in
+// the full framer-motion/dom build, including gesture/layout/SVG-path
+// engines this app never touched, for exactly this one call). The
 // dialog/sheet/dropdown transitions already come from Base UI for free.
 export function AnimatedNumber({ value, formatter = (n) => String(Math.round(n)) }: Props) {
   const [display, setDisplay] = useState(value)
@@ -15,13 +19,20 @@ export function AnimatedNumber({ value, formatter = (n) => String(Math.round(n))
 
   useEffect(() => {
     const from = previous.current
-    const controls = animate(from, value, {
-      duration: 0.5,
-      ease: 'easeOut',
-      onUpdate: setDisplay,
-    })
+    const to = value
+    const start = performance.now()
+    let frame: number
+
+    function tick(now: number) {
+      const t = Math.min((now - start) / DURATION_MS, 1)
+      const eased = 1 - (1 - t) ** 3 // cubic ease-out, matches the old `ease: 'easeOut'`
+      setDisplay(from + (to - from) * eased)
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+
+    frame = requestAnimationFrame(tick)
     previous.current = value
-    return () => controls.stop()
+    return () => cancelAnimationFrame(frame)
   }, [value])
 
   return <>{formatter(display)}</>
