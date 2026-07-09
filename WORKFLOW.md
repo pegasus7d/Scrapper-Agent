@@ -114,22 +114,52 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   chunks tanked local-model extraction (1/15) when they included the answer
   body — `QuestionExtract` has no answer field, so chunking on the bare
   question alone fixed it (12/15).
-- **Phase 6 — [[PHASE6.md]] (in progress, started 2026-07-10).** Search over
-  scraped data, live updates, and a cleanup pass. Considered PageIndex-style
-  vectorless RAG, ruled out: it solves lossy chunking in one *long*
-  continuous document, but this app's data is thousands of independent
-  *short*, already-atomic records — the problem it fixes doesn't apply.
-  Went with `sqlite-vec` (verified: real, dual MIT/Apache-2.0, pre-1.0) +
-  FTS5 hybrid search instead, no new infrastructure. Considered WebSocket
-  for live run updates, went with SSE instead — one-directional
-  server→client fits exactly, WS's bidirectional channel would be unused.
-  Considered adding cloud free-tier LLM providers (Groq, Gemini, OpenRouter)
-  for model choice, explicitly rejected: their free tiers are provider
-  policy, not guarantees, and change often (Gemini's was already cut once
-  in late 2025) — stayed Ollama-only, always free, no account. Verified a
-  real, measured extraction-reliability win along the way: constraining
-  Ollama's `format` to the actual schema instead of bare `"json"` dropped
-  validation failures from 1/10 to 0/10 on live job chunks.
+- **Phase 6 — [[PHASE6.md]] (done 2026-07-10).** Search over scraped data,
+  live updates, and a cleanup pass. Considered PageIndex-style vectorless
+  RAG, ruled out: it solves lossy chunking in one *long* continuous
+  document, but this app's data is thousands of independent *short*,
+  already-atomic records — the problem it fixes doesn't apply. Went with
+  `sqlite-vec` (verified: real, dual MIT/Apache-2.0, pre-1.0) + FTS5 hybrid
+  search instead, no new infrastructure. Considered WebSocket for live run
+  updates, went with SSE instead — one-directional server→client fits
+  exactly, WS's bidirectional channel would be unused. Considered adding
+  cloud free-tier LLM providers (Groq, Gemini, OpenRouter) for model
+  choice, explicitly rejected: their free tiers are provider policy, not
+  guarantees, and change often (Gemini's was already cut once in late
+  2025) — stayed Ollama-only, always free, no account. Verified a real,
+  measured extraction-reliability win along the way: constraining Ollama's
+  `format` to the actual schema instead of bare `"json"` dropped
+  validation failures from 1/10 to 0/10 on live job chunks (though a
+  second, fresh-sample smoke test later measured 0/10 vs 0/10 — reported
+  honestly rather than re-run to match the first number).
+  Three real bugs surfaced by required smoke tests, none guessed at:
+  `Base.metadata.create_all()` only creates missing tables, never alters
+  existing ones — the real dev `scraper.db` broke on first read the moment
+  the `runs.model` column landed, fixed with a small defensive `ALTER
+  TABLE` migration rather than requiring real user data to be deleted.
+  The local model sometimes emits the JSON *string* `"null"` instead of an
+  actual null for a nullable field — confirmed in production data (a
+  `github-questions` row had both `role` and `round` set to the literal
+  text `"null"`) — fixed with a shared Pydantic validator normalizing
+  null-like strings across every nullable field in both extraction
+  schemas. And `test_api.py`'s hand-built engine fixture had silently
+  drifted out of sync with what `repo.make_engine()` actually sets up,
+  breaking 6 tests the moment FTS5 indexing became unconditional — fixed
+  by mirroring the real setup in the fixture. The final bottleneck-pass
+  step measured real numbers (list/stats endpoints 1.6–4.2ms, search
+  ~20–35ms warm / 703ms Ollama-cold-load on the very first call, SSE
+  genuinely cutting round-trips vs. the old poll) and correctly concluded
+  no code change was needed at the app's real current scale — not forcing
+  a change just to have done something.
+- **Phase 7 — [[PHASE7.md]] (scoped, not started, 2026-07-10).** Three
+  action items requested directly rather than proposed: real migration
+  tooling (Alembic, replacing phase 6 step 3's hand-rolled schema patch),
+  resume PDF upload → Markdown → LLM-derived job-search positions
+  (`pymupdf4llm` verified real and tested against the user's own resume
+  from `~/Downloads`, picked over the much heavier `markitdown`), and a new
+  company-career-page source direction (Greenhouse/Lever, resuming a
+  thread phase 5 explicitly deferred — both APIs re-verified live today).
+  Docs written and committed first, per rule 3; no code yet.
 
 ## What's durable vs. what compacts away
 

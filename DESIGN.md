@@ -377,6 +377,11 @@ docs instead of code:
   updates via SSE, `sqlite-vec` + FTS5 hybrid search, drops `recharts`,
   README rewrite, real bottleneck pass (no code change needed — nothing
   measured slow at current scale).
+- **[[PHASE7.md]]** — real migrations, resume-driven search, company career
+  pages (scoped, not started): replaces the hand-rolled schema-patch
+  function from phase 6 step 3 with real Alembic migrations; resume PDF
+  upload → Markdown → LLM-derived search positions; a new company-career-page
+  source direction (Greenhouse/Lever, resuming a thread phase 5 deferred).
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
