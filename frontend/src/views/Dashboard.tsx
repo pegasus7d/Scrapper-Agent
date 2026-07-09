@@ -1,8 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
 import type { Paginated, Run, Stats } from '../api/types'
 import { NewScrapeModal } from '../components/NewScrapeModal'
+import { RunProgressPanel } from '../components/RunProgressPanel'
+import { RunsChart } from '../components/RunsChart'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Skeleton } from '../components/ui/skeleton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { useApi } from '../hooks/useApi'
 import { formatPercent, formatTime } from '../lib/format'
 
@@ -13,50 +20,65 @@ const STATUS_STYLE: Record<Run['status'], string> = {
   cancelled: 'bg-slate-100 text-slate-600',
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5">
       <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+      {value === null ? (
+        <Skeleton className="mt-2 h-7 w-16" />
+      ) : (
+        <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+      )}
     </div>
   )
 }
 
 function StatusBadge({ status }: { status: Run['status'] }) {
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[status]}`}>
-      {status}
-    </span>
-  )
+  return <Badge className={STATUS_STYLE[status]}>{status}</Badge>
 }
 
 function RunRow({ run, onCancel }: { run: Run; onCancel: (id: number) => void }) {
   return (
-    <tr className="border-t border-slate-100">
-      <td className="px-4 py-3 text-slate-500">#{run.id}</td>
-      <td className="px-4 py-3">
+    <TableRow>
+      <TableCell className="text-slate-500">#{run.id}</TableCell>
+      <TableCell>
         {run.kind} / {run.source}
-      </td>
-      <td className="px-4 py-3">
+      </TableCell>
+      <TableCell>
         <StatusBadge status={run.status} />
-      </td>
-      <td className="px-4 py-3 text-right">{run.pages_fetched}</td>
-      <td className="px-4 py-3 text-right">{run.items_saved}</td>
-      <td className="px-4 py-3 text-right">{run.errors.length}</td>
-      <td className="px-4 py-3 text-slate-500">{formatTime(run.started_at)}</td>
-      <td className="px-4 py-3 text-right">
+      </TableCell>
+      <TableCell className="text-right">{run.pages_fetched}</TableCell>
+      <TableCell className="text-right">{run.items_saved}</TableCell>
+      <TableCell className="text-right">{run.errors.length}</TableCell>
+      <TableCell className="text-slate-500">{formatTime(run.started_at)}</TableCell>
+      <TableCell className="text-right">
         {run.status === 'running' && !run.cancel_requested && (
-          <button
-            type="button"
-            className="text-xs font-medium text-rose-600 hover:text-rose-800"
-            onClick={() => onCancel(run.id)}
-          >
+          <Button variant="ghost" size="xs" onClick={() => onCancel(run.id)}>
             Cancel
-          </button>
+          </Button>
         )}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
+}
+
+// Fires a toast the moment a run's status flips from "running" to a terminal
+// state — the dashboard already polls every 3s while a run is active, this
+// just surfaces the transition instead of leaving it to a silent badge change.
+function useRunLifecycleToasts(runs: Run[]) {
+  const previous = useRef(new Map<number, Run['status']>())
+  useEffect(() => {
+    for (const run of runs) {
+      const before = previous.current.get(run.id)
+      if (before === 'running' && run.status !== 'running') {
+        const label = `Run #${run.id} (${run.kind}/${run.source})`
+        if (run.status === 'completed') toast.success(`${label} completed — ${run.items_saved} saved`)
+        else if (run.status === 'failed') toast.error(`${label} failed`)
+        else toast.info(`${label} cancelled`)
+      }
+      previous.current.set(run.id, run.status)
+    }
+  }, [runs])
 }
 
 export function Dashboard() {
@@ -65,11 +87,14 @@ export function Dashboard() {
   const [pollMs, setPollMs] = useState<number | undefined>(undefined)
   const runs = useApi<Paginated<Run>>('/runs', pollMs)
   const stats = useApi<Stats>('/stats', pollMs)
-  const anyActive = runs.data?.items.some((run) => run.status === 'running') ?? false
+  const runItems = runs.data?.items ?? []
+  const activeRun = runItems.find((run) => run.status === 'running')
 
   useEffect(() => {
-    setPollMs(anyActive ? 3000 : undefined)
-  }, [anyActive])
+    setPollMs(activeRun ? 3000 : undefined)
+  }, [activeRun])
+
+  useRunLifecycleToasts(runItems)
 
   async function cancelRun(id: number) {
     await apiPost(`/runs/${id}/cancel`)
@@ -80,54 +105,64 @@ export function Dashboard() {
     <div className="p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
-        <button
-          type="button"
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white
-            hover:bg-indigo-700"
-          onClick={() => setShowModal(true)}
-        >
-          New scrape
-        </button>
+        <Button onClick={() => setShowModal(true)}>New scrape</Button>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Jobs" value={String(stats.data?.jobs ?? '—')} />
-        <StatCard label="Questions" value={String(stats.data?.questions ?? '—')} />
-        <StatCard label="Companies" value={String(stats.data?.companies ?? '—')} />
+        <StatCard label="Jobs" value={stats.data ? String(stats.data.jobs) : null} />
+        <StatCard label="Questions" value={stats.data ? String(stats.data.questions) : null} />
+        <StatCard label="Companies" value={stats.data ? String(stats.data.companies) : null} />
         <StatCard
           label="Escalation rate"
-          value={stats.data ? formatPercent(stats.data.escalation_rate) : '—'}
+          value={stats.data ? formatPercent(stats.data.escalation_rate) : null}
         />
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white">
+      {activeRun && (
+        <div className="mt-6">
+          <RunProgressPanel run={activeRun} />
+        </div>
+      )}
+
+      {runItems.length > 0 && (
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-900">Items per run</h2>
+          <RunsChart runs={runItems} />
+        </div>
+      )}
+
+      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between px-4 py-3">
           <h2 className="text-sm font-semibold text-slate-900">Recent runs</h2>
           {runs.error && <span className="text-xs text-rose-600">{runs.error}</span>}
         </div>
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-2 font-medium">Run</th>
-              <th className="px-4 py-2 font-medium">Kind / source</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 text-right font-medium">Pages</th>
-              <th className="px-4 py-2 text-right font-medium">Saved</th>
-              <th className="px-4 py-2 text-right font-medium">Errors</th>
-              <th className="px-4 py-2 font-medium">Started</th>
-              <th className="px-4 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {(runs.data?.items ?? []).map((run) => (
-              <RunRow key={run.id} run={run} onCancel={(id) => void cancelRun(id)} />
-            ))}
-          </tbody>
-        </table>
-        {runs.data?.items.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-slate-400">
-            No runs yet — start one with “New scrape”.
-          </p>
+        {runItems.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+            <p className="text-sm text-slate-400">No runs yet.</p>
+            <Button variant="outline" onClick={() => setShowModal(true)}>
+              Start your first scrape
+            </Button>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Run</TableHead>
+                <TableHead>Kind / source</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Pages</TableHead>
+                <TableHead className="text-right">Saved</TableHead>
+                <TableHead className="text-right">Errors</TableHead>
+                <TableHead>Started</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runItems.map((run) => (
+                <RunRow key={run.id} run={run} onCancel={(id) => void cancelRun(id)} />
+              ))}
+            </TableBody>
+          </Table>
         )}
       </div>
 
