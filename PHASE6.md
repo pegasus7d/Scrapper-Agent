@@ -198,6 +198,30 @@ here, all verified before writing this down (WORKFLOW.md rule 2):
    poll if the connection drops. Smoke: a real run through the live API,
    confirm the dashboard updates without a poll round-trip (check the
    network tab / server log directly, not just visually).
+   **Done.** `backend/api/stream.py` (new, kept out of `routes.py` the same
+   way `export.py` is) polls the DB on a worker thread
+   (`run_in_threadpool`, so the blocking SQLAlchemy call never stalls the
+   event loop) and only yields when the serialized `{items, total}` payload
+   actually differs from the last poll — same shape `GET /runs` already
+   returns, registered ahead of `/runs/{run_id}` so `"stream"` can never be
+   captured as a path parameter. Loop exits via
+   `request.is_disconnected()`, so a closed browser tab doesn't leave a
+   zombie generator polling forever. Frontend: new `useRunsLive` hook opens
+   one `EventSource`, updates on every frame, and falls back to
+   `useApi`'s existing poll if the connection drops (`onerror`) — `Stats`
+   keeps its own independent poll unchanged, out of this step's scope.
+   Smoke, checked at the network layer, not just visually (Playwright,
+   live API + real run): exactly one request to `/api/runs/stream` — a
+   single persistent connection, confirmed by the page never reaching
+   Playwright's `networkidle` state while it's open (the connection itself
+   proves it's not a poll). Two `GET /api/runs` calls total across an 8s
+   window are `useRunsLive`'s one-time initial-paint fallback fetch
+   (doubled by React StrictMode in dev, not present in production), not a
+   recurring poll — zero additional `/runs` GETs fired while a real run
+   (`POST /api/runs` against `arbeitnow`) was live. The dashboard's run
+   progress panel showed "Run #16 — jobs / arbeitnow · running" within 4s
+   of the POST, driven purely by the SSE `onmessage` handler — no manual
+   reload, zero console errors.
 7. **Wire `sqlite-vec` + embeddings at save time (backend).** Add
    `sqlite-vec` to `pyproject.toml` (stated reason: powers the new search
    endpoint below). Load the extension via a `connect` event listener on the

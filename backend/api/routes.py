@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
@@ -35,6 +35,7 @@ from backend.api.dto import (
     ToggleRequest,
 )
 from backend.api.export import jobs_to_csv, questions_to_csv
+from backend.api.stream import run_updates
 from backend.db import repo
 from backend.llm.client import list_local_models
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
@@ -119,6 +120,15 @@ def cancel_run(run_id: int, session: SessionDep) -> Cancelled:
 def list_runs(session: SessionDep, limit: LimitParam = 20, offset: OffsetParam = 0) -> RunList:
     runs, total = repo.list_runs(session, limit=limit, offset=offset)
     return RunList(items=[RunOut.model_validate(run) for run in runs], total=total)
+
+
+@router.get("/runs/stream")
+def stream_runs(request: Request) -> StreamingResponse:
+    """SSE: a frame each time the runs list changes (PHASE6.md step 6),
+    same shape as GET /runs — registered before /runs/{run_id} so "stream"
+    is never captured as a run_id path parameter."""
+    engine: Engine = request.app.state.engine
+    return StreamingResponse(run_updates(engine, request), media_type="text/event-stream")
 
 
 @router.get("/runs/{run_id}")

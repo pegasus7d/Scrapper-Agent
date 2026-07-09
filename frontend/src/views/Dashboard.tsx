@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
-import type { Paginated, Run, RunKind, Stats } from '../api/types'
+import type { Run, RunKind, Stats } from '../api/types'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { NewScrapeModal } from '../components/NewScrapeModal'
 import { RunProgressPanel } from '../components/RunProgressPanel'
@@ -13,6 +13,7 @@ import { Button } from '../components/ui/button'
 import { Skeleton } from '../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { useApi } from '../hooks/useApi'
+import { useRunsLive } from '../hooks/useRunsLive'
 import { formatPercent, formatTime } from '../lib/format'
 
 const STATUS_STYLE: Record<Run['status'], string> = {
@@ -101,9 +102,12 @@ interface Queue {
 export function Dashboard() {
   const [showModal, setShowModal] = useState(false)
   const [queue, setQueue] = useState<Queue | null>(null)
-  // Poll every 3s while a run is active so the counters tick live (DESIGN.md §6).
+  // Runs come from an SSE subscription (PHASE6.md step 6), live the whole
+  // time — pollMs now only drives the fallback poll if that connection
+  // drops, and the still-poll-based /stats endpoint (out of this step's
+  // scope) while a run is active (DESIGN.md §6).
   const [pollMs, setPollMs] = useState<number | undefined>(undefined)
-  const runs = useApi<Paginated<Run>>('/runs', pollMs)
+  const runs = useRunsLive(pollMs)
   const stats = useApi<Stats>('/stats', pollMs)
   const runItems = runs.data?.items ?? []
   const activeRun = runItems.find((run) => run.status === 'running')
