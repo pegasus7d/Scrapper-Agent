@@ -59,6 +59,16 @@ def test_next_links_picks_newest_hiring_thread_not_wants_to_be_hired() -> None:
     assert next_links(search_page(), "hn") == ["https://hn.algolia.com/api/v1/items/222"]
 
 
+def test_search_page_recognized_after_url_normalization() -> None:
+    # The pipeline normalizes URLs before fetching, which re-encodes the
+    # query ("story,author..." -> "story%2Cauthor...") — detection must
+    # not depend on the exact seed string.
+    normalized = SEARCH_URL.replace("story,author", "story%2Cauthor")
+    page = Page(url=normalized, markdown="", raw=SEARCH_RESPONSE)
+    assert next_links(page, "hn") == ["https://hn.algolia.com/api/v1/items/222"]
+    assert split_items(page, "hn") == []
+
+
 def test_next_links_no_hiring_thread_raises() -> None:
     raw = json.dumps({"hits": [{"title": "Show HN: something", "objectID": "9"}]})
     with pytest.raises(ValueError, match="no 'Who is hiring"):

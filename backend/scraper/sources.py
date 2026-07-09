@@ -13,6 +13,7 @@ import logging
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 from backend.scraper.fetcher import Page
 
@@ -28,6 +29,7 @@ MIN_CHUNK_CHARS = 80
 _ALGOLIA_SEARCH_URL = (
     "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=10"
 )
+_ALGOLIA_SEARCH_PATH = "/api/v1/search_by_date"
 _ALGOLIA_ITEM_URL = "https://hn.algolia.com/api/v1/items/{id}"
 _HN_PERMALINK = "https://news.ycombinator.com/item?id={id}"
 _WHO_IS_HIRING_PREFIX = "Ask HN: Who is hiring?"
@@ -53,7 +55,7 @@ def next_links(page: Page, source: str) -> list[str]:
     """Return further URLs discovered on a page (already-seen ones are fine)."""
     if source != HN:
         raise ValueError(f"unknown source: {source}")
-    if page.url == _ALGOLIA_SEARCH_URL:
+    if _is_search_page(page.url):
         return [_latest_hiring_thread_url(page.raw)]
     return []  # a thread page is complete in itself — no pagination via Algolia
 
@@ -62,9 +64,14 @@ def split_items(page: Page, source: str) -> list[Chunk]:
     """Split a page into per-item chunks, each with its own permalink."""
     if source != HN:
         raise ValueError(f"unknown source: {source}")
-    if page.url == _ALGOLIA_SEARCH_URL:
+    if _is_search_page(page.url):
         return []  # the search page only points at the thread
     return _thread_chunks(page.raw)
+
+
+def _is_search_page(url: str) -> bool:
+    """Match by path: the pipeline normalizes URLs, so query encoding may differ."""
+    return urlparse(url).path == _ALGOLIA_SEARCH_PATH
 
 
 def _latest_hiring_thread_url(raw: str) -> str:
