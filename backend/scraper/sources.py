@@ -1,9 +1,10 @@
 """Source-specific knowledge: seed URLs, page→chunk splitting, link discovery.
 
-Only Hacker News "Who is hiring?" is implemented for now (MVP); Reddit lands in
-build-order step 6. HN goes through the free Algolia API because it returns the
-whole thread as structured JSON — every comment keeps its id, which becomes the
-chunk's permalink (DESIGN.md §3). Malformed payloads raise ValueError; the
+Jobs come from Hacker News "Who is hiring?" via the free Algolia API — it
+returns the whole thread as structured JSON, and every comment keeps its id,
+which becomes the chunk's permalink (DESIGN.md §3). Interview questions come
+from Reddit's public .json listing endpoints: one post = one chunk, with the
+post's permalink as the chunk URL. Malformed payloads raise ValueError; the
 pipeline records that against the URL and continues.
 """
 
@@ -20,11 +21,16 @@ from backend.scraper.fetcher import Page
 logger = logging.getLogger(__name__)
 
 HN = "hn"
+REDDIT = "reddit"
 JOB_SOURCES = (HN,)
-QUESTION_SOURCES: tuple[str, ...] = ()  # Reddit lands in step 6
+QUESTION_SOURCES = (REDDIT,)
 
 # Skip one-liners ("email me!") that cannot possibly hold a job posting.
 MIN_CHUNK_CHARS = 80
+
+_REDDIT_SUBS = ("cscareerquestions", "leetcode")
+_REDDIT_LISTING_URL = "https://www.reddit.com/r/{sub}/top.json?t=week&limit=25"
+_REDDIT_PERMALINK = "https://www.reddit.com{permalink}"
 
 _ALGOLIA_SEARCH_URL = (
     "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=10"
@@ -48,25 +54,29 @@ def seed_urls(source: str) -> list[str]:
     """Return the starting URLs for a source."""
     if source == HN:
         return [_ALGOLIA_SEARCH_URL]
+    if source == REDDIT:
+        return [_REDDIT_LISTING_URL.format(sub=sub) for sub in _REDDIT_SUBS]
     raise ValueError(f"unknown source: {source}")
 
 
 def next_links(page: Page, source: str) -> list[str]:
     """Return further URLs discovered on a page (already-seen ones are fine)."""
-    if source != HN:
-        raise ValueError(f"unknown source: {source}")
-    if _is_search_page(page.url):
-        return [_latest_hiring_thread_url(page.raw)]
-    return []  # a thread page is complete in itself — no pagination via Algolia
+    if source == HN:
+        # A thread page is complete in itself — no pagination via Algolia.
+        return [_latest_hiring_thread_url(page.raw)] if _is_search_page(page.url) else []
+    if source == REDDIT:
+        return []  # the seed listings are all we scrape — posts, not comment threads
+    raise ValueError(f"unknown source: {source}")
 
 
 def split_items(page: Page, source: str) -> list[Chunk]:
     """Split a page into per-item chunks, each with its own permalink."""
-    if source != HN:
-        raise ValueError(f"unknown source: {source}")
-    if _is_search_page(page.url):
-        return []  # the search page only points at the thread
-    return _thread_chunks(page.raw)
+    if source == HN:
+        # The search page only points at the thread.
+        return [] if _is_search_page(page.url) else _thread_chunks(page.raw)
+    if source == REDDIT:
+        return _reddit_chunks(page.raw)
+    raise ValueError(f"unknown source: {source}")
 
 
 def _is_search_page(url: str) -> bool:
@@ -102,6 +112,25 @@ def _thread_chunks(raw: str) -> list[Chunk]:
     return chunks
 
 
+def _reddit_chunks(raw: str) -> list[Chunk]:
+    """Turn a Reddit .json listing into one chunk per substantive post."""
+    listing = json.loads(raw)
+    children = listing.get("data", {}).get("children") if isinstance(listing, dict) else None
+    if not isinstance(children, list):
+        raise ValueError("not a Reddit listing payload")
+    chunks: list[Chunk] = []
+    skipped = 0
+    for child in children:
+        post: dict[str, Any] = child.get("data", {})
+        text = _clean_html(f"{post.get('title', '')} {post.get('selftext', '')}")
+        if post.get("stickied") or len(text) < MIN_CHUNK_CHARS:
+            skipped += 1  # mod announcements and link-only posts hold no questions
+            continue
+        chunks.append(Chunk(text=text, url=_REDDIT_PERMALINK.format(permalink=post["permalink"])))
+    logger.info("reddit listing: %d chunks, %d skipped", len(chunks), skipped)
+    return chunks
+
+
 def _clean_html(text: str) -> str:
-    """Strip tags and entities from HN comment HTML, collapsing whitespace."""
+    """Strip tags and entities from comment HTML, collapsing whitespace."""
     return _WHITESPACE.sub(" ", html.unescape(_TAGS.sub(" ", text))).strip()

@@ -6,7 +6,7 @@ import type { RunCreated, RunKind } from '../api/types'
 // Mirrors JOB_SOURCES / QUESTION_SOURCES in backend/scraper/sources.py.
 const SOURCES: Record<RunKind, string[]> = {
   jobs: ['hn'],
-  questions: [],
+  questions: ['reddit'],
 }
 
 interface Props {

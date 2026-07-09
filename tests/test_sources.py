@@ -109,6 +109,82 @@ def test_split_items_malformed_json_raises_value_error() -> None:
 
 def test_unknown_source_raises_everywhere() -> None:
     with pytest.raises(ValueError, match="unknown source"):
-        split_items(thread_page(), "reddit")
+        seed_urls("linkedin")
     with pytest.raises(ValueError, match="unknown source"):
-        next_links(thread_page(), "reddit")
+        split_items(thread_page(), "linkedin")
+    with pytest.raises(ValueError, match="unknown source"):
+        next_links(thread_page(), "linkedin")
+
+
+QUESTION_TEXT = (
+    "Amazon SDE2 onsite — what should I expect? "
+    "Had my phone screen last week, recruiter says onsite covers system design and LP."
+)
+
+
+def reddit_post(
+    title: str, selftext: str, permalink: str, stickied: bool = False
+) -> dict[str, object]:
+    return {
+        "data": {"title": title, "selftext": selftext, "permalink": permalink, "stickied": stickied}
+    }
+
+
+REDDIT_RESPONSE = json.dumps(
+    {
+        "data": {
+            "children": [
+                reddit_post(
+                    "Amazon onsite",
+                    QUESTION_TEXT,
+                    "/r/cscareerquestions/comments/abc/amazon_onsite/",
+                ),
+                reddit_post(
+                    "Daily chat thread",
+                    QUESTION_TEXT,
+                    "/r/cscareerquestions/comments/day/",
+                    stickied=True,
+                ),
+                reddit_post("Short", "", "/r/cscareerquestions/comments/xyz/"),
+            ]
+        }
+    }
+)
+
+
+def reddit_page(raw: str = REDDIT_RESPONSE) -> Page:
+    return Page(url=seed_urls("reddit")[0], markdown="", raw=raw)
+
+
+def test_reddit_seed_urls_list_both_subreddit_json_listings() -> None:
+    urls = seed_urls("reddit")
+    assert len(urls) == 2
+    assert all(".json" in url for url in urls)
+    assert any("cscareerquestions" in url for url in urls)
+    assert any("leetcode" in url for url in urls)
+
+
+def test_reddit_split_items_chunks_posts_with_permalinks() -> None:
+    chunks = split_items(reddit_page(), "reddit")
+    assert len(chunks) == 1
+    assert chunks[0].text.startswith("Amazon onsite Amazon SDE2 onsite")
+    assert chunks[0].url == (
+        "https://www.reddit.com/r/cscareerquestions/comments/abc/amazon_onsite/"
+    )
+
+
+def test_reddit_split_items_skips_stickied_and_short_posts() -> None:
+    urls = [chunk.url for chunk in split_items(reddit_page(), "reddit")]
+    assert not any("/comments/day/" in url for url in urls)  # stickied
+    assert not any("/comments/xyz/" in url for url in urls)  # too short
+
+
+def test_reddit_next_links_is_empty() -> None:
+    assert next_links(reddit_page(), "reddit") == []
+
+
+def test_reddit_malformed_payload_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="not a Reddit listing"):
+        split_items(reddit_page(json.dumps({"data": {}})), "reddit")
+    with pytest.raises(ValueError):
+        split_items(reddit_page("{{{ not json"), "reddit")
