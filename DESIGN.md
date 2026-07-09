@@ -273,15 +273,21 @@ No state library — server data via plain `fetch` + a small `useApi` hook.
 **UI stack (amended for phase 2).** The MVP rule was "no component library —
 Tailwind only". Phase 2 amends it: **shadcn/ui** primitives are allowed because
 they are vendored source in `frontend/src/components/ui/` (reviewable code in the
-repo, not a black-box dependency), plus **motion** (successor to framer-motion) for
-animation, **sonner** for toasts, and **recharts** for dashboard charts. Rules:
+repo, not a black-box dependency), plus **sonner** for toasts and **recharts** for
+dashboard charts. Rules:
 
 - Vendored `components/ui/` files are generated starting points: type-checked and
   buildable, but exempt from the 300-line cap and slop review; edit them only for
   theme integration, keep app logic out of them.
 - Animation is seasoning, not sauce: transitions on drawers/dialogs, count-up on
   stat cards, a pulse on the running badge — nothing animates without a reason.
+  No animation library — a hand-rolled `requestAnimationFrame` tween replaced
+  **motion** in [[PHASE5.md]] step 4 (it pulled in the full `framer-motion/dom`
+  build for one count-up).
 - Everything else (views, hooks, api client) stays hand-written and reviewable.
+
+Full frontend conventions (stack details, testing, what's exempt from slop
+review) live in `frontend/`'s own `CLAUDE.md`, not duplicated here.
 
 **Phase 2 target look:** same light indigo/Inter identity plus a dark mode toggle,
 skeleton loaders instead of dashes, toasts for run lifecycle events, proper empty

@@ -10,21 +10,17 @@ follow it, and any deviation must update [[DESIGN.md]] in the same change.
 - Python 3.12, env/packages managed with **uv** (`uv venv`, `uv pip install` — never
   plain pip)
 - Fetching goes through a `Transport` protocol (`backend/scraper/transport.py`,
-  phase 4 amendment — [[PHASE4.md]]): `httpx` is the default (every source so far is a plain
-  JSON/XML/text API — none need HTML cleaning or stealth), `scrapling` (stealthy,
-  adaptive) stays available and real as a per-source opt-in for anything that
-  genuinely needs it later. Don't add a source-specific HTTP client outside this
-  protocol — that's what it exists to prevent.
+  phase 4 amendment — [[PHASE4.md]]), `httpx` default / `scrapling` opt-in. Adding
+  or touching a source? See `backend/scraper/sources/`'s own CLAUDE.md for the
+  Transport/chunking conventions and the verify-before-proposing rule.
 - `pydantic` for extraction schemas / validation
 - SQLite for storage (jobs dedupe on the item's permalink, questions on a normalized
   content hash — see DESIGN.md §2)
 - LLM cascade: cheap/small model for routine extraction, escalate to a stronger model
   only on validation failure or low confidence
-- Frontend: React + Vite + TypeScript strict + Tailwind, with **shadcn/ui** primitives
-  vendored into `frontend/src/components/ui/`, **motion** for animation, **sonner**
-  for toasts, **recharts** for charts (phase 2 amendment — rules in DESIGN.md §6).
-  Vendored `components/ui/` files are exempt from the 300-line cap and slop review,
-  but everything else in `frontend/src` is held to the same standard as the backend.
+- Frontend: React + Vite + TypeScript strict + Tailwind + shadcn/ui (phase 2
+  amendment — rules in DESIGN.md §6). See `frontend/`'s own CLAUDE.md for the
+  full frontend stack/conventions.
 - **Currently running free-only**: there is no `ANTHROPIC_API_KEY` and that is
   deliberate — everything runs on the local Ollama model. Build the escalation path
   per DESIGN.md (it must work when a key appears later), but never require a key,
@@ -80,7 +76,7 @@ for anyone to review and understand. No slop.
   type gate).
 - **Smoke test at step boundaries.** Unit tests mock all I/O, so they can never prove
   the real integration works. Before a build-order step (`PHASE{N}.md`, current phase
-  is [[PHASE4.md]]) is called done, run the new piece once for real (real Ollama, real
+  is [[PHASE6.md]]) is called done, run the new piece once for real (real Ollama, real
   fetch of one page) and say what happened. Failures found here that unit tests
   missed → add the missing unit test.
 
@@ -106,32 +102,11 @@ for anyone to review and understand. No slop.
 ## Conventions
 - Keep the orchestration loop hand-rolled and simple — no LangChain/CrewAI/AutoGen.
   These add token overhead we don't need for this task.
-- Always feed the LLM a chunk's own cleaned text, never raw HTML/XML — every source
-  builds its `Chunk.text` from `Page.raw` via its own `clean_html`/field extraction
-  (DESIGN.md §3); no source has ever needed `Page.markdown`'s HTML-cleaning, which is
-  exactly why the transport can default to `httpx` instead of Scrapling ([[PHASE4.md]]).
 - Extraction schemas (`JobExtract`, `QuestionExtract` in `schemas.py`) are the contract
   between fetch and storage — validate every LLM extraction against them before saving.
-- `apply_url` should store the raw href, not a resolved redirect (avoid extra requests
-  per job).
-- Build one source end-to-end before generalizing to more sources (build order:
-  [[PHASE1.md]]).
-
-## Sources
-- Prioritize sources without explicit anti-scraping ToS friction: open job board
-  APIs/RSS feeds (RemoteOK, WeWorkRemotely, Arbeitnow), and permissively-licensed
-  curated content (GitHub question banks) over scraping forums at all.
-- **Verify before proposing, not after.** Check `robots.txt` and licensing for any
-  new source before writing it into DESIGN.md — "seems public" is not verification.
-  Three sources were proposed early on the assumption they'd be low-friction and
-  turned out not to be once actually checked: **Reddit** (robots.txt disallows all
-  crawling — see DESIGN.md §3), **LeetCode Discuss** (robots.txt disallows
-  `/graphql` and `/forums`; Discuss is a GraphQL-driven SPA, so even a rendered
-  browser fetch pulls data through a channel they've closed to crawlers), and
-  **Blind** (blocks even a plain `robots.txt` request with an anti-bot page). Do
-  not revisit these without new evidence the policy changed.
-- Glassdoor/LinkedIn/Indeed are similarly high-friction (login walls, anti-bot) —
-  deprioritize unless specifically requested and re-verified.
+- Adding or touching a source (chunk-text rules, verify-before-proposing,
+  rejected-source history)? See `backend/scraper/sources/`'s own CLAUDE.md — it
+  covers that ground in full and shouldn't be duplicated here.
 
 ## Autonomous build loop
 
