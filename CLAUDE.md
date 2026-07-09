@@ -15,6 +15,11 @@ follow it, and any deviation must update `DESIGN.md` in the same change.
   content hash — see DESIGN.md §2)
 - LLM cascade: cheap/small model for routine extraction, escalate to a stronger model
   only on validation failure or low confidence
+- Frontend: React + Vite + TypeScript strict + Tailwind, with **shadcn/ui** primitives
+  vendored into `frontend/src/components/ui/`, **motion** for animation, **sonner**
+  for toasts, **recharts** for charts (phase 2 amendment — rules in DESIGN.md §6).
+  Vendored `components/ui/` files are exempt from the 300-line cap and slop review,
+  but everything else in `frontend/src` is held to the same standard as the backend.
 - **Currently running free-only**: there is no `ANTHROPIC_API_KEY` and that is
   deliberate — everything runs on the local Ollama model. Build the escalation path
   per DESIGN.md (it must work when a key appears later), but never require a key,
@@ -65,11 +70,13 @@ for anyone to review and understand. No slop.
   adding flows.
 - Definition of done for any change: `pytest` green + `mypy` clean + `ruff check` +
   `ruff format --check` pass. (mypy is what makes "type hints everywhere" enforceable
-  — ruff alone does not check type correctness.)
+  — ruff alone does not check type correctness.) Any change touching `frontend/`
+  additionally requires `npm run build` to pass (strict `tsc` is the frontend's
+  type gate).
 - **Smoke test at step boundaries.** Unit tests mock all I/O, so they can never prove
-  the real integration works. Before a `DESIGN.md` §8 build-order step is called done,
-  run the new piece once for real (real Ollama, real fetch of one page) and say what
-  happened. Failures found here that unit tests missed → add the missing unit test.
+  the real integration works. Before a `DESIGN.md` §8/§9 build-order step is called
+  done, run the new piece once for real (real Ollama, real fetch of one page) and say
+  what happened. Failures found here that unit tests missed → add the missing unit test.
 
 ## Git workflow — one feature at a time
 

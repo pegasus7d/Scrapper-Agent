@@ -312,12 +312,30 @@ React + Vite + Tailwind, light theme: white/near-white background, one accent co
 3. **Questions** — same table pattern: question (truncated), company, role, round.
    Row click → drawer with full question text + source link.
 
-No state library — server data via plain `fetch` + a small `useApi` hook. No component
-library — Tailwind only, so the UI code stays reviewable like the backend.
+No state library — server data via plain `fetch` + a small `useApi` hook.
 
-**Frontend testing (MVP):** TypeScript strict mode is the safety net; no unit tests
-initially — the UI is thin (fetch → render) and all logic lives behind the tested
-API. Revisit if UI-side logic grows.
+**UI stack (amended for phase 2).** The MVP rule was "no component library —
+Tailwind only". Phase 2 amends it: **shadcn/ui** primitives are allowed because
+they are vendored source in `frontend/src/components/ui/` (reviewable code in the
+repo, not a black-box dependency), plus **motion** (successor to framer-motion) for
+animation, **sonner** for toasts, and **recharts** for dashboard charts. Rules:
+
+- Vendored `components/ui/` files are generated starting points: type-checked and
+  buildable, but exempt from the 300-line cap and slop review; edit them only for
+  theme integration, keep app logic out of them.
+- Animation is seasoning, not sauce: transitions on drawers/dialogs, count-up on
+  stat cards, a pulse on the running badge — nothing animates without a reason.
+- Everything else (views, hooks, api client) stays hand-written and reviewable.
+
+**Phase 2 target look:** same light indigo/Inter identity plus a dark mode toggle,
+skeleton loaders instead of dashes, toasts for run lifecycle events, proper empty
+states with a CTA, a ⌘K command palette (switch views, search jobs), charts for
+items-per-run and escalation trend, and a live progress panel for the active run.
+
+**Frontend testing:** TypeScript strict mode is the safety net; no unit tests —
+the UI is thin (fetch → render) and all logic lives behind the tested API. Any
+change touching `frontend/` must pass `npm run build` (strict `tsc` + Vite build)
+as part of the definition of done. Revisit if UI-side logic grows.
 
 ## Logging
 
@@ -376,3 +394,42 @@ workflow") — never mix two steps in one commit.
 5. Frontend (dashboard → jobs → questions).
 6. Second source type (interview questions) — by now it's just a new entry in
    `sources.py` and a schema, which is the test of whether the design held.
+
+**Phase 1 (steps 0–6) is complete** — every step validated and smoke-tested.
+
+## 9. Phase 2 build order — polish & usefulness
+
+Same workflow rules as §8: one step at a time, small commits, all checks green
+(now including `npm run build` for frontend changes), real smoke test at each
+step boundary before moving on.
+
+1. **Pre-extraction dedupe (backend).** The pipeline currently re-extracts every
+   chunk and discards duplicates only at save time — a repeat HN run burns ~80
+   minutes of LLM time to save nothing. Skip chunks whose normalized permalink is
+   already stored (repo helper + pipeline check, counted as duplicates on the run)
+   + tests. Smoke: re-run the HN jobs scrape; it must finish in seconds with
+   `items_duplicate` > 0 and zero LLM calls for known chunks.
+2. **Questions relevance gate (backend).** The local model saves junk ("exit
+   interview questions for middle school"). Tighten the questions prompt: only
+   concrete questions asked in a real tech interview, company must be named in
+   the text, else return the empty list + tests pinning the prompt contract.
+   Smoke: hn-interviews run; junk comments yield empty lists, not garbage rows.
+3. **shadcn/ui foundation (frontend).** Vendor the primitives (button, dialog,
+   sheet, table, select, badge, input, skeleton), add sonner, and swap the
+   existing views to them at visual parity — no redesign in this step.
+4. **Dashboard upgrade (frontend).** recharts (items saved per run, escalation
+   trend), live progress panel for the active run (pages/saved/errors ticking),
+   skeleton loaders, real empty states, toasts for run started/finished/failed.
+5. **Delight pass (frontend).** motion transitions (drawer/dialog, stat count-up,
+   running-badge pulse), ⌘K command palette (switch views, search jobs), dark
+   mode toggle.
+6. **Scheduled scrapes.** `schedules` table (kind, source, every_hours, enabled,
+   last_run_at), a background thread in the app factory that starts due runs
+   (skipped while another run is active), API endpoints + a small UI toggle on
+   the dashboard + tests with a fake clock.
+7. **Third source: RemoteOK** jobs via its public JSON API (`remoteok.com/api`,
+   robots-friendly, attribution required — link back to the posting) — proves
+   adding a source is still just seeds + chunking.
+8. **Export & bookmarks.** CSV/JSON export endpoints for jobs/questions with the
+   current filters applied + download buttons; a starred flag on jobs with a
+   "starred only" filter.
