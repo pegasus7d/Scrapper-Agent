@@ -47,6 +47,7 @@ class Job(Base):
     extraction_tier: Mapped[str]  # "local" | "frontier"
     scraped_at: Mapped[datetime]
     run_id: Mapped[int] = mapped_column(ForeignKey("runs.id"))
+    starred: Mapped[bool] = mapped_column(default=False)  # DESIGN.md §9 step 8
 
 
 class InterviewQuestion(Base):

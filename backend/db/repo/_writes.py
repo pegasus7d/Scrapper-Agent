@@ -1,21 +1,16 @@
-"""Persistence layer: run lifecycle, dedupe normalization, saving, queries.
-
-All dedupe decisions live here (DESIGN.md §2). The read-side queries at the
-bottom serve the API's list endpoints ({items, total} pagination) and stats.
-"""
+"""Run lifecycle, dedupe normalization, and item saving (DESIGN.md §2)."""
 
 import hashlib
 import logging
 import re
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from sqlalchemy import CompoundSelect, Engine, Select, create_engine, func, select
+from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session
 
 from backend import config
-from backend.db.models import Base, InterviewQuestion, Job, Run, Schedule
+from backend.db.models import Base, InterviewQuestion, Job, Run
 from backend.schemas import JobExtract, QuestionExtract
 
 logger = logging.getLogger(__name__)
@@ -192,131 +187,3 @@ def item_url_exists(session: Session, kind: str, url: str) -> bool:
         return session.scalar(select(Job.id).where(Job.posting_url == normalized)) is not None
     query = select(InterviewQuestion.id).where(InterviewQuestion.source_url == normalized)
     return session.scalar(query.limit(1)) is not None
-
-
-@dataclass
-class Stats:
-    """Dashboard totals (DESIGN.md §4)."""
-
-    jobs: int
-    questions: int
-    companies: int
-    escalation_rate: float  # fraction of saved items that needed the frontier tier
-
-
-def get_run(session: Session, run_id: int) -> Run | None:
-    return session.get(Run, run_id)
-
-
-def list_runs(session: Session, *, limit: int, offset: int) -> tuple[list[Run], int]:
-    """Return one page of runs, newest first, plus the total count."""
-    return _paginate(session, select(Run).order_by(Run.id.desc()), limit, offset)
-
-
-def list_jobs(
-    session: Session,
-    *,
-    company: str | None = None,
-    source: str | None = None,
-    q: str | None = None,
-    limit: int,
-    offset: int,
-) -> tuple[list[Job], int]:
-    """Return one page of jobs (newest first) matching the filters, plus the total."""
-    query = select(Job).order_by(Job.id.desc())
-    if company:
-        query = query.where(Job.company.ilike(f"%{company}%"))
-    if source:
-        query = query.where(Job.source == source)
-    if q:
-        query = query.where(Job.title.ilike(f"%{q}%"))
-    return _paginate(session, query, limit, offset)
-
-
-def list_questions(
-    session: Session,
-    *,
-    company: str | None = None,
-    round_: str | None = None,
-    q: str | None = None,
-    limit: int,
-    offset: int,
-) -> tuple[list[InterviewQuestion], int]:
-    """Return one page of questions (newest first) matching the filters, plus the total."""
-    query = select(InterviewQuestion).order_by(InterviewQuestion.id.desc())
-    if company:
-        query = query.where(InterviewQuestion.company.ilike(f"%{company}%"))
-    if round_:
-        query = query.where(InterviewQuestion.round == round_)
-    if q:
-        query = query.where(InterviewQuestion.question.ilike(f"%{q}%"))
-    return _paginate(session, query, limit, offset)
-
-
-def compute_stats(session: Session) -> Stats:
-    """Compute the dashboard totals in one place, so routes stay logic-free."""
-    jobs = _count(session, select(Job))
-    questions = _count(session, select(InterviewQuestion))
-    companies_union = select(Job.company).union(select(InterviewQuestion.company))
-    companies = _count(session, companies_union)
-    frontier = _count(session, select(Job).where(Job.extraction_tier == "frontier")) + _count(
-        session, select(InterviewQuestion).where(InterviewQuestion.extraction_tier == "frontier")
-    )
-    total = jobs + questions
-    rate = frontier / total if total else 0.0
-    return Stats(jobs=jobs, questions=questions, companies=companies, escalation_rate=rate)
-
-
-def create_schedule(session: Session, kind: str, source: str, every_hours: int) -> Schedule:
-    """Insert and return a new enabled schedule."""
-    schedule = Schedule(kind=kind, source=source, every_hours=every_hours)
-    session.add(schedule)
-    session.commit()
-    return schedule
-
-
-def list_schedules(session: Session) -> list[Schedule]:
-    """Return every schedule, oldest first."""
-    return list(session.scalars(select(Schedule).order_by(Schedule.id)).all())
-
-
-def set_schedule_enabled(session: Session, schedule_id: int, enabled: bool) -> Schedule | None:
-    """Flip a schedule's enabled flag; returns None when it doesn't exist."""
-    schedule = session.get(Schedule, schedule_id)
-    if schedule is None:
-        return None
-    schedule.enabled = enabled
-    session.commit()
-    return schedule
-
-
-def due_schedules(session: Session, now: datetime) -> list[Schedule]:
-    """Enabled schedules that have never run, or whose interval has elapsed."""
-    # SQLite round-trips DateTime columns as naive (same convention as
-    # started_at/finished_at elsewhere) — drop tzinfo from `now` to compare.
-    naive_now = now.replace(tzinfo=None)
-    enabled = session.scalars(select(Schedule).where(Schedule.enabled)).all()
-    return [
-        schedule
-        for schedule in enabled
-        if schedule.last_run_at is None
-        or naive_now - schedule.last_run_at >= timedelta(hours=schedule.every_hours)
-    ]
-
-
-def mark_schedule_run(session: Session, schedule: Schedule, now: datetime) -> None:
-    """Record that a schedule just triggered a run, resetting its interval clock."""
-    schedule.last_run_at = now
-    session.commit()
-
-
-def _paginate[T](
-    session: Session, query: Select[tuple[T]], limit: int, offset: int
-) -> tuple[list[T], int]:
-    total = _count(session, query)
-    rows = session.scalars(query.limit(limit).offset(offset)).all()
-    return list(rows), total
-
-
-def _count[T](session: Session, query: Select[tuple[T]] | CompoundSelect[tuple[T]]) -> int:
-    return session.scalar(select(func.count()).select_from(query.subquery())) or 0

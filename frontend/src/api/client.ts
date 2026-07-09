@@ -2,6 +2,11 @@
 
 const BASE = 'http://127.0.0.1:8000/api'
 
+// For <a href> download links — export endpoints return a file, not JSON.
+export function apiUrl(path: string): string {
+  return `${BASE}${path}`
+}
+
 export class ApiError extends Error {
   readonly status: number
 

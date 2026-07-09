@@ -1,18 +1,52 @@
+import { Star } from 'lucide-react'
+import type { MouseEvent } from 'react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
+import { apiPost, apiUrl } from '../api/client'
 import type { Job, Paginated } from '../api/types'
 import { Drawer } from '../components/Drawer'
 import { Pagination } from '../components/Pagination'
+import { Button } from '../components/ui/button'
 import { useApi } from '../hooks/useApi'
 import { formatTime } from '../lib/format'
 
 const LIMIT = 20
 
-function jobsPath(q: string, company: string, offset: number): string {
+function jobsPath(q: string, company: string, starredOnly: boolean, offset: number): string {
   const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) })
   if (q) params.set('q', q)
   if (company) params.set('company', company)
+  if (starredOnly) params.set('starred', 'true')
   return `/jobs?${params.toString()}`
+}
+
+function exportPath(format: 'csv' | 'json', q: string, company: string, starredOnly: boolean): string {
+  const params = new URLSearchParams({ format })
+  if (q) params.set('q', q)
+  if (company) params.set('company', company)
+  if (starredOnly) params.set('starred', 'true')
+  return apiUrl(`/jobs/export?${params.toString()}`)
+}
+
+function StarButton({ job, onToggled }: { job: Job; onToggled: () => void }) {
+  async function toggle(e: MouseEvent) {
+    e.stopPropagation()
+    try {
+      await apiPost(`/jobs/${job.id}/star`, { starred: !job.starred })
+      onToggled()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  return (
+    <button type="button" onClick={(e) => void toggle(e)} aria-label="Toggle star">
+      <Star
+        className={`size-4 ${job.starred ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}`}
+      />
+    </button>
+  )
 }
 
 function JobDrawer({ job, onClose }: { job: Job; onClose: () => void }) {
@@ -67,9 +101,10 @@ const inputStyle =
 export function Jobs() {
   const [q, setQ] = useState('')
   const [company, setCompany] = useState('')
+  const [starredOnly, setStarredOnly] = useState(false)
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<Job | null>(null)
-  const jobs = useApi<Paginated<Job>>(jobsPath(q, company, offset))
+  const jobs = useApi<Paginated<Job>>(jobsPath(q, company, starredOnly, offset))
 
   function updateFilter(setter: (value: string) => void) {
     return (value: string) => {
@@ -82,7 +117,7 @@ export function Jobs() {
     <div className="p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Jobs</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             className={inputStyle}
             placeholder="Search titles…"
@@ -95,6 +130,27 @@ export function Jobs() {
             value={company}
             onChange={(e) => updateFilter(setCompany)(e.target.value)}
           />
+          <Button
+            variant={starredOnly ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setStarredOnly((v) => !v)
+              setOffset(0)
+            }}
+          >
+            <Star className={`size-4 ${starredOnly ? 'fill-amber-400 text-amber-400' : ''}`} />
+            Starred
+          </Button>
+          <a href={exportPath('csv', q, company, starredOnly)}>
+            <Button variant="outline" size="sm">
+              Export CSV
+            </Button>
+          </a>
+          <a href={exportPath('json', q, company, starredOnly)}>
+            <Button variant="outline" size="sm">
+              Export JSON
+            </Button>
+          </a>
         </div>
       </div>
 
@@ -103,6 +159,7 @@ export function Jobs() {
         <table className="w-full text-left text-sm">
           <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
+              <th className="px-4 py-2" />
               <th className="px-4 py-2 font-medium">Title</th>
               <th className="px-4 py-2 font-medium">Company</th>
               <th className="px-4 py-2 font-medium">Location</th>
@@ -118,6 +175,9 @@ export function Jobs() {
                 className="cursor-pointer border-t border-border hover:bg-indigo-50/40"
                 onClick={() => setSelected(job)}
               >
+                <td className="px-4 py-3">
+                  <StarButton job={job} onToggled={jobs.reload} />
+                </td>
                 <td className="px-4 py-3 font-medium text-foreground">{job.title}</td>
                 <td className="px-4 py-3">{job.company}</td>
                 <td className="px-4 py-3 text-muted-foreground">{job.location ?? '—'}</td>

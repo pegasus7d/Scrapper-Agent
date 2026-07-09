@@ -120,6 +120,41 @@ def test_list_jobs_limit_above_100_rejected(client: TestClient) -> None:
     assert client.get("/api/jobs", params={"limit": 101}).status_code == 422
 
 
+def test_star_job_toggles_and_404s_when_missing(client: TestClient, engine: Engine) -> None:
+    seed_items(engine)
+    job_id = client.get("/api/jobs").json()["items"][0]["id"]
+    starred = client.post(f"/api/jobs/{job_id}/star", json={"starred": True})
+    assert starred.status_code == 200
+    assert starred.json()["starred"] is True
+    assert client.get("/api/jobs", params={"starred": True}).json()["total"] == 1
+    assert client.post("/api/jobs/999/star", json={"starred": True}).status_code == 404
+
+
+def test_export_jobs_json_and_csv(client: TestClient, engine: Engine) -> None:
+    seed_items(engine)
+    as_json = client.get("/api/jobs/export").json()
+    assert len(as_json) == 3
+    assert {job["title"] for job in as_json} == {"Engineer 1", "Engineer 2", "Engineer 3"}
+
+    as_csv = client.get("/api/jobs/export", params={"format": "csv"})
+    assert as_csv.headers["content-type"].startswith("text/csv")
+    lines = as_csv.text.strip().splitlines()
+    assert lines[0].startswith("title,company")
+    assert len(lines) == 4  # header + 3 jobs
+
+
+def test_export_questions_json_and_csv(client: TestClient, engine: Engine) -> None:
+    seed_items(engine)
+    as_json = client.get("/api/questions/export").json()
+    assert len(as_json) == 1
+    assert as_json[0]["question"] == "Reverse a linked list."
+
+    as_csv = client.get("/api/questions/export", params={"format": "csv", "round": "phone"})
+    assert len(as_csv.text.strip().splitlines()) == 2  # header + 1 question
+    header_only = client.get("/api/questions/export", params={"format": "csv", "round": "onsite"})
+    assert len(header_only.text.strip().splitlines()) == 1
+
+
 def test_list_questions_with_filters(client: TestClient, engine: Engine) -> None:
     seed_items(engine)
     body = client.get("/api/questions", params={"round": "phone"}).json()

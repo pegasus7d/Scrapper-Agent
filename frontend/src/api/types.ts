@@ -35,6 +35,7 @@ export interface Job {
   source: string
   extraction_tier: string
   scraped_at: string
+  starred: boolean
 }
 
 export interface Question {

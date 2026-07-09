@@ -179,6 +179,39 @@ def test_list_questions_filters_by_company_round_and_text(session: Session, run:
     assert repo.list_questions(session, company="other", limit=20, offset=0) == ([], 0)
 
 
+def test_set_job_starred_toggles_and_reports_missing(session: Session, run: Run) -> None:
+    save_jobs(session, run, "Backend Engineer")
+    job_id = repo.list_jobs(session, limit=1, offset=0)[0][0].id
+    starred = repo.set_job_starred(session, job_id, True)
+    assert starred is not None and starred.starred is True
+    assert repo.set_job_starred(session, 999, True) is None
+
+
+def test_list_jobs_filters_by_starred(session: Session, run: Run) -> None:
+    save_jobs(session, run, "A", "B")
+    jobs, _ = repo.list_jobs(session, limit=20, offset=0)
+    repo.set_job_starred(session, jobs[0].id, True)
+    starred_only, total = repo.list_jobs(session, starred=True, limit=20, offset=0)
+    assert total == 1 and starred_only[0].id == jobs[0].id
+    unstarred_only, total = repo.list_jobs(session, starred=False, limit=20, offset=0)
+    assert total == 1 and unstarred_only[0].id == jobs[1].id
+
+
+def test_export_jobs_returns_all_matches_unpaginated(session: Session, run: Run) -> None:
+    save_jobs(session, run, "A", "B", "C")
+    assert len(repo.export_jobs(session)) == 3
+    assert len(repo.export_jobs(session, company="company 0")) == 1
+
+
+def test_export_questions_returns_all_matches_unpaginated(session: Session, run: Run) -> None:
+    repo.save_question(
+        session, QUESTION, source_url="https://r.com/t/1", source="reddit", tier="local", run=run
+    )
+    assert len(repo.export_questions(session)) == 1
+    assert len(repo.export_questions(session, round_="onsite")) == 1
+    assert len(repo.export_questions(session, round_="phone")) == 0
+
+
 def test_compute_stats_counts_and_escalation_rate(session: Session, run: Run) -> None:
     save_jobs(session, run, "A", "B", "C")
     repo.save_job(

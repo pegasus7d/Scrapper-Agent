@@ -1,23 +1,42 @@
 """Endpoint handlers — thin by design: parse, call repo/pipeline, shape response.
 
-Every response goes through a Pydantic model (DESIGN.md §4); list endpoints
-return {items, total} with ?limit= (default 20, max 100) and ?offset=.
+Request/response models live in dto.py; every response goes through one of
+them (DESIGN.md §4). List endpoints return {items, total} with ?limit=
+(default 20, max 100) and ?offset=.
 """
 
 import logging
 from collections.abc import Iterator
-from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from backend.api.dto import (
+    Cancelled,
+    JobList,
+    JobOut,
+    QuestionList,
+    QuestionOut,
+    RunCreated,
+    RunList,
+    RunOut,
+    RunRequest,
+    ScheduleOut,
+    ScheduleRequest,
+    StarRequest,
+    StatsOut,
+    ToggleRequest,
+)
+from backend.api.export import jobs_to_csv, questions_to_csv
 from backend.db import repo
 from backend.scraper.fetcher import PageFetcher
 from backend.scraper.pipeline import build_extractor, execute_run
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
+
+ExportFormat = Literal["csv", "json"]
 
 logger = logging.getLogger(__name__)
 
@@ -37,109 +56,6 @@ LimitParam = Annotated[int, Query(ge=1, le=100)]
 OffsetParam = Annotated[int, Query(ge=0)]
 
 
-class RunRequest(BaseModel):
-    kind: Literal["jobs", "questions"]
-    source: str
-
-
-class RunCreated(BaseModel):
-    run_id: int
-
-
-class Cancelled(BaseModel):
-    cancelled: bool
-
-
-class RunOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    kind: str
-    source: str
-    status: str
-    cancel_requested: bool
-    started_at: datetime
-    finished_at: datetime | None
-    pages_fetched: int
-    items_saved: int
-    items_duplicate: int
-    escalations: int
-    errors: list[dict[str, str]]
-
-
-class JobOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    title: str
-    company: str
-    location: str | None
-    salary: str | None
-    requirements: list[str]
-    posting_url: str
-    apply_url: str | None
-    source: str
-    extraction_tier: str
-    scraped_at: datetime
-
-
-class QuestionOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    company: str
-    role: str | None
-    question: str
-    round: str | None
-    source_url: str
-    source: str
-    extraction_tier: str
-    scraped_at: datetime
-
-
-class RunList(BaseModel):
-    items: list[RunOut]
-    total: int
-
-
-class JobList(BaseModel):
-    items: list[JobOut]
-    total: int
-
-
-class QuestionList(BaseModel):
-    items: list[QuestionOut]
-    total: int
-
-
-class StatsOut(BaseModel):
-    jobs: int
-    questions: int
-    companies: int
-    escalation_rate: float
-
-
-class ScheduleRequest(BaseModel):
-    kind: Literal["jobs", "questions"]
-    source: str
-    every_hours: int = Field(ge=1, le=24 * 7)
-
-
-class ToggleRequest(BaseModel):
-    enabled: bool
-
-
-class ScheduleOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    kind: str
-    source: str
-    every_hours: int
-    enabled: bool
-    last_run_at: datetime | None
-
-
 def _execute_in_thread(engine: Engine, run_id: int) -> None:
     """Background half of POST /runs — fresh session, real fetcher and cascade."""
     with Session(engine) as session:
@@ -148,6 +64,10 @@ def _execute_in_thread(engine: Engine, run_id: int) -> None:
             logger.error("run %s vanished before execution", run_id)
             return
         execute_run(session, run, PageFetcher(), build_extractor())
+
+
+def _attachment(filename: str) -> dict[str, str]:
+    return {"Content-Disposition": f'attachment; filename="{filename}"'}
 
 
 @router.post("/runs", status_code=201)
@@ -190,13 +110,40 @@ def list_jobs(
     company: str | None = None,
     source: str | None = None,
     q: str | None = None,
+    starred: bool | None = None,
     limit: LimitParam = 20,
     offset: OffsetParam = 0,
 ) -> JobList:
     jobs, total = repo.list_jobs(
-        session, company=company, source=source, q=q, limit=limit, offset=offset
+        session, company=company, source=source, q=q, starred=starred, limit=limit, offset=offset
     )
     return JobList(items=[JobOut.model_validate(job) for job in jobs], total=total)
+
+
+@router.post("/jobs/{job_id}/star")
+def star_job(job_id: int, body: StarRequest, session: SessionDep) -> JobOut:
+    job = repo.set_job_starred(session, job_id, body.starred)
+    if job is None:
+        raise HTTPException(404, "job not found")
+    return JobOut.model_validate(job)
+
+
+@router.get("/jobs/export")
+def export_jobs(
+    session: SessionDep,
+    format: ExportFormat = "json",
+    company: str | None = None,
+    source: str | None = None,
+    q: str | None = None,
+    starred: bool | None = None,
+) -> Response:
+    jobs = repo.export_jobs(session, company=company, source=source, q=q, starred=starred)
+    if format == "csv":
+        return PlainTextResponse(
+            jobs_to_csv(jobs), media_type="text/csv", headers=_attachment("jobs.csv")
+        )
+    body = [JobOut.model_validate(job).model_dump(mode="json") for job in jobs]
+    return JSONResponse(body, headers=_attachment("jobs.json"))
 
 
 @router.get("/questions")
@@ -213,6 +160,23 @@ def list_questions(
     )
     items = [QuestionOut.model_validate(question) for question in questions]
     return QuestionList(items=items, total=total)
+
+
+@router.get("/questions/export")
+def export_questions(
+    session: SessionDep,
+    format: ExportFormat = "json",
+    company: str | None = None,
+    round: str | None = None,
+    q: str | None = None,
+) -> Response:
+    questions = repo.export_questions(session, company=company, round_=round, q=q)
+    if format == "csv":
+        return PlainTextResponse(
+            questions_to_csv(questions), media_type="text/csv", headers=_attachment("questions.csv")
+        )
+    body = [QuestionOut.model_validate(question).model_dump(mode="json") for question in questions]
+    return JSONResponse(body, headers=_attachment("questions.json"))
 
 
 @router.get("/stats")
