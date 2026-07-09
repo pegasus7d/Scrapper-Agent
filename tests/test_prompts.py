@@ -31,7 +31,7 @@ def test_job_prompt_has_no_extra_criteria_noise() -> None:
 
 
 def test_question_prompt_allows_generic_companyless_questions() -> None:
-    # DESIGN.md §10 step 4: curated GitHub question banks name no company.
+    # PHASE3.md step 4: curated GitHub question banks name no company.
     prompt = extraction_prompt(QuestionExtract, "They asked me to invert a tree.")
     assert "generic reference source" in prompt
     assert "set `company` to null" in prompt

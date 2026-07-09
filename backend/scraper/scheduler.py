@@ -1,4 +1,4 @@
-"""Background scheduler: starts due scrapes on their own thread (DESIGN.md §9 step 6).
+"""Background scheduler: starts due scrapes on their own thread (PHASE2.md step 6).
 
 One poll cycle (`run_due_schedules`) is the unit under test; `run_scheduler_loop`
 just wraps it in an infinite, sleep-driven loop for the app factory to launch

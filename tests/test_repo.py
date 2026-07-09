@@ -44,7 +44,7 @@ def test_normalize_url_strips_tracking_params_only() -> None:
 
 def test_normalize_url_keeps_fragment() -> None:
     # The GitHub question-bank source's per-question identity is a URL
-    # fragment (#L{line}) — it must survive normalization (DESIGN.md §10 step 4).
+    # fragment (#L{line}) — it must survive normalization (PHASE3.md step 4).
     url = "https://github.com/h5bp/repo/blob/main/questions.md#L7"
     assert repo.normalize_url(url) == url
 

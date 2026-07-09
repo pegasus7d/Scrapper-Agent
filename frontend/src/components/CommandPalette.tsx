@@ -18,7 +18,7 @@ interface Props {
 }
 
 // Global ⌘K / Ctrl+K palette: switch views instantly, or search jobs by title
-// and open the posting in a new tab (DESIGN.md §9 step 5).
+// and open the posting in a new tab (PHASE2.md step 5).
 export function CommandPalette({ onSelectView }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')

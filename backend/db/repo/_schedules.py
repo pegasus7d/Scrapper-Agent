@@ -1,4 +1,4 @@
-"""Schedule CRUD and the due-check the background scheduler polls (DESIGN.md §9 step 6)."""
+"""Schedule CRUD and the due-check the background scheduler polls (PHASE2.md step 6)."""
 
 from datetime import datetime, timedelta
 

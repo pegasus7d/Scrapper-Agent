@@ -33,7 +33,7 @@ def normalize_url(url: str) -> str:
 
     Deliberately keeps the fragment: it used to be stripped on the theory that
     fragments are never part of a resource's identity, but no source has ever
-    needed that, and the GitHub question-bank source (DESIGN.md §10 step 4)
+    needed that, and the GitHub question-bank source (PHASE3.md step 4)
     genuinely does — its `#L{line}` anchor is the only thing that makes each
     question's URL distinct from its neighbors in the same file. Without it,
     every question after the first collapses onto one URL and item_url_exists
@@ -51,7 +51,7 @@ def normalize_url(url: str) -> str:
 def question_hash(company: str | None, question: str) -> str:
     """Content hash used to dedupe questions across formatting differences.
 
-    A null company (DESIGN.md §10 step 4) normalizes to "" so it still hashes
+    A null company (PHASE3.md step 4) normalizes to "" so it still hashes
     deterministically instead of raising.
     """
     normalized = _WHITESPACE.sub(" ", f"{company or ''} {question}".lower()).strip()
@@ -194,7 +194,7 @@ def save_question(
 
 def item_url_exists(session: Session, kind: str, url: str) -> bool:
     """True when this permalink already has stored items — lets the pipeline skip
-    the chunk before spending LLM time on it (DESIGN.md §9 step 1)."""
+    the chunk before spending LLM time on it (PHASE2.md step 1)."""
     normalized = normalize_url(url)
     if kind == "jobs":
         return session.scalar(select(Job.id).where(Job.posting_url == normalized)) is not None

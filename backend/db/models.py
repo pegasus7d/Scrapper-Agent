@@ -47,7 +47,7 @@ class Job(Base):
     extraction_tier: Mapped[str]  # "local" | "frontier"
     scraped_at: Mapped[datetime]
     run_id: Mapped[int] = mapped_column(ForeignKey("runs.id"))
-    starred: Mapped[bool] = mapped_column(default=False)  # DESIGN.md §9 step 8
+    starred: Mapped[bool] = mapped_column(default=False)  # PHASE2.md step 8
 
 
 class InterviewQuestion(Base):
@@ -56,7 +56,7 @@ class InterviewQuestion(Base):
     __tablename__ = "interview_questions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    # Null for generic, non-company-attributed question banks (DESIGN.md §10 step 4).
+    # Null for generic, non-company-attributed question banks (PHASE3.md step 4).
     company: Mapped[str | None]
     role: Mapped[str | None]
     question: Mapped[str]
@@ -72,7 +72,7 @@ class InterviewQuestion(Base):
 
 
 class Schedule(Base):
-    """A recurring scrape: run this kind/source every N hours (DESIGN.md §9 step 6)."""
+    """A recurring scrape: run this kind/source every N hours (PHASE2.md step 6)."""
 
     __tablename__ = "schedules"
 

@@ -1,4 +1,4 @@
-"""CSV serialization for the export endpoints (DESIGN.md §9 step 8).
+"""CSV serialization for the export endpoints (PHASE2.md step 8).
 
 Kept separate from routes.py so the route handlers stay thin — this is the
 only place that knows about CSV's column order and quoting.

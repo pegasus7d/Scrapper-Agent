@@ -1,5 +1,5 @@
 """WeWorkRemotely jobs: public RSS feed, no login, no anti-bot friction
-(DESIGN.md §10 step 2). robots.txt is `Allow: /` for `User-agent: *`, only
+(PHASE3.md step 2). robots.txt is `Allow: /` for `User-agent: *`, only
 account/admin paths disallowed.
 """
 

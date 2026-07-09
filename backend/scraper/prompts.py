@@ -13,7 +13,7 @@ _SCHEMA_LABELS = {
 
 # Extra criteria per schema, appended to the base template — the relevance gate
 # that keeps the local model from extracting things that merely mention the
-# label word (DESIGN.md §9 step 2: e.g. "exit interview questions for a school"
+# label word (PHASE2.md step 2: e.g. "exit interview questions for a school"
 # is not an interview question).
 _SCHEMA_CRITERIA = {
     "JobExtract": "",

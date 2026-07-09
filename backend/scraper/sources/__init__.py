@@ -1,4 +1,4 @@
-"""Source registry: formalized as a plugin architecture (DESIGN.md §10 step 1).
+"""Source registry: formalized as a plugin architecture (PHASE3.md step 1).
 
 Each platform is a `Source` — pure adapter logic (seed URLs, page→chunk
 splitting, link discovery), no HTTP calls of its own; fetching always goes

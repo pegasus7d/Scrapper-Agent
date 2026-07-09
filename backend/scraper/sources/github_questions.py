@@ -1,4 +1,4 @@
-"""Curated GitHub interview-question banks (DESIGN.md §10 step 4).
+"""Curated GitHub interview-question banks (PHASE3.md step 4).
 
 Reddit, LeetCode Discuss, and Blind all turned out to be unscrapable (§3,
 §10) — rather than find yet another forum, ingest permissively-licensed,

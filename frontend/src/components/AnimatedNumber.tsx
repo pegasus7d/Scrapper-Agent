@@ -7,7 +7,7 @@ interface Props {
 }
 
 // Counts up from the previous value to the new one whenever it changes —
-// the one deliberate motion usage for this step (DESIGN.md §9 step 5); the
+// the one deliberate motion usage for this step (PHASE2.md step 5); the
 // dialog/sheet/dropdown transitions already come from Base UI for free.
 export function AnimatedNumber({ value, formatter = (n) => String(Math.round(n)) }: Props) {
   const [display, setDisplay] = useState(value)

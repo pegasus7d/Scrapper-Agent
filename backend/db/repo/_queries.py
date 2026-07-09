@@ -1,7 +1,7 @@
 """Read-side queries: paginated lists, filters, export, dashboard stats.
 
 Serves the API's list endpoints ({items, total} pagination) and the
-unpaginated export endpoints (DESIGN.md §4, §9 step 8).
+unpaginated export endpoints (DESIGN.md §4, PHASE2.md step 8).
 """
 
 from dataclasses import dataclass
@@ -132,7 +132,7 @@ def compute_stats(session: Session) -> Stats:
     """Compute the dashboard totals in one place, so routes stay logic-free."""
     jobs = _count(session, select(Job))
     questions = _count(session, select(InterviewQuestion))
-    # Null company (DESIGN.md §10 step 4 — generic question banks) doesn't count
+    # Null company (PHASE3.md step 4 — generic question banks) doesn't count
     # as a "company" in the distinct-companies total.
     companies_union = select(Job.company).union(
         select(InterviewQuestion.company).where(InterviewQuestion.company.is_not(None))

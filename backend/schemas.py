@@ -27,7 +27,7 @@ class JobExtract(BaseModel):
 class QuestionExtract(BaseModel):
     """One interview question extracted from a chunk.
 
-    `company` is nullable: curated GitHub question banks (DESIGN.md §10 step 4)
+    `company` is nullable: curated GitHub question banks (PHASE3.md step 4)
     are generic and topic-based, with no interview account behind them — that
     is a real absence, not missing data.
     """

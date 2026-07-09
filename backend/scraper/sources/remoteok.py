@@ -1,4 +1,4 @@
-"""RemoteOK jobs: public JSON API, no login, no anti-bot friction (DESIGN.md §9 step 7).
+"""RemoteOK jobs: public JSON API, no login, no anti-bot friction (PHASE2.md step 7).
 
 Already-structured fields still go through the same LLM extraction path as
 every other source — proves a second job source needs no pipeline changes.

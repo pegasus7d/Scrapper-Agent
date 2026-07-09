@@ -1,4 +1,4 @@
-"""Tests for the Source registry's own dispatch behavior (DESIGN.md §10 step 1)."""
+"""Tests for the Source registry's own dispatch behavior (PHASE3.md step 1)."""
 
 import pytest
 

@@ -39,7 +39,7 @@ function ScheduleRow({ schedule, onToggled }: { schedule: Schedule; onToggled: (
   )
 }
 
-// A small always-visible dashboard section (DESIGN.md §9 step 6) — no modal,
+// A small always-visible dashboard section (PHASE2.md step 6) — no modal,
 // just an inline create row plus the toggle list.
 export function SchedulesPanel() {
   const schedules = useApi<Schedule[]>('/schedules')

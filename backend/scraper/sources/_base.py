@@ -1,4 +1,4 @@
-"""Shared types and utilities for every source (DESIGN.md §10 step 1).
+"""Shared types and utilities for every source (PHASE3.md step 1).
 
 Kept separate from `__init__.py` so platform modules can import `Chunk` and
 these helpers without a circular import back through the registry.

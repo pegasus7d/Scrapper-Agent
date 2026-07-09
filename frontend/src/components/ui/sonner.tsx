@@ -1,7 +1,7 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
-// No theme provider yet (dark mode lands in DESIGN.md §9 step 5) — light only.
+// No theme provider yet (dark mode lands in PHASE2.md step 5) — light only.
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner

@@ -1,8 +1,8 @@
-"""Arbeitnow jobs: public JSON API, no login, no anti-bot friction (DESIGN.md §10 step 3).
+"""Arbeitnow jobs: public JSON API, no login, no anti-bot friction (PHASE3.md step 3).
 
 `robots.txt` has no disallow rules at all. Already-structured fields still go
 through the same LLM extraction path as every other source (RemoteOK's
-reasoning, DESIGN.md §9 step 7). The API paginates via `links.next` — one
+reasoning, PHASE2.md step 7). The API paginates via `links.next` — one
 `next_links()` call per page, bounded by `MAX_PAGES_PER_RUN` like every source.
 """
 

@@ -63,7 +63,7 @@ def test_question_optional_fields_accept_none() -> None:
 
 
 def test_question_company_accepts_none() -> None:
-    # Generic, non-company-attributed question banks (DESIGN.md §10 step 4).
+    # Generic, non-company-attributed question banks (PHASE3.md step 4).
     question = QuestionExtract.model_validate({**VALID_QUESTION, "company": None})
     assert question.company is None
 
