@@ -23,11 +23,11 @@ function truncate(text: string, max = 90): string {
 function QuestionDrawer({ question, onClose }: { question: Question; onClose: () => void }) {
   return (
     <Drawer title={question.company} onClose={onClose}>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-1 text-sm text-muted-foreground">
         {question.role ?? 'role unknown'}
         {question.round && ` · ${question.round}`}
       </p>
-      <p className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+      <p className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
         {question.question}
       </p>
       <div className="mt-6 text-sm">
@@ -40,7 +40,7 @@ function QuestionDrawer({ question, onClose }: { question: Question; onClose: ()
           Source ↗
         </a>
       </div>
-      <p className="mt-6 text-xs text-slate-400">
+      <p className="mt-6 text-xs text-muted-foreground">
         {question.source} · {question.extraction_tier} tier · scraped{' '}
         {formatTime(question.scraped_at)}
       </p>
@@ -49,8 +49,8 @@ function QuestionDrawer({ question, onClose }: { question: Question; onClose: ()
 }
 
 const inputStyle =
-  'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ' +
-  'placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none'
+  'rounded-lg border border-border bg-card px-3 py-2 text-sm ' +
+  'placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none'
 
 export function Questions() {
   const [q, setQ] = useState('')
@@ -70,7 +70,7 @@ export function Questions() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Questions</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Questions</h1>
         <div className="flex gap-2">
           <input
             className={inputStyle}
@@ -93,10 +93,10 @@ export function Questions() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
         {questions.error && <p className="px-4 py-3 text-sm text-rose-600">{questions.error}</p>}
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-2 font-medium">Question</th>
               <th className="px-4 py-2 font-medium">Company</th>
@@ -109,22 +109,22 @@ export function Questions() {
             {(questions.data?.items ?? []).map((question) => (
               <tr
                 key={question.id}
-                className="cursor-pointer border-t border-slate-100 hover:bg-indigo-50/40"
+                className="cursor-pointer border-t border-border hover:bg-indigo-50/40"
                 onClick={() => setSelected(question)}
               >
-                <td className="px-4 py-3 font-medium text-slate-900">
+                <td className="px-4 py-3 font-medium text-foreground">
                   {truncate(question.question)}
                 </td>
                 <td className="px-4 py-3">{question.company}</td>
-                <td className="px-4 py-3 text-slate-500">{question.role ?? '—'}</td>
-                <td className="px-4 py-3 text-slate-500">{question.round ?? '—'}</td>
-                <td className="px-4 py-3 text-slate-500">{formatTime(question.scraped_at)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{question.role ?? '—'}</td>
+                <td className="px-4 py-3 text-muted-foreground">{question.round ?? '—'}</td>
+                <td className="px-4 py-3 text-muted-foreground">{formatTime(question.scraped_at)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {questions.data?.items.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-slate-400">No questions match.</p>
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">No questions match.</p>
         )}
         {questions.data && (
           <Pagination

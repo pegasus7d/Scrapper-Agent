@@ -10,11 +10,11 @@ export function Pagination({ offset, limit, total, onOffset }: Props) {
   const page = Math.floor(offset / limit) + 1
   const pages = Math.ceil(total / limit)
   const buttonStyle =
-    'rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 ' +
-    'hover:bg-slate-50 disabled:opacity-40'
+    'rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground ' +
+    'hover:bg-muted disabled:opacity-40'
   return (
-    <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-      <span className="text-xs text-slate-500">
+    <div className="flex items-center justify-between border-t border-border px-4 py-3">
+      <span className="text-xs text-muted-foreground">
         Page {page} of {pages} · {total} total
       </span>
       <div className="flex gap-2">

@@ -18,15 +18,15 @@ function jobsPath(q: string, company: string, offset: number): string {
 function JobDrawer({ job, onClose }: { job: Job; onClose: () => void }) {
   return (
     <Drawer title={job.title} onClose={onClose}>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-1 text-sm text-muted-foreground">
         {job.company}
         {job.location && ` · ${job.location}`}
         {job.salary && ` · ${job.salary}`}
       </p>
       {job.requirements.length > 0 && (
         <>
-          <h3 className="mt-6 text-sm font-semibold text-slate-900">Requirements</h3>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
+          <h3 className="mt-6 text-sm font-semibold text-foreground">Requirements</h3>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
             {job.requirements.map((requirement) => (
               <li key={requirement}>{requirement}</li>
             ))}
@@ -53,7 +53,7 @@ function JobDrawer({ job, onClose }: { job: Job; onClose: () => void }) {
           </a>
         )}
       </div>
-      <p className="mt-6 text-xs text-slate-400">
+      <p className="mt-6 text-xs text-muted-foreground">
         {job.source} · {job.extraction_tier} tier · scraped {formatTime(job.scraped_at)}
       </p>
     </Drawer>
@@ -61,8 +61,8 @@ function JobDrawer({ job, onClose }: { job: Job; onClose: () => void }) {
 }
 
 const inputStyle =
-  'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ' +
-  'placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none'
+  'rounded-lg border border-border bg-card px-3 py-2 text-sm ' +
+  'placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none'
 
 export function Jobs() {
   const [q, setQ] = useState('')
@@ -81,7 +81,7 @@ export function Jobs() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Jobs</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Jobs</h1>
         <div className="flex gap-2">
           <input
             className={inputStyle}
@@ -98,10 +98,10 @@ export function Jobs() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
         {jobs.error && <p className="px-4 py-3 text-sm text-rose-600">{jobs.error}</p>}
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-2 font-medium">Title</th>
               <th className="px-4 py-2 font-medium">Company</th>
@@ -115,21 +115,21 @@ export function Jobs() {
             {(jobs.data?.items ?? []).map((job) => (
               <tr
                 key={job.id}
-                className="cursor-pointer border-t border-slate-100 hover:bg-indigo-50/40"
+                className="cursor-pointer border-t border-border hover:bg-indigo-50/40"
                 onClick={() => setSelected(job)}
               >
-                <td className="px-4 py-3 font-medium text-slate-900">{job.title}</td>
+                <td className="px-4 py-3 font-medium text-foreground">{job.title}</td>
                 <td className="px-4 py-3">{job.company}</td>
-                <td className="px-4 py-3 text-slate-500">{job.location ?? '—'}</td>
-                <td className="px-4 py-3 text-slate-500">{job.salary ?? '—'}</td>
-                <td className="px-4 py-3 text-slate-500">{job.source}</td>
-                <td className="px-4 py-3 text-slate-500">{formatTime(job.scraped_at)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{job.location ?? '—'}</td>
+                <td className="px-4 py-3 text-muted-foreground">{job.salary ?? '—'}</td>
+                <td className="px-4 py-3 text-muted-foreground">{job.source}</td>
+                <td className="px-4 py-3 text-muted-foreground">{formatTime(job.scraped_at)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {jobs.data?.items.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-slate-400">No jobs match.</p>
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">No jobs match.</p>
         )}
         {jobs.data && (
           <Pagination

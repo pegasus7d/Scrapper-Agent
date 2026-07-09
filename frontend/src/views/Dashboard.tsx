@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
 import type { Paginated, Run, Stats } from '../api/types'
+import { AnimatedNumber } from '../components/AnimatedNumber'
 import { NewScrapeModal } from '../components/NewScrapeModal'
 import { RunProgressPanel } from '../components/RunProgressPanel'
 import { RunsChart } from '../components/RunsChart'
@@ -17,17 +18,27 @@ const STATUS_STYLE: Record<Run['status'], string> = {
   running: 'bg-indigo-50 text-indigo-700',
   completed: 'bg-emerald-50 text-emerald-700',
   failed: 'bg-rose-50 text-rose-700',
-  cancelled: 'bg-slate-100 text-slate-600',
+  cancelled: 'bg-muted text-muted-foreground',
 }
 
-function StatCard({ label, value }: { label: string; value: string | null }) {
+function StatCard({
+  label,
+  value,
+  formatter,
+}: {
+  label: string
+  value: number | null
+  formatter?: (n: number) => string
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <p className="text-sm text-slate-500">{label}</p>
+    <div className="rounded-xl border border-border bg-card p-5">
+      <p className="text-sm text-muted-foreground">{label}</p>
       {value === null ? (
         <Skeleton className="mt-2 h-7 w-16" />
       ) : (
-        <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+        <p className="mt-1 text-2xl font-semibold text-foreground">
+          <AnimatedNumber value={value} formatter={formatter} />
+        </p>
       )}
     </div>
   )
@@ -40,7 +51,7 @@ function StatusBadge({ status }: { status: Run['status'] }) {
 function RunRow({ run, onCancel }: { run: Run; onCancel: (id: number) => void }) {
   return (
     <TableRow>
-      <TableCell className="text-slate-500">#{run.id}</TableCell>
+      <TableCell className="text-muted-foreground">#{run.id}</TableCell>
       <TableCell>
         {run.kind} / {run.source}
       </TableCell>
@@ -50,7 +61,7 @@ function RunRow({ run, onCancel }: { run: Run; onCancel: (id: number) => void })
       <TableCell className="text-right">{run.pages_fetched}</TableCell>
       <TableCell className="text-right">{run.items_saved}</TableCell>
       <TableCell className="text-right">{run.errors.length}</TableCell>
-      <TableCell className="text-slate-500">{formatTime(run.started_at)}</TableCell>
+      <TableCell className="text-muted-foreground">{formatTime(run.started_at)}</TableCell>
       <TableCell className="text-right">
         {run.status === 'running' && !run.cancel_requested && (
           <Button variant="ghost" size="xs" onClick={() => onCancel(run.id)}>
@@ -104,17 +115,18 @@ export function Dashboard() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
         <Button onClick={() => setShowModal(true)}>New scrape</Button>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Jobs" value={stats.data ? String(stats.data.jobs) : null} />
-        <StatCard label="Questions" value={stats.data ? String(stats.data.questions) : null} />
-        <StatCard label="Companies" value={stats.data ? String(stats.data.companies) : null} />
+        <StatCard label="Jobs" value={stats.data?.jobs ?? null} />
+        <StatCard label="Questions" value={stats.data?.questions ?? null} />
+        <StatCard label="Companies" value={stats.data?.companies ?? null} />
         <StatCard
           label="Escalation rate"
-          value={stats.data ? formatPercent(stats.data.escalation_rate) : null}
+          value={stats.data?.escalation_rate ?? null}
+          formatter={formatPercent}
         />
       </div>
 
@@ -125,20 +137,20 @@ export function Dashboard() {
       )}
 
       {runItems.length > 0 && (
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="text-sm font-semibold text-slate-900">Items per run</h2>
+        <div className="mt-6 rounded-xl border border-border bg-card p-5">
+          <h2 className="text-sm font-semibold text-foreground">Items per run</h2>
           <RunsChart runs={runItems} />
         </div>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-900">Recent runs</h2>
+          <h2 className="text-sm font-semibold text-foreground">Recent runs</h2>
           {runs.error && <span className="text-xs text-rose-600">{runs.error}</span>}
         </div>
         {runItems.length === 0 ? (
           <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
-            <p className="text-sm text-slate-400">No runs yet.</p>
+            <p className="text-sm text-muted-foreground">No runs yet.</p>
             <Button variant="outline" onClick={() => setShowModal(true)}>
               Start your first scrape
             </Button>
