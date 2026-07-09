@@ -175,6 +175,19 @@ here, all verified before writing this down (WORKFLOW.md rule 2):
    already computes) and remove the dependency entirely. Smoke: `npm run
    build` with the real before/after bundle size stated, real look in a
    browser confirming the chart still renders correctly with real run data.
+   **Done.** `RunsChart.tsx` rewritten as a plain SVG: `<rect>` per series
+   scaled against a fixed `viewBox`, gridlines + tick labels computed from
+   the real max value across both series, a small color-key legend
+   (recharts' `Tooltip`/axis components did this before), native `<title>`
+   elements on each bar for a zero-JS hover tooltip. `recharts` removed
+   from `package.json` entirely (`npm uninstall recharts`, not just left
+   unused). Measured, real: production bundle **827.63 KB → 478.47 KB**
+   (**−349.16 KB**, 2652 → 2096 modules) — matches phase 5's ~351 KB
+   marginal-contribution estimate almost exactly; the "chunk >500 KB"
+   build warning is also gone. Smoke: real look in a browser (Playwright,
+   live API + 15 real runs) confirms the chart renders correctly —
+   legend, gridlines, tick values, grouped bars, x-axis run-id labels all
+   present and matching the original's look, zero console errors.
 6. **Live run updates via SSE (backend + frontend).** New `GET
    /api/runs/stream` endpoint: an async generator polls the DB every ~1s
    (simpler and less invasive than threading a pub/sub through
