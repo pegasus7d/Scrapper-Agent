@@ -200,3 +200,20 @@ def test_compute_stats_empty_db_is_all_zeros(session: Session) -> None:
     assert repo.compute_stats(session) == repo.Stats(
         jobs=0, questions=0, companies=0, escalation_rate=0.0
     )
+
+
+def test_item_url_exists_matches_jobs_across_tracking_params(session: Session, run: Run) -> None:
+    assert repo.item_url_exists(session, "jobs", "https://x.com/j/1") is False
+    repo.save_job(session, JOB, posting_url="https://x.com/j/1", source="hn", tier="local", run=run)
+    assert repo.item_url_exists(session, "jobs", "https://x.com/j/1") is True
+    # The same permalink reached via a tracking link is still known.
+    assert repo.item_url_exists(session, "jobs", "https://x.com/j/1?utm_source=feed") is True
+
+
+def test_item_url_exists_matches_questions_by_source_url(session: Session, run: Run) -> None:
+    assert repo.item_url_exists(session, "questions", "https://r.com/t/1") is False
+    repo.save_question(
+        session, QUESTION, source_url="https://r.com/t/1", source="reddit", tier="local", run=run
+    )
+    assert repo.item_url_exists(session, "questions", "https://r.com/t/1") is True
+    assert repo.item_url_exists(session, "jobs", "https://r.com/t/1") is False  # kind-scoped

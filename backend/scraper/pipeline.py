@@ -136,6 +136,11 @@ def _extract_chunks(
     for chunk in chunks:
         if repo.cancel_requested(session, run):
             return False
+        if repo.item_url_exists(session, run.kind, chunk.url):
+            # Already stored on a previous run — don't spend LLM time on it.
+            run.items_duplicate += 1
+            session.commit()
+            continue
         try:
             result = extractor.extract(chunk.text, schema)
         except ExtractionFailed as error:

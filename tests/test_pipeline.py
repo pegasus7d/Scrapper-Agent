@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from backend.db import repo
 from backend.db.models import Job, Run
 from backend.llm.client import FrontierClient
+from backend.schemas import JobExtract, QuestionExtract
 from backend.scraper import pipeline
 from backend.scraper.extractor import Extractor
 from backend.scraper.fetcher import FetchError, Page, PageFetcher
@@ -206,6 +207,60 @@ def test_cancel_request_stops_loop_with_cancelled_status(
     run = run_scrape(session, "jobs", "hn", fetcher, extractor_with([]), sleep=cancel_during_sleep)
     assert run.status == "cancelled"
     assert fetcher.fetched == [urls[0]]  # second URL never fetched
+
+
+def test_known_chunk_url_skips_extraction_entirely(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    known = "https://l.com/i/1"
+    with_run = repo.create_run(session, kind="jobs", source="hn")
+    repo.save_job(
+        session,
+        JobExtract(
+            title="Old", company="Acme", location=None, salary=None, requirements=[], apply_url=None
+        ),
+        posting_url=known,
+        source="hn",
+        tier="local",
+        run=with_run,
+    )
+    repo.finish_run(session, with_run)
+
+    world = fake_sources([LISTING], chunks={LISTING: [Chunk("seen ad", known)]})
+    # extractor_with([]) raises if the LLM is ever called — the run would fail.
+    run = scrape(session, monkeypatch, sources=world, fetcher=FakeFetcher({LISTING: page(LISTING)}))
+    assert run.status == "completed"
+    assert run.items_duplicate == 1
+    assert run.items_saved == 0
+
+
+def test_known_question_source_url_skips_extraction(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    known = "https://l.com/c/9"
+    with_run = repo.create_run(session, kind="questions", source="hn-interviews")
+    repo.save_question(
+        session,
+        QuestionExtract(company="Acme", role=None, question="Design a cache.", round=None),
+        source_url=known,
+        source="hn-interviews",
+        tier="local",
+        run=with_run,
+    )
+    repo.finish_run(session, with_run)
+
+    world = fake_sources([LISTING], chunks={LISTING: [Chunk("seen comment", known)]})
+    monkeypatch.setattr(pipeline, "sources", world)
+    run = run_scrape(
+        session,
+        "questions",
+        "hn-interviews",
+        FakeFetcher({LISTING: page(LISTING)}),
+        extractor_with([]),
+        sleep=lambda s: None,
+    )
+    assert run.status == "completed"
+    assert run.items_duplicate == 1
 
 
 def test_cancel_mid_page_stops_remaining_chunks(

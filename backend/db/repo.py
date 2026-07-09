@@ -184,6 +184,16 @@ def save_question(
     return True
 
 
+def item_url_exists(session: Session, kind: str, url: str) -> bool:
+    """True when this permalink already has stored items — lets the pipeline skip
+    the chunk before spending LLM time on it (DESIGN.md §9 step 1)."""
+    normalized = normalize_url(url)
+    if kind == "jobs":
+        return session.scalar(select(Job.id).where(Job.posting_url == normalized)) is not None
+    query = select(InterviewQuestion.id).where(InterviewQuestion.source_url == normalized)
+    return session.scalar(query.limit(1)) is not None
+
+
 @dataclass
 class Stats:
     """Dashboard totals (DESIGN.md §4)."""
