@@ -49,16 +49,29 @@ def run_scrape(
     extractor: Extractor[ExtractSchema],
     sleep: Callable[[float], None] = time.sleep,
 ) -> Run:
-    """Execute one scrape run to completion and return its finished Run row."""
+    """Create a run and execute it to completion; returns the finished Run row."""
     if kind not in _SCHEMAS:
         raise ValueError(f"unknown kind: {kind}")
     run = repo.create_run(session, kind, source)
+    return execute_run(session, run, fetcher, extractor, sleep)
+
+
+def execute_run(
+    session: Session,
+    run: Run,
+    fetcher: PageFetcher,
+    extractor: Extractor[ExtractSchema],
+    sleep: Callable[[float], None] = time.sleep,
+) -> Run:
+    """Execute an already-created run — the API creates the row first so it can
+    return the run id, then executes in a background thread (DESIGN.md §3)."""
     try:
         if not ollama_available():
             repo.record_error(session, run, url="", error="ollama unreachable")
             repo.finish_run(session, run, "failed")
             return run
-        status = _scrape_loop(session, run, source, _SCHEMAS[kind], fetcher, extractor, sleep)
+        schema = _SCHEMAS[run.kind]
+        status = _scrape_loop(session, run, run.source, schema, fetcher, extractor, sleep)
         run.escalations = extractor.escalations_used
         repo.finish_run(session, run, status)
     except Exception as error:  # the single allowed broad catch (DESIGN.md §3)
