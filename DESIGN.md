@@ -381,7 +381,10 @@ docs instead of code:
   pages (scoped, not started): replaces the hand-rolled schema-patch
   function from phase 6 step 3 with real Alembic migrations; resume PDF
   upload → Markdown → LLM-derived search positions; a new company-career-page
-  source direction (Greenhouse/Lever, resuming a thread phase 5 deferred).
+  source direction (Greenhouse/Lever, resuming a thread phase 5 deferred) —
+  discover companies for real (`ycombinator.com/companies` via
+  `ScraplingTransport`), resolve each to a Greenhouse/Lever slug, then turn
+  resolved companies into real dynamic sources, not a hand-curated list.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to

@@ -159,7 +159,16 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   from `~/Downloads`, picked over the much heavier `markitdown`), and a new
   company-career-page source direction (Greenhouse/Lever, resuming a
   thread phase 5 explicitly deferred — both APIs re-verified live today).
-  Docs written and committed first, per rule 3; no code yet.
+  The company thread was refined further: confirmed direction is to scrape
+  companies for real (not hand-curate a list) and turn each resolved one
+  into a source. `ycombinator.com/companies` is JS-rendered (confirmed:
+  empty on a plain fetch) — reused phase 5's already-verified answer for
+  this exact situation (`workatastartup.com`, same YC properties): scrape
+  via `ScraplingTransport`, don't reverse-engineer the internal search
+  API. Slug resolution confirmed real and imperfect: a name-derived guess
+  against Greenhouse/Lever's APIs sometimes 404s (Figma isn't on Lever, or
+  uses a different slug) — resolution has to treat a miss as "skip," not
+  a failure. Docs written and committed first, per rule 3; no code yet.
 
 ## What's durable vs. what compacts away
 

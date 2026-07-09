@@ -65,13 +65,38 @@ before being written down here (WORKFLOW.md rule 2):
   company slugs. This may not need a new `Source` protocol shape at all —
   structurally it's the same "one JSON API, `seed_urls`/`split_items`" shape
   Arbeitnow/RemoteOK/Himalayas/RemoteJobs.org already use, just parameterized
-  by a company slug instead of one fixed global endpoint. The genuinely open
-  question is where the slug list comes from — a small hand-curated seed
-  list (simplest, matches this project's boring-by-default bias) versus
-  something dynamic; needs a real decision before step 1, not a guess. Worth
-  noting: this pairs naturally with the resume-driven search thread above —
-  once real target roles/companies are known, this direction becomes the
-  concrete way to check whether those specific companies are hiring for them.
+  by a company slug instead of one fixed global endpoint.
+  **Confirmed direction (not hand-curated): scrape companies, then use each
+  one as a source.** Two real stages, not one hand-wave:
+  1. *Company discovery.* `ycombinator.com/companies` was checked as the
+     obvious candidate — its `robots.txt` is open (`Allow: /`,
+     `Disallow: /companies?*` only blocks the *query-string* filtered views,
+     not the bare listing) but a plain fetch returns an empty company list:
+     the page is JS-rendered, data loaded client-side. This is the exact
+     situation phase 5 already hit and already answered for `workatastartup.com`
+     (same YC properties, same JS-rendering pattern): "the legitimate path is
+     a plain HTML scrape via `ScraplingTransport`, not reverse-engineering the
+     internal search API" (PHASE5.md) — reuse that answer here rather than
+     re-deciding it. `ScraplingTransport` already exists in this codebase
+     (PHASE4.md step 2) specifically for cases like this.
+  2. *Slug resolution.* A discovered company name doesn't automatically give
+     a working Greenhouse/Lever slug — confirmed for real just now:
+     `boards-api.greenhouse.io/v1/boards/airbnb/jobs` → `200` (name-derived
+     slug guess worked), `api.lever.co/v0/postings/figma` → `404` (Figma
+     isn't on Lever, or uses a different slug). So resolution has to *try*
+     both APIs with a name-derived slug guess and treat a 404 as "not on
+     this platform" (skip, don't fail the whole run), not assume a guess
+     always works.
+  Architecturally this is two new pieces: a `Company` table (name, resolved
+  slug, ATS provider, discovered/last-checked timestamps) populated by
+  stage 1 and resolved by stage 2, and a way to turn each resolved company
+  into a real `Source` instance at scrape time rather than a fixed
+  `SOURCES` dict entry per company (the current registry is hardcoded one
+  entry per platform, not per company — this needs to stay dynamic, since
+  the whole point is not hand-maintaining a company list). Worth noting:
+  this pairs naturally with the resume-driven search thread above — once
+  real target roles are known, this direction becomes the concrete way to
+  check whether specific companies are hiring for them.
 
 ## Build order (draft — not started, confirm before running `/loop`)
 
@@ -113,15 +138,31 @@ negotiated across several turns before any code landed.
    scrape" source picker or the search command palette, decide once step 4
    is real and there's something to wire up to. `npm run build` gate; real
    look in a browser with a real uploaded resume.
-6. **One company-career-page source, proving the shape (backend).** Pick one
-   real company confirmed to run Greenhouse or Lever, add it as a source
-   using the existing `Source` protocol (parameterized by slug, not a new
-   protocol shape, per the research above — revisit only if a real company
-   doesn't fit). Smoke: one real scrape against it.
-7. **Company slug list + generalizing beyond one company (backend +
-   frontend).** Decide, based on step 6's real experience, how the slug list
-   is sourced and surfaced in the UI. Scope this properly once step 6's
-   answer is real, not guessed now.
+6. **Company discovery (backend).** New `Company` table (name, resolved
+   slug, ATS provider, discovered_at, last_checked_at). A discovery job
+   scrapes `ycombinator.com/companies` via `ScraplingTransport` (JS-rendered
+   — reuses phase 5's already-verified answer for this exact site pattern,
+   not a new decision) and stores company names, unresolved. Smoke: one
+   real discovery run, confirm real company names land in the table.
+7. **Slug resolution (backend).** For each undiscovered-provider company,
+   try a name-derived slug guess against both
+   `boards-api.greenhouse.io/v1/boards/{slug}/jobs` and
+   `api.lever.co/v0/postings/{slug}` — a `404` means "not on this platform,"
+   skip, not a failure. Smoke: run against real discovered companies,
+   confirm the real hit rate (won't be 100% — slugs don't always match
+   names) and that misses are skipped cleanly, not treated as errors.
+8. **Resolved companies become real sources (backend).** Turn each
+   resolved `Company` row into a `Source` at scrape time (parameterized by
+   its stored slug/provider, existing protocol shape) instead of a fixed
+   `SOURCES` dict entry per company — the registry stays dynamic, driven by
+   the `Company` table. Smoke: one real scrape against a real resolved
+   company, confirm real postings land the same way any other source's do.
+9. **Surface companies in the UI (frontend).** Browse/search discovered
+   companies, trigger a scrape against one directly — likely the natural
+   home for the resume-driven search thread's output (step 4/5): known
+   target roles narrow which companies are worth scraping first. Decide
+   the exact UI shape once step 8 is real. `npm run build` gate; real look
+   in a browser.
 
 Next: not started — propose refinements or confirm this build order before
 driving it with `/loop`, per [[WORKFLOW.md]] rule 1.
