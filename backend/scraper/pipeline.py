@@ -21,6 +21,7 @@ from backend.schemas import JobExtract, QuestionExtract
 from backend.scraper import sources
 from backend.scraper.extractor import ExtractionFailed, Extractor
 from backend.scraper.fetcher import FetchError, PageFetcher
+from backend.scraper.transport import HttpxTransport, ScraplingTransport, Transport
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,11 @@ _SCHEMAS: dict[str, type[ExtractSchema]] = {
     "questions": QuestionExtract,
 }
 
+_TRANSPORTS: dict[str, Callable[[], Transport]] = {
+    "httpx": HttpxTransport,
+    "scrapling": ScraplingTransport,
+}
+
 
 def build_extractor() -> Extractor[ExtractSchema]:
     """Wire the real two-tier cascade; without an API key the frontier stays dormant."""
@@ -39,6 +45,12 @@ def build_extractor() -> Extractor[ExtractSchema]:
         logger.warning("no ANTHROPIC_API_KEY set — escalation disabled, running local-only")
         return Extractor[ExtractSchema](OllamaClient(), frontier=None)
     return Extractor[ExtractSchema](OllamaClient(), frontier=FrontierClient(api_key))
+
+
+def build_fetcher(source: str) -> PageFetcher:
+    """Wire a PageFetcher using the given source's own transport choice
+    (PHASE4.md step 2) — most sources default to the plain HttpxTransport."""
+    return PageFetcher(transport=_TRANSPORTS[sources.transport_for(source)]())
 
 
 def run_scrape(

@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from backend.db import repo
 from backend.scraper.extractor import Extractor
 from backend.scraper.fetcher import PageFetcher
-from backend.scraper.pipeline import ExtractSchema, run_scrape
+from backend.scraper.pipeline import ExtractSchema, build_fetcher, run_scrape
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ DEFAULT_POLL_SECONDS = 60
 
 def run_due_schedules(
     session: Session,
-    fetcher: PageFetcher,
+    build_fetcher: Callable[[str], PageFetcher],
     build_extractor: Callable[[], Extractor[ExtractSchema]],
     now: datetime,
 ) -> None:
@@ -39,7 +39,9 @@ def run_due_schedules(
         return
     schedule = due[0]  # others wait for the next poll cycle
     logger.info("schedule %s due: starting %s/%s", schedule.id, schedule.kind, schedule.source)
-    run_scrape(session, schedule.kind, schedule.source, fetcher, build_extractor())
+    run_scrape(
+        session, schedule.kind, schedule.source, build_fetcher(schedule.source), build_extractor()
+    )
     repo.mark_schedule_run(session, schedule, now)
 
 
@@ -53,7 +55,7 @@ def run_scheduler_loop(
     while True:
         try:
             with Session(engine) as session:
-                run_due_schedules(session, PageFetcher(), build_extractor, datetime.now(UTC))
+                run_due_schedules(session, build_fetcher, build_extractor, datetime.now(UTC))
         except Exception:  # the scheduler must never die from one bad cycle
             logger.exception("scheduler cycle failed")
         sleep(poll_seconds)

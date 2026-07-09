@@ -1,8 +1,10 @@
-"""Polite page fetching via Scrapling: robots.txt, honest UA, bounded retries.
+"""Polite page fetching: robots.txt, honest UA, bounded retries.
 
 Policy per DESIGN.md §3: respect robots.txt (cached per domain), identify with
 the project User-Agent, retry once on timeout/5xx, back off longer on 429, and
 raise FetchError for everything else — the pipeline records it and moves on.
+The actual request execution is delegated to a `Transport` (`transport.py`,
+PHASE4.md step 2), so this policy layer never changes when the transport does.
 """
 
 import logging
@@ -13,11 +15,8 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from urllib.robotparser import RobotFileParser
 
-from curl_cffi.curl import CurlError
-from scrapling.engines.toolbelt.custom import Response
-from scrapling.fetchers import Fetcher as ScraplingFetcher
-
 from backend import config
+from backend.scraper.transport import HttpxTransport, Transport, TransportError, TransportResponse
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +39,13 @@ class PageFetcher:
 
     def __init__(
         self,
+        transport: Transport | None = None,
         user_agent: str = config.USER_AGENT,
         delay_s: float = config.REQUEST_DELAY_S,
         retries: int = config.FETCH_RETRIES,
         timeout_s: int = config.FETCH_TIMEOUT_S,
     ) -> None:
+        self._transport = transport if transport is not None else HttpxTransport()
         self._user_agent = user_agent
         self._delay_s = delay_s
         self._retries = retries
@@ -56,23 +57,22 @@ class PageFetcher:
         if not self._allowed_by_robots(url):
             raise FetchError(f"disallowed by robots.txt: {url}")
         response = self._get_with_retry(url)
-        markdown = response.get_all_text(ignore_tags=("script", "style"))
         body = response.body
         raw = body.decode("utf-8", "replace") if isinstance(body, bytes) else body
-        return Page(url=url, markdown=markdown, raw=raw)
+        return Page(url=url, markdown=response.text, raw=raw)
 
-    def _get_with_retry(self, url: str) -> Response:
+    def _get_with_retry(self, url: str) -> TransportResponse:
         attempts = self._retries + 1
         last_error = ""
         for attempt in range(attempts):
             remaining = attempts - attempt - 1
             try:
-                response = ScraplingFetcher.get(
+                response = self._transport.get(
                     url,
                     timeout=self._timeout_s,
                     headers={"User-Agent": self._user_agent},
                 )
-            except (CurlError, OSError) as error:
+            except TransportError as error:
                 last_error = str(error)
                 logger.warning("fetch failed (%s), %d retries left: %s", error, remaining, url)
                 self._backoff(remaining, self._delay_s)

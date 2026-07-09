@@ -1,30 +1,37 @@
-"""Tests for the fetcher — no real network (CLAUDE.md); scrapling is faked."""
+"""Tests for the fetcher — no real network (CLAUDE.md); Transport is faked."""
 
-from types import SimpleNamespace
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 
 import pytest
-from curl_cffi.curl import CurlError
 
 from backend.scraper import fetcher as fetcher_module
 from backend.scraper.fetcher import FetchError, Page, PageFetcher
+from backend.scraper.transport import TransportError, TransportResponse
 
 
-def ok_response(text: str = "page text", raw: bytes = b"<html>raw</html>") -> SimpleNamespace:
-    return SimpleNamespace(status=200, get_all_text=lambda **kwargs: text, body=raw)
+class FakeTransport:
+    """Returns/raises scripted outcomes per call, in order; records every call."""
+
+    def __init__(self, outcomes: list[Any]) -> None:
+        self._outcomes = outcomes
+        self.calls: list[dict[str, Any]] = []
+
+    def get(self, url: str, *, timeout: int, headers: dict[str, str]) -> TransportResponse:
+        self.calls.append({"url": url, "timeout": timeout, "headers": headers})
+        outcome = self._outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
 
 
-def status_response(status: int) -> SimpleNamespace:
-    return SimpleNamespace(status=status, get_all_text=lambda **kwargs: "", body=b"")
+def ok_response(text: str = "page text", raw: bytes = b"<html>raw</html>") -> TransportResponse:
+    return TransportResponse(status=200, body=raw, text=text)
 
 
-@pytest.fixture
-def fetcher(monkeypatch: pytest.MonkeyPatch) -> PageFetcher:
-    instance = PageFetcher(delay_s=0.5, retries=1)
-    monkeypatch.setattr(instance, "_allowed_by_robots", lambda url: True)
-    return instance
+def status_response(status: int) -> TransportResponse:
+    return TransportResponse(status=status, body=b"", text="")
 
 
 @pytest.fixture
@@ -34,82 +41,68 @@ def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     return recorded
 
 
-def script_get(monkeypatch: pytest.MonkeyPatch, outcomes: list[Any]) -> list[dict[str, Any]]:
-    """Make ScraplingFetcher.get return/raise the queued outcomes in order."""
-    calls: list[dict[str, Any]] = []
-
-    def fake_get(url: str, **kwargs: Any) -> Any:
-        calls.append({"url": url, **kwargs})
-        outcome = outcomes.pop(0)
-        if isinstance(outcome, Exception):
-            raise outcome
-        return outcome
-
-    monkeypatch.setattr(fetcher_module.ScraplingFetcher, "get", staticmethod(fake_get))
-    return calls
+def make_fetcher(
+    monkeypatch: pytest.MonkeyPatch, outcomes: list[Any]
+) -> tuple[PageFetcher, FakeTransport]:
+    transport = FakeTransport(outcomes)
+    instance = PageFetcher(transport=transport, delay_s=0.5, retries=1)
+    monkeypatch.setattr(instance, "_allowed_by_robots", lambda url: True)
+    return instance, transport
 
 
-def test_fetch_returns_page_with_text(
-    fetcher: PageFetcher, sleeps: list[float], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    calls = script_get(monkeypatch, [ok_response("hello world", raw=b'{"a": 1}')])
-    page = fetcher.fetch("https://x.com/a")
+def test_fetch_returns_page_with_text(sleeps: list[float], monkeypatch: pytest.MonkeyPatch) -> None:
+    instance, transport = make_fetcher(monkeypatch, [ok_response("hello world", raw=b'{"a": 1}')])
+    page = instance.fetch("https://x.com/a")
     assert page == Page(url="https://x.com/a", markdown="hello world", raw='{"a": 1}')
-    assert calls[0]["headers"]["User-Agent"]  # honest UA sent
+    assert transport.calls[0]["headers"]["User-Agent"]  # honest UA sent
     assert sleeps == []
 
 
-def test_timeout_then_retry_succeeds(
-    fetcher: PageFetcher, sleeps: list[float], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    script_get(monkeypatch, [CurlError("timeout"), ok_response()])
-    assert fetcher.fetch("https://x.com/a").markdown == "page text"
+def test_timeout_then_retry_succeeds(sleeps: list[float], monkeypatch: pytest.MonkeyPatch) -> None:
+    instance, _ = make_fetcher(monkeypatch, [TransportError("timeout"), ok_response()])
+    assert instance.fetch("https://x.com/a").markdown == "page text"
     assert sleeps == [0.5]
 
 
 def test_timeout_twice_raises_fetch_error(
-    fetcher: PageFetcher, sleeps: list[float], monkeypatch: pytest.MonkeyPatch
+    sleeps: list[float], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    script_get(monkeypatch, [CurlError("timeout"), CurlError("timeout")])
+    instance, _ = make_fetcher(monkeypatch, [TransportError("timeout"), TransportError("timeout")])
     with pytest.raises(FetchError, match="timeout"):
-        fetcher.fetch("https://x.com/a")
+        instance.fetch("https://x.com/a")
 
 
-def test_5xx_then_success_retries(
-    fetcher: PageFetcher, sleeps: list[float], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    script_get(monkeypatch, [status_response(503), ok_response()])
-    assert fetcher.fetch("https://x.com/a").markdown == "page text"
+def test_5xx_then_success_retries(sleeps: list[float], monkeypatch: pytest.MonkeyPatch) -> None:
+    instance, _ = make_fetcher(monkeypatch, [status_response(503), ok_response()])
+    assert instance.fetch("https://x.com/a").markdown == "page text"
     assert sleeps == [0.5]
 
 
-def test_429_backs_off_longer(
-    fetcher: PageFetcher, sleeps: list[float], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    script_get(monkeypatch, [status_response(429), ok_response()])
-    assert fetcher.fetch("https://x.com/a").markdown == "page text"
+def test_429_backs_off_longer(sleeps: list[float], monkeypatch: pytest.MonkeyPatch) -> None:
+    instance, _ = make_fetcher(monkeypatch, [status_response(429), ok_response()])
+    assert instance.fetch("https://x.com/a").markdown == "page text"
     assert sleeps == [2.0]  # 4 x delay_s
 
 
 def test_other_non_200_fails_immediately(
-    fetcher: PageFetcher, sleeps: list[float], monkeypatch: pytest.MonkeyPatch
+    sleeps: list[float], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    calls = script_get(monkeypatch, [status_response(404)])
+    instance, transport = make_fetcher(monkeypatch, [status_response(404)])
     with pytest.raises(FetchError, match="HTTP 404"):
-        fetcher.fetch("https://x.com/a")
-    assert len(calls) == 1
+        instance.fetch("https://x.com/a")
+    assert len(transport.calls) == 1
     assert sleeps == []
 
 
 def test_robots_disallowed_never_fetches(
     sleeps: list[float], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    instance = PageFetcher()
+    transport = FakeTransport([])
+    instance = PageFetcher(transport=transport)
     monkeypatch.setattr(instance, "_allowed_by_robots", lambda url: False)
-    calls = script_get(monkeypatch, [])
     with pytest.raises(FetchError, match="robots.txt"):
         instance.fetch("https://x.com/private")
-    assert calls == []
+    assert transport.calls == []
 
 
 class _FakeRobotsResponse:

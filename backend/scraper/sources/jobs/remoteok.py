@@ -20,6 +20,7 @@ class RemoteOK:
     """RemoteOK's public API → one Chunk per listing, url = RemoteOK's own page."""
 
     kind: Literal["jobs", "questions"] = "jobs"
+    transport: Literal["httpx", "scrapling"] = "httpx"
 
     def seed_urls(self) -> list[str]:
         return [_REMOTEOK_API_URL]

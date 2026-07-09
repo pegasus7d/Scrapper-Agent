@@ -37,9 +37,13 @@ def build_extractor() -> Extractor[ExtractSchema]:
     raise AssertionError("build_extractor should not be called when nothing is due")
 
 
+def fetcher_factory(source: str) -> PageFetcher:
+    return PageFetcher()
+
+
 def test_no_schedules_does_nothing(session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     calls = fake_run_scrape_calls(monkeypatch)
-    run_due_schedules(session, PageFetcher(), build_extractor, NOW)
+    run_due_schedules(session, fetcher_factory, build_extractor, NOW)
     assert calls == []
 
 
@@ -48,7 +52,7 @@ def test_due_schedule_starts_a_run_and_marks_last_run_at(
 ) -> None:
     calls = fake_run_scrape_calls(monkeypatch)
     repo.create_schedule(session, kind="jobs", source="hn", every_hours=6)
-    run_due_schedules(session, PageFetcher(), lambda: object(), NOW)  # type: ignore[arg-type]
+    run_due_schedules(session, fetcher_factory, lambda: object(), NOW)  # type: ignore[arg-type]
     assert calls == [("jobs", "hn")]
     assert repo.list_schedules(session)[0].last_run_at == NOW.replace(tzinfo=None)
 
@@ -57,7 +61,7 @@ def test_not_yet_due_schedule_is_skipped(session: Session, monkeypatch: pytest.M
     calls = fake_run_scrape_calls(monkeypatch)
     schedule = repo.create_schedule(session, kind="jobs", source="hn", every_hours=6)
     repo.mark_schedule_run(session, schedule, NOW)
-    run_due_schedules(session, PageFetcher(), build_extractor, NOW + timedelta(hours=1))
+    run_due_schedules(session, fetcher_factory, build_extractor, NOW + timedelta(hours=1))
     assert calls == []
 
 
@@ -67,7 +71,7 @@ def test_active_run_blocks_starting_a_due_schedule(
     calls = fake_run_scrape_calls(monkeypatch)
     repo.create_schedule(session, kind="jobs", source="hn", every_hours=6)
     repo.create_run(session, kind="jobs", source="hn")  # already running
-    run_due_schedules(session, PageFetcher(), build_extractor, NOW)
+    run_due_schedules(session, fetcher_factory, build_extractor, NOW)
     assert calls == []
 
 
@@ -77,7 +81,7 @@ def test_only_one_of_several_due_schedules_starts_per_cycle(
     calls = fake_run_scrape_calls(monkeypatch)
     repo.create_schedule(session, kind="jobs", source="hn", every_hours=6)
     repo.create_schedule(session, kind="questions", source="hn-interviews", every_hours=24)
-    run_due_schedules(session, PageFetcher(), lambda: object(), NOW)  # type: ignore[arg-type]
+    run_due_schedules(session, fetcher_factory, lambda: object(), NOW)  # type: ignore[arg-type]
     assert len(calls) == 1
 
 

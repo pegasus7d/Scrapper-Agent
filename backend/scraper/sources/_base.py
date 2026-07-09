@@ -28,9 +28,13 @@ class Chunk:
 
 class Source(Protocol):
     """One platform's adapter. `kind` places it in JOB_SOURCES/QUESTION_SOURCES
-    (`sources/__init__.py`) — a new source only needs to declare it once."""
+    (`sources/__init__.py`) — a new source only needs to declare it once.
+    `transport` (PHASE4.md step 2) picks this source's `Transport`, defaulting
+    to `"httpx"` since no current source needs Scrapling's HTML-cleaning or
+    stealth fetch."""
 
     kind: Literal["jobs", "questions"]
+    transport: Literal["httpx", "scrapling"]
 
     def seed_urls(self) -> list[str]: ...
     def next_links(self, page: Page) -> list[str]: ...

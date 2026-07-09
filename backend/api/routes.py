@@ -32,8 +32,7 @@ from backend.api.dto import (
 )
 from backend.api.export import jobs_to_csv, questions_to_csv
 from backend.db import repo
-from backend.scraper.fetcher import PageFetcher
-from backend.scraper.pipeline import build_extractor, execute_run
+from backend.scraper.pipeline import build_extractor, build_fetcher, execute_run
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
 
 ExportFormat = Literal["csv", "json"]
@@ -63,7 +62,7 @@ def _execute_in_thread(engine: Engine, run_id: int) -> None:
         if run is None:  # pragma: no cover - the row was just created
             logger.error("run %s vanished before execution", run_id)
             return
-        execute_run(session, run, PageFetcher(), build_extractor())
+        execute_run(session, run, build_fetcher(run.source), build_extractor())
 
 
 def _attachment(filename: str) -> dict[str, str]:

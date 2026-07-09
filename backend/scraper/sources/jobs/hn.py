@@ -28,6 +28,7 @@ class HNJobs:
     """HN "Who is hiring?" thread → one Chunk per top-level comment."""
 
     kind: Literal["jobs", "questions"] = "jobs"
+    transport: Literal["httpx", "scrapling"] = "httpx"
 
     def seed_urls(self) -> list[str]:
         return [_ALGOLIA_SEARCH_URL]

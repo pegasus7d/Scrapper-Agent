@@ -19,6 +19,7 @@ class WeWorkRemotely:
     """WWR's public RSS feed → one Chunk per `<item>`, url = the job's own page."""
 
     kind: Literal["jobs", "questions"] = "jobs"
+    transport: Literal["httpx", "scrapling"] = "httpx"
 
     def seed_urls(self) -> list[str]:
         return [_RSS_URL]

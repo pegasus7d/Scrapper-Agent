@@ -10,6 +10,8 @@ module merges the two into one flat `SOURCES` so `pipeline.py`'s calls
 change — same re-export-flat pattern as `db/repo/__init__.py`.
 """
 
+from typing import Literal
+
 from backend.scraper.fetcher import Page
 from backend.scraper.sources import jobs, questions
 from backend.scraper.sources._base import Chunk, Source
@@ -42,6 +44,11 @@ def split_items(page: Page, source: str) -> list[Chunk]:
     return _get(source).split_items(page)
 
 
+def transport_for(source: str) -> Literal["httpx", "scrapling"]:
+    """Which Transport a source's PageFetcher should use (PHASE4.md step 2)."""
+    return _get(source).transport
+
+
 __all__ = [
     "Chunk",
     "JOB_SOURCES",
@@ -51,4 +58,5 @@ __all__ = [
     "next_links",
     "seed_urls",
     "split_items",
+    "transport_for",
 ]

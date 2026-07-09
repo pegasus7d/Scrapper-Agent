@@ -42,6 +42,7 @@ class GitHubQuestions:
     """Curated markdown question banks → one Chunk per top-level bullet."""
 
     kind: Literal["jobs", "questions"] = "questions"
+    transport: Literal["httpx", "scrapling"] = "httpx"
 
     def seed_urls(self) -> list[str]:
         return [_RAW_URL.format(file=name) for name in _FILES]

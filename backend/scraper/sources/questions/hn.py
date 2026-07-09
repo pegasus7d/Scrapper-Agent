@@ -25,6 +25,7 @@ class HNInterviews:
     """HN comments matching "interview questions" → one Chunk per hit."""
 
     kind: Literal["jobs", "questions"] = "questions"
+    transport: Literal["httpx", "scrapling"] = "httpx"
 
     def seed_urls(self) -> list[str]:
         return [_INTERVIEW_SEARCH_URL]

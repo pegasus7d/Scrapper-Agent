@@ -22,6 +22,7 @@ class Arbeitnow:
     """Arbeitnow's public API → one Chunk per listing, url = the listing's own page."""
 
     kind: Literal["jobs", "questions"] = "jobs"
+    transport: Literal["httpx", "scrapling"] = "httpx"
 
     def seed_urls(self) -> list[str]:
         return [_API_URL]
