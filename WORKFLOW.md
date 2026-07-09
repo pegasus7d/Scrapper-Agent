@@ -6,6 +6,12 @@ collaboration pattern — so that a new session (after context compaction, or
 starting fresh) can pick the process back up without re-deriving it from
 scratch by reading the whole conversation history.
 
+Each phase's step-by-step build order lives in its own `PHASE{N}.md` file
+(DESIGN.md §8 is the index), not inline in DESIGN.md — the same reasoning
+that split `repo.py`/`sources.py` into packages once they grew past the
+300-line cap, applied to docs instead of code, so DESIGN.md stays the current
+system contract and doesn't grow unbounded with build history.
+
 ## The recurring pattern
 
 Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
@@ -21,16 +27,20 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
    that assumption and all three turned out to be high-friction or fully
    disallowed once actually checked.
 3. **Docs first, as their own commit.** Once scope is agreed, write the new
-   phase into DESIGN.md as a new numbered build-order section (§8 = MVP, §9 =
-   phase 2, §10 = phase 3, next one is §11, ...). Amend CLAUDE.md too if a
-   policy or convention needs correcting, not just extending. Commit the docs
-   alone, before any code changes.
+   phase into its own `PHASE{N}.md` file (copy the header/workflow-rules
+   boilerplate from the latest one), add it to the index in DESIGN.md §8, and
+   amend whichever DESIGN.md sections the new phase changes current state
+   for — DESIGN.md describes *what is true now*, `PHASE{N}.md` describes
+   *how this phase got there*. Amend CLAUDE.md too if a policy or convention
+   needs correcting, not just extending. Commit the docs alone, before any
+   code changes.
 4. **Drive the build with `/loop`.** Use the exact reusable prompt template
-   recorded in CLAUDE.md's "Autonomous build loop" section, swapping in the
-   new section number and its final step. Each iteration: read CLAUDE.md +
-   DESIGN.md + `git log` to see what's already done, implement ONLY the
-   smallest next unit, validate (`pytest`, `mypy`, `ruff check`,
-   `ruff format --check`, `npm run build` for frontend changes), commit, repeat.
+   recorded in CLAUDE.md's "Autonomous build loop" section, pointing it at
+   the new `PHASE{N}.md` file and its final step. Each iteration: read
+   CLAUDE.md + DESIGN.md + `PHASE{N}.md` + `git log` to see what's already
+   done, implement ONLY the smallest next unit, validate (`pytest`, `mypy`,
+   `ruff check`, `ruff format --check`, `npm run build` for frontend
+   changes), commit, repeat.
 5. **Real smoke test at every step boundary — no exceptions.** Unit tests mock
    every I/O boundary; only a real fetch plus a real Ollama call proves the
    integration actually works. This is where real bugs get found, not
@@ -57,22 +67,30 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
 
 ## Phase log
 
-- **MVP — DESIGN.md §8 (done 2026-07-09).** HN "Who is hiring?" jobs + HN
+- **MVP — `PHASE1.md` (done 2026-07-09).** HN "Who is hiring?" jobs + HN
   interview-question search, two-tier LLM cascade (local Ollama primary,
   Claude Haiku escalation dormant — free-only mode, never requires an
   Anthropic key), SQLite, FastAPI backend, React/Vite/Tailwind UI.
-- **Phase 2 — DESIGN.md §9 (done 2026-07-09).** Pre-extraction dedupe,
+- **Phase 2 — `PHASE2.md` (done 2026-07-09).** Pre-extraction dedupe,
   questions relevance gate, shadcn/ui foundation (+ fixed the Tailwind build
   bug), dashboard charts/live-progress panel/toasts/skeletons, dark mode +
   Cmd+K command palette, scheduled scrapes, RemoteOK source, CSV/JSON export
   + job starring. This step's size pushed `routes.py`/`repo.py` over the
   300-line cap, triggering a split into `api/dto.py` and a `db/repo/` package.
-- **Phase 3 — DESIGN.md §10 (done 2026-07-09).** Formalized `sources.py` into
+- **Phase 3 — `PHASE3.md` (done 2026-07-09).** Formalized `sources.py` into
   a `Source` protocol + registry (a `sources/` package, one file per
   platform), added WeWorkRemotely (+ fixed the robots.txt User-Agent bug),
   Arbeitnow, and a curated GitHub question-bank source replacing the blocked
   LeetCode Discuss idea (+ fixed the URL-fragment normalization bug; made
   `QuestionExtract.company` nullable for genuinely companyless questions).
+- **Phase 4 — `PHASE4.md` (in progress, started 2026-07-09).** Split `sources/`
+  into `jobs/`/`questions/` subpackages, extract a `Transport` protocol
+  (`httpx` default, `scrapling` opt-in — confirmed no source needs Scrapling's
+  actual HTML-cleaning/stealth capability), per-source politeness delay,
+  multi-select sources in the "New scrape" modal. This DESIGN.md restructure
+  itself (§8 index + one `PHASE{N}.md` file per phase, instead of everything
+  inline) landed alongside the phase, prompted by the same doc-size concern
+  that motivated phase 4's own step 1.
 
 ## What's durable vs. what compacts away
 
