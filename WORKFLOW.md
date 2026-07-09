@@ -114,6 +114,22 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   chunks tanked local-model extraction (1/15) when they included the answer
   body — `QuestionExtract` has no answer field, so chunking on the bare
   question alone fixed it (12/15).
+- **Phase 6 — `PHASE6.md` (in progress, started 2026-07-10).** Search over
+  scraped data, live updates, and a cleanup pass. Considered PageIndex-style
+  vectorless RAG, ruled out: it solves lossy chunking in one *long*
+  continuous document, but this app's data is thousands of independent
+  *short*, already-atomic records — the problem it fixes doesn't apply.
+  Went with `sqlite-vec` (verified: real, dual MIT/Apache-2.0, pre-1.0) +
+  FTS5 hybrid search instead, no new infrastructure. Considered WebSocket
+  for live run updates, went with SSE instead — one-directional
+  server→client fits exactly, WS's bidirectional channel would be unused.
+  Considered adding cloud free-tier LLM providers (Groq, Gemini, OpenRouter)
+  for model choice, explicitly rejected: their free tiers are provider
+  policy, not guarantees, and change often (Gemini's was already cut once
+  in late 2025) — stayed Ollama-only, always free, no account. Verified a
+  real, measured extraction-reliability win along the way: constraining
+  Ollama's `format` to the actual schema instead of bare `"json"` dropped
+  validation failures from 1/10 to 0/10 on live job chunks.
 
 ## What's durable vs. what compacts away
 
