@@ -257,13 +257,17 @@ with the error message instead of leaving a zombie `"running"` row.
   whole thread as JSON in one response — no pagination needed. Both endpoints are
   parsed from `Page.raw` (the undecoded body). Chunking: one top-level comment = one
   `Chunk`, with `url` = the comment permalink (`news.ycombinator.com/item?id=…`).
-- **Interview questions: Reddit** (`r/cscareerquestions`, `r/leetcode`) via the
-  public `.json` endpoints (append `.json` to any listing/thread URL) — structured
-  envelope, free-text posts, no login. Chunking: one post (or one substantive
-  comment) = one `Chunk`, `url` = the post/comment permalink. LeetCode Discuss and
-  Blind are deferred:
-  both are JS-heavy with anti-bot friction, better attempted after the pipeline is
-  proven (Scrapling's stealth fetcher exists for exactly that attempt).
+- **Interview questions: HN comments** matching "interview questions", via the same
+  open Algolia API (`search_by_date?query="interview questions"&tags=comment`).
+  Chunking: one comment hit = one `Chunk`, `url` = the comment permalink. Many
+  comments name no company/question — the LLM returns an empty items list for
+  those, which the cascade treats as a valid answer.
+  *Reddit was the original plan but is not politely scrapable: as of July 2026 its
+  robots.txt (www and old subdomains) is `User-agent: * / Disallow: /`, and our
+  fetcher respects robots.txt by policy. Revisit only via Reddit's official OAuth
+  API.* LeetCode Discuss and Blind stay deferred: both are JS-heavy with anti-bot
+  friction, better attempted after the pipeline is proven (Scrapling's stealth
+  fetcher exists for exactly that attempt).
 
 ## 4. API surface
 

@@ -3,8 +3,9 @@
 Jobs come from Hacker News "Who is hiring?" via the free Algolia API — it
 returns the whole thread as structured JSON, and every comment keeps its id,
 which becomes the chunk's permalink (DESIGN.md §3). Interview questions come
-from Reddit's public .json listing endpoints: one post = one chunk, with the
-post's permalink as the chunk URL. Malformed payloads raise ValueError; the
+from the same API: comments matching "interview questions", one comment = one
+chunk. (Reddit was the planned source, but its robots.txt now disallows all
+crawling — see DESIGN.md §3.) Malformed payloads raise ValueError; the
 pipeline records that against the URL and continues.
 """
 
@@ -21,16 +22,17 @@ from backend.scraper.fetcher import Page
 logger = logging.getLogger(__name__)
 
 HN = "hn"
-REDDIT = "reddit"
+HN_INTERVIEWS = "hn-interviews"
 JOB_SOURCES = (HN,)
-QUESTION_SOURCES = (REDDIT,)
+QUESTION_SOURCES = (HN_INTERVIEWS,)
 
 # Skip one-liners ("email me!") that cannot possibly hold a job posting.
 MIN_CHUNK_CHARS = 80
 
-_REDDIT_SUBS = ("cscareerquestions", "leetcode")
-_REDDIT_LISTING_URL = "https://www.reddit.com/r/{sub}/top.json?t=week&limit=25"
-_REDDIT_PERMALINK = "https://www.reddit.com{permalink}"
+_INTERVIEW_SEARCH_URL = (
+    "https://hn.algolia.com/api/v1/search_by_date"
+    "?query=%22interview%20questions%22&tags=comment&hitsPerPage=50"
+)
 
 _ALGOLIA_SEARCH_URL = (
     "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=10"
@@ -54,8 +56,8 @@ def seed_urls(source: str) -> list[str]:
     """Return the starting URLs for a source."""
     if source == HN:
         return [_ALGOLIA_SEARCH_URL]
-    if source == REDDIT:
-        return [_REDDIT_LISTING_URL.format(sub=sub) for sub in _REDDIT_SUBS]
+    if source == HN_INTERVIEWS:
+        return [_INTERVIEW_SEARCH_URL]
     raise ValueError(f"unknown source: {source}")
 
 
@@ -64,8 +66,8 @@ def next_links(page: Page, source: str) -> list[str]:
     if source == HN:
         # A thread page is complete in itself — no pagination via Algolia.
         return [_latest_hiring_thread_url(page.raw)] if _is_search_page(page.url) else []
-    if source == REDDIT:
-        return []  # the seed listings are all we scrape — posts, not comment threads
+    if source == HN_INTERVIEWS:
+        return []  # one search page of recent comments is the whole scrape
     raise ValueError(f"unknown source: {source}")
 
 
@@ -74,8 +76,8 @@ def split_items(page: Page, source: str) -> list[Chunk]:
     if source == HN:
         # The search page only points at the thread.
         return [] if _is_search_page(page.url) else _thread_chunks(page.raw)
-    if source == REDDIT:
-        return _reddit_chunks(page.raw)
+    if source == HN_INTERVIEWS:
+        return _comment_hit_chunks(page.raw)
     raise ValueError(f"unknown source: {source}")
 
 
@@ -112,22 +114,22 @@ def _thread_chunks(raw: str) -> list[Chunk]:
     return chunks
 
 
-def _reddit_chunks(raw: str) -> list[Chunk]:
-    """Turn a Reddit .json listing into one chunk per substantive post."""
-    listing = json.loads(raw)
-    children = listing.get("data", {}).get("children") if isinstance(listing, dict) else None
-    if not isinstance(children, list):
-        raise ValueError("not a Reddit listing payload")
+def _comment_hit_chunks(raw: str) -> list[Chunk]:
+    """Turn an Algolia comment-search payload into one chunk per comment hit."""
+    payload = json.loads(raw)
+    hits = payload.get("hits") if isinstance(payload, dict) else None
+    if not isinstance(hits, list):
+        raise ValueError("not an Algolia comment-search payload")
     chunks: list[Chunk] = []
     skipped = 0
-    for child in children:
-        post: dict[str, Any] = child.get("data", {})
-        text = _clean_html(f"{post.get('title', '')} {post.get('selftext', '')}")
-        if post.get("stickied") or len(text) < MIN_CHUNK_CHARS:
-            skipped += 1  # mod announcements and link-only posts hold no questions
+    for hit in hits:
+        comment: dict[str, Any] = hit
+        text = _clean_html(str(comment.get("comment_text") or ""))
+        if len(text) < MIN_CHUNK_CHARS:
+            skipped += 1
             continue
-        chunks.append(Chunk(text=text, url=_REDDIT_PERMALINK.format(permalink=post["permalink"])))
-    logger.info("reddit listing: %d chunks, %d skipped", len(chunks), skipped)
+        chunks.append(Chunk(text=text, url=_HN_PERMALINK.format(id=comment["objectID"])))
+    logger.info("comment search: %d chunks, %d skipped", len(chunks), skipped)
     return chunks
 
 
