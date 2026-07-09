@@ -29,14 +29,23 @@ def make_engine(database_url: str = config.DATABASE_URL) -> Engine:
 
 
 def normalize_url(url: str) -> str:
-    """Strip the fragment and tracking query params so one item has one URL."""
+    """Strip tracking query params so one item has one URL.
+
+    Deliberately keeps the fragment: it used to be stripped on the theory that
+    fragments are never part of a resource's identity, but no source has ever
+    needed that, and the GitHub question-bank source (DESIGN.md §10 step 4)
+    genuinely does — its `#L{line}` anchor is the only thing that makes each
+    question's URL distinct from its neighbors in the same file. Without it,
+    every question after the first collapses onto one URL and item_url_exists
+    silently treats the rest as already-known duplicates forever.
+    """
     parts = urlparse(url)
     kept = [
         (key, value)
         for key, value in parse_qsl(parts.query, keep_blank_values=True)
         if key not in _TRACKING_PARAMS and not key.startswith(_TRACKING_PREFIXES)
     ]
-    return urlunparse(parts._replace(query=urlencode(kept), fragment=""))
+    return urlunparse(parts._replace(query=urlencode(kept)))
 
 
 def question_hash(company: str | None, question: str) -> str:

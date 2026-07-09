@@ -37,9 +37,16 @@ def run(session: Session) -> Run:
     return repo.create_run(session, kind="jobs", source="hn")
 
 
-def test_normalize_url_strips_tracking_params_and_fragment() -> None:
+def test_normalize_url_strips_tracking_params_only() -> None:
     url = "https://x.com/j/1?utm_source=a&ref=b&gclid=c&page=2#frag"
-    assert repo.normalize_url(url) == "https://x.com/j/1?page=2"
+    assert repo.normalize_url(url) == "https://x.com/j/1?page=2#frag"
+
+
+def test_normalize_url_keeps_fragment() -> None:
+    # The GitHub question-bank source's per-question identity is a URL
+    # fragment (#L{line}) — it must survive normalization (DESIGN.md §10 step 4).
+    url = "https://github.com/h5bp/repo/blob/main/questions.md#L7"
+    assert repo.normalize_url(url) == url
 
 
 def test_normalize_url_keeps_clean_urls_unchanged() -> None:
