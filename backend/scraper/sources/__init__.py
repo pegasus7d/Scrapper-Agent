@@ -12,6 +12,7 @@ from typing import Literal, Protocol
 
 from backend.scraper.fetcher import Page
 from backend.scraper.sources._base import Chunk
+from backend.scraper.sources.arbeitnow import Arbeitnow
 from backend.scraper.sources.hn import HNInterviews, HNJobs
 from backend.scraper.sources.remoteok import RemoteOK
 from backend.scraper.sources.weworkremotely import WeWorkRemotely
@@ -32,6 +33,7 @@ SOURCES: dict[str, Source] = {
     "hn": HNJobs(),
     "remoteok": RemoteOK(),
     "weworkremotely": WeWorkRemotely(),
+    "arbeitnow": Arbeitnow(),
     "hn-interviews": HNInterviews(),
 }
 
