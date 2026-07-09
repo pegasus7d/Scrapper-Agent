@@ -169,6 +169,24 @@ down here (WORKFLOW.md rule 2):
    silent empty result). Smoke: upload the user's own real resume PDF
    through the live API, confirm the returned Markdown is genuinely
    readable, not just non-empty.
+   **Done.** New `backend/resume.py` (`pdf_to_markdown`, `ResumeParseError`)
+   — a new domain, kept separate from the scraper/extraction modules on
+   purpose. `pymupdf.open(stream=..., filetype="pdf")` accepts an
+   uploaded file's raw bytes directly (confirmed real: no need to write to
+   a temp file first), and raises a real `pymupdf.FileDataError` on
+   genuinely invalid input, caught and turned into a real 422 — not a
+   silent empty result. Also added `python-multipart` (required by
+   FastAPI for file uploads at all, confirmed real and zero-dependency).
+   Tests build a real minimal PDF in memory via `pymupdf` itself
+   (`doc.new_page().insert_text(...)`) rather than bundling a binary
+   fixture file.
+   Smoke: uploaded the user's own real `resume-backend.pdf` (`~/Downloads`)
+   through the live API — the full resume (education, work experience,
+   projects, technical skills) came back as clean, genuinely readable
+   Markdown, not just non-empty. Also tested the real failure path with a
+   genuinely non-PDF file through the live API — correct `422`, and the
+   error message was caught doubly-wrapped ("not a valid PDF: not a valid
+   PDF: ...") on first pass, fixed to pass the message through once.
 3. **Resume → search-position extraction (backend).** New Pydantic schema
    (e.g. `ResumePositions`) and LLM prompt deriving job titles/keywords from
    the resume Markdown, validated the same way `JobExtract`/`QuestionExtract`

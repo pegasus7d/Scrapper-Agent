@@ -135,3 +135,7 @@ class ScheduleOut(BaseModel):
     every_hours: int
     enabled: bool
     last_run_at: datetime | None
+
+
+class ResumeMarkdown(BaseModel):
+    markdown: str

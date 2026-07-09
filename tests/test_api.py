@@ -1,5 +1,6 @@
 """Tests for the API — TestClient over an in-memory DB; no scraping happens."""
 
+import pymupdf
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
@@ -320,6 +321,29 @@ def test_search_questions_matches_by_keyword(
 def test_search_rejects_empty_query(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_embed_text(monkeypatch)
     assert client.get("/api/search", params={"q": "  ", "kind": "jobs"}).status_code == 422
+
+
+def _minimal_pdf_bytes(text: str) -> bytes:
+    doc = pymupdf.open()
+    doc.new_page().insert_text((72, 72), text)
+    return doc.tobytes()  # type: ignore[no-any-return]
+
+
+def test_upload_resume_returns_real_markdown(client: TestClient) -> None:
+    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with Python experience.")
+    response = client.post(
+        "/api/resume", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}
+    )
+    assert response.status_code == 200
+    assert "Backend Engineer" in response.json()["markdown"]
+
+
+def test_upload_resume_rejects_non_pdf(client: TestClient) -> None:
+    response = client.post(
+        "/api/resume",
+        files={"file": ("resume.pdf", b"not a real pdf", "application/pdf")},
+    )
+    assert response.status_code == 422
 
 
 def test_create_and_list_schedules(client: TestClient) -> None:

@@ -9,7 +9,7 @@ import logging
 from collections.abc import Iterator
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
@@ -23,6 +23,7 @@ from backend.api.dto import (
     ModelOut,
     QuestionList,
     QuestionOut,
+    ResumeMarkdown,
     RunBatchRequest,
     RunCreated,
     RunList,
@@ -39,6 +40,7 @@ from backend.api.stream import run_updates
 from backend.db import repo, search
 from backend.llm.client import list_local_models
 from backend.llm.embeddings import embed_text
+from backend.resume import ResumeParseError, pdf_to_markdown
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
 from backend.scraper.tasks import enqueue_batch, run_scrape_task
 
@@ -243,6 +245,17 @@ def search_items(
     return QuestionList(
         items=[QuestionOut.model_validate(item) for item in questions], total=len(questions)
     )
+
+
+@router.post("/resume")
+async def upload_resume(file: Annotated[UploadFile, File()]) -> ResumeMarkdown:
+    """Convert an uploaded resume PDF to Markdown (PHASE7.md step 2)."""
+    pdf_bytes = await file.read()
+    try:
+        markdown = pdf_to_markdown(pdf_bytes)
+    except ResumeParseError as error:
+        raise HTTPException(422, str(error)) from error
+    return ResumeMarkdown(markdown=markdown)
 
 
 @router.get("/schedules")
