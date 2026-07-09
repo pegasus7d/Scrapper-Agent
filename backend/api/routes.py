@@ -14,11 +14,13 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from backend import config
 from backend.api.dto import (
     BatchQueued,
     Cancelled,
     JobList,
     JobOut,
+    ModelOut,
     QuestionList,
     QuestionOut,
     RunBatchRequest,
@@ -34,6 +36,7 @@ from backend.api.dto import (
 )
 from backend.api.export import jobs_to_csv, questions_to_csv
 from backend.db import repo
+from backend.llm.client import list_local_models
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
 from backend.scraper.tasks import enqueue_batch, run_scrape_task
 
@@ -61,13 +64,31 @@ def _attachment(filename: str) -> dict[str, str]:
     return {"Content-Disposition": f'attachment; filename="{filename}"'}
 
 
+def _resolve_model(model: str | None) -> str:
+    """None means "use the app default"; otherwise the model must be one
+    genuinely installed (PHASE6.md step 3) — never a client-supplied string
+    passed straight through to Ollama unchecked."""
+    if model is None:
+        return config.LOCAL_MODEL
+    installed = {m.name for m in list_local_models()}
+    if model not in installed:
+        raise HTTPException(422, f"model not installed locally: {model}")
+    return model
+
+
+@router.get("/models")
+def list_models() -> list[ModelOut]:
+    return [ModelOut(name=m.name, size_bytes=m.size_bytes) for m in list_local_models()]
+
+
 @router.post("/runs", status_code=201)
 def start_run(body: RunRequest, session: SessionDep) -> RunCreated:
     if body.source not in _SOURCES_BY_KIND[body.kind]:
         raise HTTPException(422, f"unknown source for {body.kind}: {body.source}")
+    model = _resolve_model(body.model)
     if repo.active_run_exists(session):
         raise HTTPException(409, "a run is already active")
-    run = repo.create_run(session, body.kind, body.source)
+    run = repo.create_run(session, body.kind, body.source, model=model)
     run_scrape_task(run.id)  # enqueues onto the Huey consumer, doesn't run inline
     return RunCreated(run_id=run.id)
 
@@ -80,9 +101,10 @@ def start_run_batch(body: RunBatchRequest, session: SessionDep) -> BatchQueued:
     for source in body.sources:
         if source not in _SOURCES_BY_KIND[body.kind]:
             raise HTTPException(422, f"unknown source for {body.kind}: {source}")
+    model = _resolve_model(body.model)
     if repo.active_run_exists(session):
         raise HTTPException(409, "a run is already active")
-    enqueue_batch(body.kind, body.sources)
+    enqueue_batch(body.kind, body.sources, model)
     return BatchQueued(queued=body.sources)
 
 

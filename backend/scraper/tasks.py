@@ -23,17 +23,19 @@ huey = SqliteHuey("scraper-agent", filename="huey.db")
 def run_scrape_task(run_id: int) -> None:
     """Execute an already-created run — mirrors the session-per-cycle
     pattern the old scheduler.py used, since the consumer thread can't share
-    the request-scoped session the API used to create the run."""
+    the request-scoped session the API used to create the run. The row's
+    own `model` (PHASE6.md step 3) travels with it, so this reads whichever
+    model the run was actually created with rather than always the default."""
     engine = repo.make_engine()
     with Session(engine) as session:
         run = repo.get_run(session, run_id)
         if run is None:  # pragma: no cover - the row was just created
             return
-        execute_run(session, run, build_fetcher(run.source), build_extractor())
+        execute_run(session, run, build_fetcher(run.source), build_extractor(run.model))
 
 
 @huey.task()  # type: ignore[untyped-decorator]  # huey ships no stubs
-def run_scrape_batch_item(kind: str, source: str) -> None:
+def run_scrape_batch_item(kind: str, source: str, model: str) -> None:
     """One step of a multi-select batch pipeline (PHASE5.md step 3) — unlike
     run_scrape_task, creates its own run row lazily right as this step
     executes (mirrors pipeline.run_scrape's create-then-execute pattern), so
@@ -45,16 +47,17 @@ def run_scrape_batch_item(kind: str, source: str) -> None:
     (verified: Huey does not continue a .then() chain past a failed step)."""
     engine = repo.make_engine()
     with Session(engine) as session:
-        run = repo.create_run(session, kind, source)
-        execute_run(session, run, build_fetcher(source), build_extractor())
+        run = repo.create_run(session, kind, source, model=model)
+        execute_run(session, run, build_fetcher(source), build_extractor(model))
 
 
-def enqueue_batch(kind: str, sources: list[str]) -> None:
+def enqueue_batch(kind: str, sources: list[str], model: str) -> None:
     """Chain one run_scrape_batch_item per source into a single pipeline,
-    enqueued once — sources run strictly in order, one at a time."""
-    pipeline = run_scrape_batch_item.s(kind, sources[0])
+    enqueued once — sources run strictly in order, one at a time, all with
+    the same chosen model (PHASE6.md step 3)."""
+    pipeline = run_scrape_batch_item.s(kind, sources[0], model)
     for source in sources[1:]:
-        pipeline = pipeline.then(run_scrape_batch_item, kind, source)
+        pipeline = pipeline.then(run_scrape_batch_item, kind, source, model)
     huey.enqueue(pipeline)
 
 

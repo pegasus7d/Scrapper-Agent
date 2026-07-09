@@ -5,6 +5,8 @@ from datetime import datetime
 from sqlalchemy import JSON, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from backend import config
+
 
 class Base(DeclarativeBase):
     pass
@@ -18,6 +20,10 @@ class Run(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str]  # "jobs" | "questions"
     source: Mapped[str]
+    # Which local model this run's extraction used (PHASE6.md step 3) —
+    # never the global config.LOCAL_MODEL implicitly; every run records its
+    # own choice, defaulting to it only when the caller doesn't pick one.
+    model: Mapped[str] = mapped_column(default=config.LOCAL_MODEL)
     status: Mapped[str]  # "running" | "completed" | "failed" | "cancelled"
     cancel_requested: Mapped[bool] = mapped_column(default=False)
     started_at: Mapped[datetime]

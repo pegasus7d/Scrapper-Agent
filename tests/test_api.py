@@ -6,10 +6,12 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from backend import config
 from backend.api import routes
 from backend.api.main import create_app
 from backend.db import repo
 from backend.db.models import Base, Run
+from backend.llm.client import LocalModel
 from backend.schemas import JobExtract, QuestionExtract
 
 
@@ -25,17 +27,17 @@ def engine() -> Engine:
 
 
 @pytest.fixture
-def batch_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, list[str]]]:
-    calls: list[tuple[str, list[str]]] = []
+def batch_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, list[str], str]]:
+    calls: list[tuple[str, list[str], str]] = []
     monkeypatch.setattr(
-        routes, "enqueue_batch", lambda kind, sources: calls.append((kind, sources))
+        routes, "enqueue_batch", lambda kind, sources, model: calls.append((kind, sources, model))
     )
     return calls
 
 
 @pytest.fixture
 def client(
-    engine: Engine, monkeypatch: pytest.MonkeyPatch, batch_calls: list[tuple[str, list[str]]]
+    engine: Engine, monkeypatch: pytest.MonkeyPatch, batch_calls: list[tuple[str, list[str], str]]
 ) -> TestClient:
     def fake_run_scrape_task(run_id: int) -> None:
         with Session(engine) as session:
@@ -97,7 +99,7 @@ def test_start_run_rejects_unknown_kind_and_source(client: TestClient) -> None:
 
 
 def test_start_run_batch_queues_the_pipeline(
-    client: TestClient, batch_calls: list[tuple[str, list[str]]]
+    client: TestClient, batch_calls: list[tuple[str, list[str], str]]
 ) -> None:
     response = client.post(
         "/api/runs/batch",
@@ -108,11 +110,11 @@ def test_start_run_batch_queues_the_pipeline(
     response = client.post("/api/runs/batch", json={"kind": "jobs", "sources": ["hn", "remoteok"]})
     assert response.status_code == 202
     assert response.json() == {"queued": ["hn", "remoteok"]}
-    assert batch_calls == [("jobs", ["hn", "remoteok"])]
+    assert batch_calls == [("jobs", ["hn", "remoteok"], config.LOCAL_MODEL)]
 
 
 def test_start_run_batch_while_active_returns_409(
-    client: TestClient, engine: Engine, batch_calls: list[tuple[str, list[str]]]
+    client: TestClient, engine: Engine, batch_calls: list[tuple[str, list[str], str]]
 ) -> None:
     with Session(engine) as session:
         repo.create_run(session, kind="jobs", source="hn")
@@ -122,7 +124,7 @@ def test_start_run_batch_while_active_returns_409(
 
 
 def test_start_run_batch_rejects_unknown_source(
-    client: TestClient, batch_calls: list[tuple[str, list[str]]]
+    client: TestClient, batch_calls: list[tuple[str, list[str], str]]
 ) -> None:
     response = client.post("/api/runs/batch", json={"kind": "jobs", "sources": ["hn", "linkedin"]})
     assert response.status_code == 422
@@ -132,6 +134,63 @@ def test_start_run_batch_rejects_unknown_source(
 def test_start_run_batch_rejects_empty_sources(client: TestClient) -> None:
     response = client.post("/api/runs/batch", json={"kind": "jobs", "sources": []})
     assert response.status_code == 422
+
+
+def _fake_local_models(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        routes,
+        "list_local_models",
+        lambda: [
+            LocalModel(name="qwen2.5:7b-instruct", size_bytes=4_683_087_332),
+            LocalModel(name="phi4-mini:3.8b", size_bytes=2_400_000_000),
+        ],
+    )
+
+
+def test_list_models_returns_installed_only(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_local_models(monkeypatch)
+    body = client.get("/api/models").json()
+    assert body == [
+        {"name": "qwen2.5:7b-instruct", "size_bytes": 4_683_087_332},
+        {"name": "phi4-mini:3.8b", "size_bytes": 2_400_000_000},
+    ]
+
+
+def test_start_run_with_installed_model_uses_it(
+    client: TestClient, engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_local_models(monkeypatch)
+    response = client.post(
+        "/api/runs", json={"kind": "jobs", "source": "hn", "model": "phi4-mini:3.8b"}
+    )
+    assert response.status_code == 201
+    run_id = response.json()["run_id"]
+    with Session(engine) as session:
+        run = session.get(Run, run_id)
+        assert run is not None
+        assert run.model == "phi4-mini:3.8b"
+
+
+def test_start_run_with_uninstalled_model_rejected(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_local_models(monkeypatch)
+    response = client.post(
+        "/api/runs", json={"kind": "jobs", "source": "hn", "model": "not-installed:1b"}
+    )
+    assert response.status_code == 422
+
+
+def test_start_run_without_model_uses_default(client: TestClient, engine: Engine) -> None:
+    response = client.post("/api/runs", json={"kind": "jobs", "source": "hn"})
+    assert response.status_code == 201
+    run_id = response.json()["run_id"]
+    with Session(engine) as session:
+        run = session.get(Run, run_id)
+        assert run is not None
+        assert run.model == config.LOCAL_MODEL
 
 
 def test_cancel_sets_flag_and_404s_when_not_running(client: TestClient, engine: Engine) -> None:

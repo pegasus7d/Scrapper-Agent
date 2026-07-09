@@ -1,10 +1,13 @@
 """Tests for the persistence layer: dedupe, normalization, run lifecycle."""
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from backend import config
 from backend.db import repo
 from backend.db.models import Run
 from backend.schemas import JobExtract, QuestionExtract
@@ -35,6 +38,40 @@ def session() -> Session:
 @pytest.fixture
 def run(session: Session) -> Run:
     return repo.create_run(session, kind="jobs", source="hn")
+
+
+def test_make_engine_migrates_runs_missing_model_column(tmp_path: Path) -> None:
+    # Base.metadata.create_all() only creates missing tables, never alters
+    # existing ones — this reproduces a real dev DB that predates the
+    # `model` column (PHASE6.md step 3's required smoke test caught this
+    # for real against the accumulated scraper.db from earlier phases).
+    db_path = tmp_path / "old.db"
+    old_engine = create_engine(f"sqlite:///{db_path}")
+    with old_engine.connect() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE runs (id INTEGER PRIMARY KEY, kind VARCHAR NOT NULL, "
+            "source VARCHAR NOT NULL, status VARCHAR NOT NULL, "
+            "cancel_requested BOOLEAN NOT NULL, started_at DATETIME NOT NULL, "
+            "finished_at DATETIME, pages_fetched INTEGER NOT NULL, "
+            "items_saved INTEGER NOT NULL, items_duplicate INTEGER NOT NULL, "
+            "escalations INTEGER NOT NULL, errors JSON NOT NULL)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO runs (id, kind, source, status, cancel_requested, started_at, "
+            "pages_fetched, items_saved, items_duplicate, escalations, errors) "
+            "VALUES (1, 'jobs', 'hn', 'completed', 0, '2026-01-01 00:00:00', 1, 1, 0, 0, '[]')"
+        )
+        conn.commit()
+    old_engine.dispose()
+
+    engine = repo.make_engine(f"sqlite:///{db_path}")
+    with Session(engine) as session:
+        migrated = session.get(Run, 1)
+        assert migrated is not None
+        assert migrated.model == config.LOCAL_MODEL  # backfilled, not NULL
+
+        new_run = repo.create_run(session, kind="jobs", source="hn")
+        assert new_run.model == config.LOCAL_MODEL
 
 
 def test_normalize_url_strips_tracking_params_only() -> None:

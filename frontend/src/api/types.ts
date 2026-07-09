@@ -12,6 +12,7 @@ export interface Run {
   id: number
   kind: string
   source: string
+  model: string
   status: 'running' | 'completed' | 'failed' | 'cancelled'
   cancel_requested: boolean
   started_at: string
@@ -73,4 +74,9 @@ export interface Schedule {
   every_hours: number
   enabled: boolean
   last_run_at: string | null
+}
+
+export interface LocalModel {
+  name: string
+  size_bytes: number
 }

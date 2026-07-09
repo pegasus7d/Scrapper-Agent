@@ -82,20 +82,21 @@ def test_run_scrape_batch_item_creates_and_executes_a_run(
 
     monkeypatch.setattr(tasks, "execute_run", fake_execute_run)
 
-    tasks.run_scrape_batch_item.call_local("jobs", "hn")
+    tasks.run_scrape_batch_item.call_local("jobs", "hn", "qwen2.5:7b-instruct")
 
     assert calls == [("jobs", "hn")]
     with Session(engine) as session:
         runs, total = repo.list_runs(session, limit=10, offset=0)
         assert total == 1
         assert runs[0].status == "completed"
+        assert runs[0].model == "qwen2.5:7b-instruct"
 
 
 def test_enqueue_batch_enqueues_one_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
     enqueued: list[object] = []
     monkeypatch.setattr(tasks.huey, "enqueue", lambda pipeline: enqueued.append(pipeline))
 
-    tasks.enqueue_batch("jobs", ["hn", "remoteok", "arbeitnow"])
+    tasks.enqueue_batch("jobs", ["hn", "remoteok", "arbeitnow"], "qwen2.5:7b-instruct")
 
     assert len(enqueued) == 1
 

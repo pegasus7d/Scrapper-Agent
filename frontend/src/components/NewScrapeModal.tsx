@@ -1,6 +1,8 @@
 import { useState } from 'react'
 
-import type { RunKind } from '../api/types'
+import type { LocalModel, RunKind } from '../api/types'
+import { useApi } from '../hooks/useApi'
+import { formatSize } from '../lib/format'
 import { SOURCES } from '../lib/sources'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
@@ -23,13 +25,18 @@ interface Props {
   onClose: () => void
   // The backend keeps its one-run-at-a-time invariant (DESIGN.md §6) — the
   // parent owns running the selected sources one at a time so the queue
-  // survives this modal closing.
-  onStart: (kind: RunKind, sources: string[]) => void
+  // survives this modal closing. `model` is undefined for "use the app
+  // default" (PHASE6.md step 3).
+  onStart: (kind: RunKind, sources: string[], model: string | undefined) => void
 }
 
 export function NewScrapeModal({ onClose, onStart }: Props) {
   const [kind, setKind] = useState<RunKind>('jobs')
   const [selected, setSelected] = useState<string[]>([])
+  const [model, setModel] = useState<string | undefined>(undefined)
+  // Only genuinely-installed models are ever offered (PHASE6.md step 3) —
+  // never a hardcoded list.
+  const models = useApi<LocalModel[]>('/models')
 
   function selectKind(next: RunKind) {
     setKind(next)
@@ -43,7 +50,7 @@ export function NewScrapeModal({ onClose, onStart }: Props) {
   }
 
   function start() {
-    onStart(kind, selected)
+    onStart(kind, selected, model)
     onClose()
   }
 
@@ -86,6 +93,27 @@ export function NewScrapeModal({ onClose, onStart }: Props) {
         </div>
         {SOURCES[kind].length === 0 && (
           <p className="text-xs text-muted-foreground">No sources for this kind yet.</p>
+        )}
+
+        {models.data && models.data.length > 0 && (
+          <label className="block text-sm font-medium text-muted-foreground">
+            Model
+            <Select
+              value={model ?? models.data[0].name}
+              onValueChange={(v) => setModel(v ?? undefined)}
+            >
+              <SelectTrigger className="mt-1 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {models.data.map((m) => (
+                  <SelectItem key={m.name} value={m.name}>
+                    {m.name} ({formatSize(m.size_bytes)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
         )}
 
         <DialogFooter>

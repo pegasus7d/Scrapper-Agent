@@ -5,6 +5,7 @@ tier it is talking to.
 """
 
 import logging
+from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 import anthropic
@@ -13,6 +14,14 @@ import ollama
 from backend import config
 
 logger = logging.getLogger(__name__)
+
+# Ollama tags this suffix onto its hosted "cloud" models (proxied inference,
+# not a local weight — confirmed for real: a `:cloud` entry's reported size
+# is a few hundred bytes, a manifest pointer, versus multi-GB for an actual
+# local model). This project is explicitly free/local-only (CLAUDE.md), so
+# the picker must never surface one of these as if it were a free local
+# choice.
+_CLOUD_MODEL_SUFFIX = ":cloud"
 
 
 @runtime_checkable
@@ -70,3 +79,21 @@ def ollama_available() -> bool:
         logger.warning("ollama unreachable: %s", error)
         return False
     return True
+
+
+@dataclass
+class LocalModel:
+    name: str
+    size_bytes: int
+
+
+def list_local_models() -> list[LocalModel]:
+    """Every model genuinely pulled on this machine — never a hardcoded
+    list (PHASE6.md step 3), and never one of Ollama's `:cloud` proxy
+    models, which aren't local or guaranteed free."""
+    response = ollama.list()
+    return [
+        LocalModel(name=m.model, size_bytes=m.size or 0)
+        for m in response.models
+        if m.model is not None and not m.model.endswith(_CLOUD_MODEL_SUFFIX)
+    ]

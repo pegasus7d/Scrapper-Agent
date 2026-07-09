@@ -12,11 +12,16 @@ from pydantic import BaseModel, ConfigDict, Field
 class RunRequest(BaseModel):
     kind: Literal["jobs", "questions"]
     source: str
+    # Which locally-installed model to extract with (PHASE6.md step 3) —
+    # None means "use the app default", never a hardcoded model the caller
+    # can't see; the route validates this against GET /api/models.
+    model: str | None = None
 
 
 class RunBatchRequest(BaseModel):
     kind: Literal["jobs", "questions"]
     sources: list[str] = Field(min_length=1)
+    model: str | None = None
 
 
 class RunCreated(BaseModel):
@@ -37,6 +42,7 @@ class RunOut(BaseModel):
     id: int
     kind: str
     source: str
+    model: str
     status: str
     cancel_requested: bool
     started_at: datetime
@@ -46,6 +52,11 @@ class RunOut(BaseModel):
     items_duplicate: int
     escalations: int
     errors: list[dict[str, str]]
+
+
+class ModelOut(BaseModel):
+    name: str
+    size_bytes: int
 
 
 class JobOut(BaseModel):

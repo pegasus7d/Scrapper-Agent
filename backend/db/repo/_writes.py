@@ -25,7 +25,29 @@ def make_engine(database_url: str = config.DATABASE_URL) -> Engine:
     """Create an engine and ensure all tables exist."""
     engine = create_engine(database_url)
     Base.metadata.create_all(engine)
+    _ensure_runs_model_column(engine)
     return engine
+
+
+def _ensure_runs_model_column(engine: Engine) -> None:
+    """create_all() only creates missing tables, never alters existing ones —
+    caught for real by PHASE6.md step 3's smoke test: the real dev
+    `scraper.db` (accumulated jobs/questions from earlier phases) predates
+    the `model` column added to `runs`, and broke on first read with
+    "no such column: runs.model". Rather than requiring real user data to be
+    deleted, or pulling in Alembic for one additive column, patch it in with
+    a plain ALTER TABLE the first time an older DB is opened."""
+    with engine.connect() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(runs)")}
+        if "model" not in columns:
+            # SQLite backfills every existing row with the DEFAULT value as
+            # part of ADD COLUMN itself — no separate UPDATE needed.
+            default = config.LOCAL_MODEL.replace("'", "''")
+            conn.exec_driver_sql(
+                f"ALTER TABLE runs ADD COLUMN model VARCHAR NOT NULL DEFAULT '{default}'"
+            )
+            conn.commit()
+            logger.info("migrated runs table: added model column")
 
 
 def normalize_url(url: str) -> str:
@@ -58,9 +80,9 @@ def question_hash(company: str | None, question: str) -> str:
     return hashlib.sha256(normalized.encode()).hexdigest()
 
 
-def create_run(session: Session, kind: str, source: str) -> Run:
+def create_run(session: Session, kind: str, source: str, model: str = config.LOCAL_MODEL) -> Run:
     """Insert and return a new run in "running" state."""
-    run = Run(kind=kind, source=source, status="running", started_at=datetime.now(UTC))
+    run = Run(kind=kind, source=source, model=model, status="running", started_at=datetime.now(UTC))
     session.add(run)
     session.commit()
     return run

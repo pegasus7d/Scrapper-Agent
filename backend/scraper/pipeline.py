@@ -38,13 +38,18 @@ _TRANSPORTS: dict[str, Callable[[], Transport]] = {
 }
 
 
-def build_extractor() -> Extractor[ExtractSchema]:
-    """Wire the real two-tier cascade; without an API key the frontier stays dormant."""
+def build_extractor(model: str = config.LOCAL_MODEL) -> Extractor[ExtractSchema]:
+    """Wire the real two-tier cascade; without an API key the frontier stays dormant.
+
+    `model` selects which locally-installed model the local tier uses
+    (PHASE6.md step 3) — always a real, genuinely-pulled model, never a
+    hardcoded default unless the caller doesn't pick one.
+    """
     api_key = config.anthropic_api_key()
     if api_key is None:
         logger.warning("no ANTHROPIC_API_KEY set — escalation disabled, running local-only")
-        return Extractor[ExtractSchema](OllamaClient(), frontier=None)
-    return Extractor[ExtractSchema](OllamaClient(), frontier=FrontierClient(api_key))
+        return Extractor[ExtractSchema](OllamaClient(model), frontier=None)
+    return Extractor[ExtractSchema](OllamaClient(model), frontier=FrontierClient(api_key))
 
 
 def build_fetcher(source: str) -> PageFetcher:

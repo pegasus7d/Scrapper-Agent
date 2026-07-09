@@ -141,10 +141,10 @@ export function Dashboard() {
   // batch endpoint call queues every selected source as a single Huey
   // pipeline that runs them in order, surviving a browser refresh unlike
   // phase 4's client-side sequencing.
-  async function startQueue(kind: RunKind, sources: string[]) {
+  async function startQueue(kind: RunKind, sources: string[], model: string | undefined) {
     setQueue({ sources, startedAt: Date.now() })
     try {
-      await apiPost('/runs/batch', { kind, sources })
+      await apiPost('/runs/batch', { kind, sources, model })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
       setQueue(null)
@@ -236,7 +236,7 @@ export function Dashboard() {
       {showModal && (
         <NewScrapeModal
           onClose={() => setShowModal(false)}
-          onStart={(kind, sources) => void startQueue(kind, sources)}
+          onStart={(kind, sources, model) => void startQueue(kind, sources, model)}
         />
       )}
     </div>

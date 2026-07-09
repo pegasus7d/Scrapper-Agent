@@ -98,6 +98,40 @@ here, all verified before writing this down (WORKFLOW.md rule 2):
    the model that was picked (not silently falling back to the default),
    and record which one actually extracted more cleanly on real chunks —
    this is the first real evidence for any of these claims.
+   **Done.** Landed with `GET /api/models` filtering out Ollama's `:cloud`
+   proxy models by name suffix (confirmed real and distinct from a local
+   pull: a `:cloud` entry reports a few-hundred-byte manifest, not a
+   multi-GB weight) — not asked for explicitly, but necessary to keep the
+   picker honest about "always free, local only" (CLAUDE.md). `Run.model`
+   defaults to `config.LOCAL_MODEL`, and `POST /runs`/`POST /runs/batch`
+   422 on a model that isn't actually installed.
+   Real bug caught by this step's own smoke test, not by unit tests: the
+   real dev `scraper.db` (65 jobs / 99 questions accumulated across earlier
+   phases) predates the new `model` column, and `Base.metadata.create_all()`
+   only creates missing tables — it never alters an existing one. The app
+   crashed on first read (`no such column: runs.model`) the moment it ran
+   against real, not-freshly-created data, which every earlier phase's unit
+   tests (in-memory, freshly created DB every time) could never have caught.
+   Fixed with a small defensive `ALTER TABLE ... ADD COLUMN ... DEFAULT`
+   migration in `repo.make_engine()`, not Alembic — this is the project's
+   first schema change to an existing table, so a full migration framework
+   would be new infrastructure for one additive column; the existing rows
+   backfill to `config.LOCAL_MODEL` automatically as part of the `ALTER
+   TABLE` itself. Regression test added
+   (`test_make_engine_migrates_runs_missing_model_column`) that builds an
+   old-shape `runs` table by hand and confirms `make_engine` patches it.
+   Smoke, against the real (now-migrated) dev DB and a real live server:
+   pulled `phi4-mini:3.8b` (2.49 GB) alongside the existing
+   `qwen2.5:7b-instruct` default. Ran one real Arbeitnow scrape per model,
+   each explicitly selected via `POST /runs`'s new `model` field, confirmed
+   via `GET /runs/{id}` that the run's stored `model` matched what was
+   requested (not silently falling back) — `phi4-mini:3.8b`: 4 items saved,
+   0 errors, 0 escalations; `qwen2.5:7b-instruct`: 4 items saved, 0 errors,
+   0 escalations. Both produced clean, correctly-shaped `JobExtract` rows
+   (real titles/companies, no malformed fields) on this sample — no
+   reliability difference measured between the two on this run, unlike the
+   size/speed difference the research claimed; a real quality gap, if one
+   exists, would need a larger sample than this smoke test's scope.
 4. **Round field UX (frontend).** No schema change — `QuestionExtract.round`
    stays nullable, correctly representing that generic reference sources
    (FAQGURU, h5bp, HN comments) have no real interview round. Change the

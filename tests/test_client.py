@@ -7,7 +7,13 @@ import pytest
 
 from backend import config
 from backend.llm import client as client_module
-from backend.llm.client import FrontierClient, LLMClient, OllamaClient, ollama_available
+from backend.llm.client import (
+    FrontierClient,
+    LLMClient,
+    OllamaClient,
+    list_local_models,
+    ollama_available,
+)
 
 
 def test_ollama_client_conforms_to_protocol() -> None:
@@ -75,3 +81,14 @@ def test_ollama_available_false_when_unreachable(monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(client_module.ollama, "list", fail)
     assert ollama_available() is False
+
+
+def test_list_local_models_excludes_cloud_models(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_models = [
+        SimpleNamespace(model="qwen2.5:7b-instruct", size=4_683_087_332),
+        SimpleNamespace(model="glm-5:cloud", size=323),  # proxied, not local — must be excluded
+    ]
+    monkeypatch.setattr(client_module.ollama, "list", lambda: SimpleNamespace(models=fake_models))
+    result = list_local_models()
+    assert [m.name for m in result] == ["qwen2.5:7b-instruct"]
+    assert result[0].size_bytes == 4_683_087_332

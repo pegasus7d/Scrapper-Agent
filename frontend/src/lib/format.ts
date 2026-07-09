@@ -12,3 +12,7 @@ export function formatTime(iso: string): string {
 export function formatPercent(fraction: number): string {
   return `${(fraction * 100).toFixed(1)}%`
 }
+
+export function formatSize(bytes: number): string {
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`
+}
