@@ -12,14 +12,15 @@ Pydantic schemas, and only escalates the rare failed pages to a paid frontier mo
 land in SQLite, deduplicated, and a FastAPI backend + React UI let you browse jobs,
 questions, and live scrape-run status.
 
-- Product idea and rationale: [`IDEA.md`](IDEA.md)
-- Technical contract (DB models, modules, API, test plan): [`DESIGN.md`](DESIGN.md)
-- Module contracts, extraction cascade, fetcher/pipeline internals: [`ARCHITECTURE.md`](ARCHITECTURE.md)
-- Contributor rules (code quality, testing, git workflow): [`CLAUDE.md`](CLAUDE.md)
+- Product idea and rationale: [[IDEA.md]]
+- Technical contract (DB models, modules, API, test plan): [[DESIGN.md]]
+- Module contracts, extraction cascade, fetcher/pipeline internals: [[ARCHITECTURE.md]]
+- Contributor rules (code quality, testing, git workflow): [[CLAUDE.md]]
+- How this project actually moves from idea to shipped phase: [[WORKFLOW.md]]
 
-> **Status:** MVP complete — all build-order steps in `DESIGN.md` §8 are done.
+> **Status:** MVP complete — all build-order steps in [[DESIGN.md]] §8 are done.
 > Sources: HN "Who is hiring?" for jobs, HN comment search for interview questions
-> (Reddit's robots.txt disallows crawling — see `DESIGN.md` §3).
+> (Reddit's robots.txt disallows crawling — see [[DESIGN.md]] §3).
 
 ## Prerequisites
 

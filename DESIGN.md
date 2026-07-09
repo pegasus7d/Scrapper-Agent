@@ -1,6 +1,6 @@
 # Scraper Agent — Low-Level Design
 
-Read `IDEA.md` first for the product idea. This document is the technical contract:
+Read [[IDEA.md]] first for the product idea. This document is the technical contract:
 DB models, module layout, API surface, UI plan, and testing strategy. Code that
 deviates from this design should update this file in the same change.
 
@@ -194,7 +194,7 @@ tests/
   (mirrors backend/ one test file per module — see §7)
 ```
 
-See **`ARCHITECTURE.md`** for the module-level contracts (`Chunk`, `Source`,
+See **[[ARCHITECTURE.md]]** for the module-level contracts (`Chunk`, `Source`,
 `Transport`, `LLMClient`, `ExtractResult`), the extraction cascade algorithm,
 fetcher/transport policy, and the pipeline loop — split out since it was the
 largest single chunk of this file and most orientation reading doesn't need
@@ -354,19 +354,19 @@ unbounded with build history — the same reasoning that split `repo.py` and
 `sources.py` into packages once they grew past the 300-line cap, applied to
 docs instead of code:
 
-- **`PHASE1.md`** — MVP (done): scaffolding through the second source type.
-- **`PHASE2.md`** — polish & usefulness (done): dedupe, relevance gate,
+- **[[PHASE1.md]]** — MVP (done): scaffolding through the second source type.
+- **[[PHASE2.md]]** — polish & usefulness (done): dedupe, relevance gate,
   shadcn/ui, dashboard, dark mode, scheduling, RemoteOK, export/bookmarks.
-- **`PHASE3.md`** — plugin architecture + more platforms (done): `Source`
+- **[[PHASE3.md]]** — plugin architecture + more platforms (done): `Source`
   protocol/registry, WeWorkRemotely, Arbeitnow, curated GitHub questions.
-- **`PHASE4.md`** — architecture for scale (done): domain-split sources,
+- **[[PHASE4.md]]** — architecture for scale (done): domain-split sources,
   `Transport` protocol, per-source politeness, multi-select scrape UI.
-- **`PHASE5.md`** — Huey, dependency audit, and 3 new sources (done):
+- **[[PHASE5.md]]** — Huey, dependency audit, and 3 new sources (done):
   replaces `scheduler.py`'s hand-rolled poll loop and the phase 4 frontend
   queue-runner with `SqliteHuey` tasks/pipelines running in-process; drops
   the oversized `motion` dependency; adds Himalayas, RemoteJobs.org, and
   FAQGURU sources.
-- **`PHASE6.md`** — search, live updates, and cleanup (current):
+- **[[PHASE6.md]]** — search, live updates, and cleanup (current):
   schema-constrained local extraction + selectable local model, live run
   updates via SSE, `sqlite-vec` + FTS5 hybrid search, drops `recharts`,
   README rewrite.
@@ -375,6 +375,6 @@ When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
 the list above, and amend the sections above it in *this* file wherever the
 new phase changes current state — the numbered list here is an index, not a
-changelog. See `WORKFLOW.md` for the full discuss → docs → `/loop` → smoke-test
+changelog. See [[WORKFLOW.md]] for the full discuss → docs → `/loop` → smoke-test
 → report cycle this is part of.
 

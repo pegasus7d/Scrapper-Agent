@@ -1,10 +1,10 @@
 # Phase 6 — search, live updates, and cleanup
 
-Read `DESIGN.md` first for the system contract; this file only holds phase 6's
-step-by-step build order and rationale. See `WORKFLOW.md` for the recurring
+Read [[DESIGN.md]] first for the system contract; this file only holds phase 6's
+step-by-step build order and rationale. See [[WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as `PHASE1.md`–`PHASE5.md`. Four research threads led
+Same workflow rules as [[PHASE1.md]]–[[PHASE5.md]]. Four research threads led
 here, all verified before writing this down (WORKFLOW.md rule 2):
 
 - **Search over scraped data.** PageIndex-style vectorless, reasoning-based
@@ -51,7 +51,7 @@ here, all verified before writing this down (WORKFLOW.md rule 2):
   stop hardcoding `config.LOCAL_MODEL` as the only option and let the UI
   pick from what's really installed.
 
-1. **Rewrite `README.md` (docs).** Currently describes the MVP shape only
+1. **Rewrite [[README.md]] (docs).** Currently describes the MVP shape only
    ("Status: MVP complete... Sources: HN 'Who is hiring?' for jobs, HN
    comment search for interview questions") — stale since phase 2. Update to
    reflect the real current state: 9 sources across jobs/questions, Huey

@@ -80,7 +80,7 @@ for url in queue:
   endpoints) for interview questions. LeetCode Discuss/Blind deferred (JS-heavy,
   anti-bot).
 - Local model: **qwen2.5:7b-instruct via Ollama**; escalation tier: Claude Haiku.
-- Full technical contract (DB models, chunking, API, tests): see `DESIGN.md`.
+- Full technical contract (DB models, chunking, API, tests): see [[DESIGN.md]].
 
 ## Open questions / not yet decided
 - Whether resume parsing should feed into job matching (separate feature, not scoped

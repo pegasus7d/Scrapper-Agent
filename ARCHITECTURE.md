@@ -1,6 +1,6 @@
 # Architecture — module contracts and core algorithms
 
-Read `DESIGN.md` first — this file is the deep-dive companion to its §3
+Read [[DESIGN.md]] first — this file is the deep-dive companion to its §3
 (Module layout): the actual code-level contracts and algorithms behind the
 module tree, split out because they made §3 the largest single chunk of
 DESIGN.md (227 of 514 lines) and most `/loop` iterations don't need this
@@ -145,7 +145,7 @@ run_scrape(kind, source):
 ```
 
 The loop is synchronous and boring on purpose. A run is enqueued onto Huey
-(`tasks.py`, `PHASE5.md`) and executed on the consumer thread; its progress
+(`tasks.py`, [[PHASE5.md]]) and executed on the consumer thread; its progress
 is readable from the `runs` row at any time — that is the entire "job
 status" mechanism, no separate queue-monitoring infra to build.
 
