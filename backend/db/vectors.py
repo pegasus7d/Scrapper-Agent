@@ -1,5 +1,6 @@
-"""sqlite-vec wiring: extension loading, vec0 tables, embedding inserts
-(PHASE6.md step 7).
+"""sqlite-vec wiring: extension loading and embedding inserts (PHASE6.md
+step 7). Table creation lives in the Alembic migrations (PHASE7.md step 1)
+instead, since it's schema history now, not a repeated setup call.
 
 Kept out of repo/_writes.py: vec0 virtual tables aren't ORM-mapped models
 (SQLAlchemy has no vec0 concept), so this is raw SQL by necessity —
@@ -8,8 +9,6 @@ reviewable on its own rather than mixed into the ORM-based saves.
 
 from sqlalchemy import Engine, event, text
 from sqlalchemy.orm import Session
-
-from backend import config
 
 
 def register_vec_extension(engine: Engine) -> None:
@@ -28,24 +27,6 @@ def register_vec_extension(engine: Engine) -> None:
         dbapi_connection.enable_load_extension(True)  # type: ignore[attr-defined]
         sqlite_vec.load(dbapi_connection)
         dbapi_connection.enable_load_extension(False)  # type: ignore[attr-defined]
-
-
-def create_vec_tables(engine: Engine) -> None:
-    """One vec0 table per item kind, keyed by the item's own row id."""
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                "CREATE VIRTUAL TABLE IF NOT EXISTS job_embeddings "
-                f"USING vec0(embedding float[{config.EMBED_DIM}])"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE VIRTUAL TABLE IF NOT EXISTS question_embeddings "
-                f"USING vec0(embedding float[{config.EMBED_DIM}])"
-            )
-        )
-        conn.commit()
 
 
 def save_job_embedding(session: Session, job_id: int, embedding: bytes) -> None:

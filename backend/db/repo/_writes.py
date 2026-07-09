@@ -11,8 +11,8 @@ from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session
 
 from backend import config
-from backend.db import fts, vectors
-from backend.db.models import Base, InterviewQuestion, Job, Run
+from backend.db import fts, migrate, vectors
+from backend.db.models import InterviewQuestion, Job, Run
 from backend.schemas import JobExtract, QuestionExtract
 
 logger = logging.getLogger(__name__)
@@ -24,41 +24,20 @@ _WHITESPACE = re.compile(r"\s+")
 
 
 def make_engine(database_url: str = config.DATABASE_URL) -> Engine:
-    """Create an engine, ensure all tables exist, and load sqlite-vec.
+    """Create an engine, load sqlite-vec, and bring the schema to head via
+    Alembic (PHASE7.md step 1) — replaces the old create_all() +
+    ad-hoc-ALTER-TABLE pattern (phase 6 step 3), which had no single record
+    of which migrations had actually been applied to a given database.
 
     Extension registration (vectors.register_vec_extension) must happen
-    before create_vec_tables, which issues a CREATE VIRTUAL TABLE ... USING
-    vec0 — that module only exists once the extension is loaded on the
-    connection (PHASE6.md step 7).
+    before any migration runs: a migration may CREATE VIRTUAL TABLE ...
+    USING vec0, and that module only exists once the extension is loaded on
+    the connection.
     """
     engine = create_engine(database_url)
     vectors.register_vec_extension(engine)
-    Base.metadata.create_all(engine)
-    _ensure_runs_model_column(engine)
-    vectors.create_vec_tables(engine)
-    fts.create_fts_tables(engine)
+    migrate.run_migrations(engine, database_url)
     return engine
-
-
-def _ensure_runs_model_column(engine: Engine) -> None:
-    """create_all() only creates missing tables, never alters existing ones —
-    caught for real by PHASE6.md step 3's smoke test: the real dev
-    `scraper.db` (accumulated jobs/questions from earlier phases) predates
-    the `model` column added to `runs`, and broke on first read with
-    "no such column: runs.model". Rather than requiring real user data to be
-    deleted, or pulling in Alembic for one additive column, patch it in with
-    a plain ALTER TABLE the first time an older DB is opened."""
-    with engine.connect() as conn:
-        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(runs)")}
-        if "model" not in columns:
-            # SQLite backfills every existing row with the DEFAULT value as
-            # part of ADD COLUMN itself — no separate UPDATE needed.
-            default = config.LOCAL_MODEL.replace("'", "''")
-            conn.exec_driver_sql(
-                f"ALTER TABLE runs ADD COLUMN model VARCHAR NOT NULL DEFAULT '{default}'"
-            )
-            conn.commit()
-            logger.info("migrated runs table: added model column")
 
 
 def normalize_url(url: str) -> str:

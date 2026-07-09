@@ -8,8 +8,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from backend import config
-from backend.db import repo
-from backend.db.models import Run
+from backend.db import repo, vectors
+from backend.db.models import Base, Run
 from backend.schemas import JobExtract, QuestionExtract
 
 JOB = JobExtract(
@@ -40,35 +40,46 @@ def run(session: Session) -> Run:
     return repo.create_run(session, kind="jobs", source="hn")
 
 
-def test_make_engine_migrates_runs_missing_model_column(tmp_path: Path) -> None:
-    # Base.metadata.create_all() only creates missing tables, never alters
-    # existing ones — this reproduces a real dev DB that predates the
-    # `model` column (PHASE6.md step 3's required smoke test caught this
-    # for real against the accumulated scraper.db from earlier phases).
+def test_make_engine_stamps_a_pre_alembic_db_without_losing_data(tmp_path: Path) -> None:
+    # A real pre-Alembic database (PHASE7.md step 1) — full current ORM
+    # schema plus the vec0/FTS5 tables, built by the old ad-hoc mechanism
+    # (phase 6 steps 3/7/8), but no alembic_version table. This is exactly
+    # the real project's own scraper.db's shape the moment this code lands.
+    # make_engine() must stamp it at head, not re-run CREATE TABLE against
+    # tables that already exist (which would error) or lose real data.
     db_path = tmp_path / "old.db"
     old_engine = create_engine(f"sqlite:///{db_path}")
+    vectors.register_vec_extension(old_engine)
+    Base.metadata.create_all(old_engine)
     with old_engine.connect() as conn:
+        conn.exec_driver_sql("CREATE VIRTUAL TABLE job_embeddings USING vec0(embedding float[768])")
         conn.exec_driver_sql(
-            "CREATE TABLE runs (id INTEGER PRIMARY KEY, kind VARCHAR NOT NULL, "
-            "source VARCHAR NOT NULL, status VARCHAR NOT NULL, "
-            "cancel_requested BOOLEAN NOT NULL, started_at DATETIME NOT NULL, "
-            "finished_at DATETIME, pages_fetched INTEGER NOT NULL, "
-            "items_saved INTEGER NOT NULL, items_duplicate INTEGER NOT NULL, "
-            "escalations INTEGER NOT NULL, errors JSON NOT NULL)"
+            "CREATE VIRTUAL TABLE question_embeddings USING vec0(embedding float[768])"
         )
         conn.exec_driver_sql(
-            "INSERT INTO runs (id, kind, source, status, cancel_requested, started_at, "
-            "pages_fetched, items_saved, items_duplicate, escalations, errors) "
-            "VALUES (1, 'jobs', 'hn', 'completed', 0, '2026-01-01 00:00:00', 1, 1, 0, 0, '[]')"
+            "CREATE VIRTUAL TABLE job_search_fts "
+            "USING fts5(title, company, location, salary, requirements)"
+        )
+        conn.exec_driver_sql(
+            "CREATE VIRTUAL TABLE question_search_fts USING fts5(question, company, role)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO runs (id, kind, source, model, status, cancel_requested, "
+            "started_at, pages_fetched, items_saved, items_duplicate, escalations, errors) "
+            "VALUES (1, 'jobs', 'hn', 'qwen2.5:7b-instruct', 'completed', 0, "
+            "'2026-01-01 00:00:00', 1, 1, 0, 0, '[]')"
         )
         conn.commit()
     old_engine.dispose()
 
     engine = repo.make_engine(f"sqlite:///{db_path}")
     with Session(engine) as session:
-        migrated = session.get(Run, 1)
-        assert migrated is not None
-        assert migrated.model == config.LOCAL_MODEL  # backfilled, not NULL
+        preserved = session.get(Run, 1)
+        assert preserved is not None
+        assert preserved.model == "qwen2.5:7b-instruct"  # real pre-existing data, untouched
+
+        version = session.execute(text("SELECT version_num FROM alembic_version")).scalar()
+        assert version is not None  # stamped, not left untracked
 
         new_run = repo.create_run(session, kind="jobs", source="hn")
         assert new_run.model == config.LOCAL_MODEL

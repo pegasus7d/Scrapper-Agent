@@ -9,8 +9,8 @@ from sqlalchemy.pool import StaticPool
 from backend import config
 from backend.api import routes
 from backend.api.main import create_app
-from backend.db import fts, repo, vectors
-from backend.db.models import Base, Run
+from backend.db import migrate, repo, vectors
+from backend.db.models import Run
 from backend.llm.client import LocalModel
 from backend.schemas import JobExtract, QuestionExtract
 
@@ -21,13 +21,12 @@ def engine() -> Engine:
     # worker threads; a plain :memory: engine would give each thread its own DB.
     # Mirrors repo.make_engine()'s setup (can't call it directly here: it
     # always calls plain create_engine(), which wouldn't get StaticPool).
+    database_url = "sqlite://"
     engine = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+        database_url, connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
     vectors.register_vec_extension(engine)
-    Base.metadata.create_all(engine)
-    vectors.create_vec_tables(engine)
-    fts.create_fts_tables(engine)
+    migrate.run_migrations(engine, database_url)
     return engine
 
 

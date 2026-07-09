@@ -1,27 +1,10 @@
-"""FTS5 keyword-search tables and inserts (PHASE6.md step 8) — the keyword
-half of hybrid search, paired with vectors.py's similarity half.
+"""FTS5 keyword-search inserts (PHASE6.md step 8) — the keyword half of
+hybrid search, paired with vectors.py's similarity half. Table creation
+lives in the Alembic migrations (PHASE7.md step 1) instead.
 """
 
-from sqlalchemy import Engine, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-
-
-def create_fts_tables(engine: Engine) -> None:
-    """One FTS5 table per item kind, keyed by the item's own row id."""
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                "CREATE VIRTUAL TABLE IF NOT EXISTS job_search_fts "
-                "USING fts5(title, company, location, salary, requirements)"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE VIRTUAL TABLE IF NOT EXISTS question_search_fts "
-                "USING fts5(question, company, role)"
-            )
-        )
-        conn.commit()
 
 
 def index_job(
