@@ -8,14 +8,14 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from sqlalchemy import CompoundSelect, Engine, Select, create_engine, func, select
 from sqlalchemy.orm import Session
 
 from backend import config
-from backend.db.models import Base, InterviewQuestion, Job, Run
+from backend.db.models import Base, InterviewQuestion, Job, Run, Schedule
 from backend.schemas import JobExtract, QuestionExtract
 
 logger = logging.getLogger(__name__)
@@ -265,6 +265,49 @@ def compute_stats(session: Session) -> Stats:
     total = jobs + questions
     rate = frontier / total if total else 0.0
     return Stats(jobs=jobs, questions=questions, companies=companies, escalation_rate=rate)
+
+
+def create_schedule(session: Session, kind: str, source: str, every_hours: int) -> Schedule:
+    """Insert and return a new enabled schedule."""
+    schedule = Schedule(kind=kind, source=source, every_hours=every_hours)
+    session.add(schedule)
+    session.commit()
+    return schedule
+
+
+def list_schedules(session: Session) -> list[Schedule]:
+    """Return every schedule, oldest first."""
+    return list(session.scalars(select(Schedule).order_by(Schedule.id)).all())
+
+
+def set_schedule_enabled(session: Session, schedule_id: int, enabled: bool) -> bool:
+    """Flip a schedule's enabled flag; returns False when it doesn't exist."""
+    schedule = session.get(Schedule, schedule_id)
+    if schedule is None:
+        return False
+    schedule.enabled = enabled
+    session.commit()
+    return True
+
+
+def due_schedules(session: Session, now: datetime) -> list[Schedule]:
+    """Enabled schedules that have never run, or whose interval has elapsed."""
+    # SQLite round-trips DateTime columns as naive (same convention as
+    # started_at/finished_at elsewhere) — drop tzinfo from `now` to compare.
+    naive_now = now.replace(tzinfo=None)
+    enabled = session.scalars(select(Schedule).where(Schedule.enabled)).all()
+    return [
+        schedule
+        for schedule in enabled
+        if schedule.last_run_at is None
+        or naive_now - schedule.last_run_at >= timedelta(hours=schedule.every_hours)
+    ]
+
+
+def mark_schedule_run(session: Session, schedule: Schedule, now: datetime) -> None:
+    """Record that a schedule just triggered a run, resetting its interval clock."""
+    schedule.last_run_at = now
+    session.commit()
 
 
 def _paginate[T](

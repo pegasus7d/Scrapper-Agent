@@ -67,3 +67,16 @@ class InterviewQuestion(Base):
     extraction_tier: Mapped[str]  # "local" | "frontier"
     scraped_at: Mapped[datetime]
     run_id: Mapped[int] = mapped_column(ForeignKey("runs.id"))
+
+
+class Schedule(Base):
+    """A recurring scrape: run this kind/source every N hours (DESIGN.md §9 step 6)."""
+
+    __tablename__ = "schedules"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str]  # "jobs" | "questions"
+    source: Mapped[str]
+    every_hours: Mapped[int]
+    enabled: Mapped[bool] = mapped_column(default=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(default=None)

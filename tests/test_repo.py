@@ -1,5 +1,7 @@
 """Tests for the persistence layer: dedupe, normalization, run lifecycle."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -217,3 +219,38 @@ def test_item_url_exists_matches_questions_by_source_url(session: Session, run: 
     )
     assert repo.item_url_exists(session, "questions", "https://r.com/t/1") is True
     assert repo.item_url_exists(session, "jobs", "https://r.com/t/1") is False  # kind-scoped
+
+
+def test_create_and_list_schedules(session: Session) -> None:
+    repo.create_schedule(session, kind="jobs", source="hn", every_hours=6)
+    repo.create_schedule(session, kind="questions", source="hn-interviews", every_hours=24)
+    schedules = repo.list_schedules(session)
+    assert [(s.kind, s.source, s.every_hours, s.enabled) for s in schedules] == [
+        ("jobs", "hn", 6, True),
+        ("questions", "hn-interviews", 24, True),
+    ]
+    assert schedules[0].last_run_at is None
+
+
+def test_set_schedule_enabled_toggles_and_reports_missing(session: Session) -> None:
+    schedule = repo.create_schedule(session, kind="jobs", source="hn", every_hours=6)
+    assert repo.set_schedule_enabled(session, schedule.id, False) is True
+    assert repo.list_schedules(session)[0].enabled is False
+    assert repo.set_schedule_enabled(session, 999, True) is False
+
+
+def test_due_schedules_never_run_is_due_immediately(session: Session) -> None:
+    repo.create_schedule(session, kind="jobs", source="hn", every_hours=6)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    assert len(repo.due_schedules(session, now)) == 1
+
+
+def test_due_schedules_respects_interval_and_enabled_flag(session: Session) -> None:
+    schedule = repo.create_schedule(session, kind="jobs", source="hn", every_hours=6)
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    repo.mark_schedule_run(session, schedule, now)
+    assert repo.due_schedules(session, now + timedelta(hours=3)) == []
+    assert repo.due_schedules(session, now + timedelta(hours=6)) == [schedule]
+
+    repo.set_schedule_enabled(session, schedule.id, False)
+    assert repo.due_schedules(session, now + timedelta(hours=100)) == []
