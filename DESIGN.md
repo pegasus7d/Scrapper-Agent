@@ -176,9 +176,10 @@ backend/
         hn.py          # HN comment search (PHASE2.md step 2)
         github_questions.py # curated question-bank repos (PHASE3.md step 4)
     pipeline.py        # run_scrape(kind, source): the loop
-    scheduler.py        # background poll loop that starts due schedules
+    tasks.py           # Huey wiring (PHASE5.md steps 1-2): run_scrape_task,
+                       # dispatch_due_schedule periodic task, in-process consumer
   api/
-    main.py            # FastAPI app factory, CORS, router mounting, scheduler thread
+    main.py            # FastAPI app factory, CORS, router mounting, consumer thread
     routes.py          # endpoint handlers (thin — call repo/pipeline, no logic)
     dto.py              # Pydantic request/response models for routes.py
     export.py           # CSV serialization for the export endpoints

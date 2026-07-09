@@ -35,7 +35,7 @@ def client(engine: Engine, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     # Execution is the pipeline's job (tested in test_pipeline); here we only
     # verify the wiring: enqueuing the task runs it and finishes the run.
     monkeypatch.setattr(routes, "run_scrape_task", fake_run_scrape_task)
-    return TestClient(create_app(engine, start_scheduler=False, start_consumer=False))
+    return TestClient(create_app(engine, start_consumer=False))
 
 
 def seed_items(engine: Engine) -> None:
@@ -211,7 +211,7 @@ def test_toggle_schedule_flips_enabled_and_404s_when_missing(client: TestClient)
 def test_startup_recovers_stale_runs(engine: Engine) -> None:
     with Session(engine) as session:
         repo.create_run(session, kind="jobs", source="hn")
-    create_app(engine, start_scheduler=False, start_consumer=False)
+    create_app(engine, start_consumer=False)
     with Session(engine) as session:
         run = session.get(Run, 1)
         assert run is not None
