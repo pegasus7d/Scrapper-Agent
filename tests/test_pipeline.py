@@ -29,7 +29,7 @@ class ScriptedClient:
     def __init__(self, responses: list[str]) -> None:
         self._responses = responses
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
         return self._responses.pop(0)
 
 
@@ -275,7 +275,7 @@ def test_cancel_mid_page_stops_remaining_chunks(
     class CancellingClient:
         """Cancels the run while the first chunk is being extracted."""
 
-        def complete(self, prompt: str) -> str:
+        def complete(self, prompt: str, *, schema: dict | None = None) -> str:
             assert repo.request_cancel(session, run_id=1)
             return job_json("Role")
 

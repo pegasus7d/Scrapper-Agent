@@ -5,7 +5,7 @@ tier it is talking to.
 """
 
 import logging
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import anthropic
 import ollama
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class LLMClient(Protocol):
     """Anything that turns a prompt into a completion string."""
 
-    def complete(self, prompt: str) -> str: ...
+    def complete(self, prompt: str, *, schema: dict[str, Any] | None = None) -> str: ...
 
 
 class OllamaClient:
@@ -28,9 +28,16 @@ class OllamaClient:
     def __init__(self, model: str = config.LOCAL_MODEL) -> None:
         self._model = model
 
-    def complete(self, prompt: str) -> str:
-        """Return the model's completion; JSON mode keeps output parseable."""
-        response = ollama.generate(model=self._model, prompt=prompt, format="json")
+    def complete(self, prompt: str, *, schema: dict[str, Any] | None = None) -> str:
+        """Return the model's completion.
+
+        `schema`, when given, constrains generation to that exact JSON shape
+        (real measured win over bare `format="json"`, which only guarantees
+        syntactically valid JSON of any shape — see PHASE6.md step 2).
+        """
+        response = ollama.generate(
+            model=self._model, prompt=prompt, format=schema if schema is not None else "json"
+        )
         return response.response
 
 
@@ -41,8 +48,12 @@ class FrontierClient:
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
 
-    def complete(self, prompt: str) -> str:
-        """Return the model's completion as plain text."""
+    def complete(self, prompt: str, *, schema: dict[str, Any] | None = None) -> str:
+        """Return the model's completion as plain text.
+
+        `schema` is accepted for protocol compatibility but ignored — the
+        Anthropic API has no equivalent constrained-decoding feature.
+        """
         response = self._client.messages.create(
             model=self._model,
             max_tokens=config.FRONTIER_MAX_TOKENS,

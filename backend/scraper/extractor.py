@@ -8,13 +8,13 @@ scripted fakes (DESIGN.md §3).
 import json
 import logging
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
 
 from backend import config
 from backend.llm.client import LLMClient
-from backend.scraper.prompts import extraction_prompt, retry_prompt
+from backend.scraper.prompts import extraction_prompt, retry_prompt, wrapper_schema
 
 logger = logging.getLogger(__name__)
 
@@ -71,12 +71,13 @@ class Extractor[T: BaseModel]:
         is unavailable (disabled, capped, or also failing).
         """
         prompt = extraction_prompt(schema, text)
+        json_schema = wrapper_schema(schema)
 
-        items, error = self._attempt(self._local, prompt, schema)
+        items, error = self._attempt(self._local, prompt, schema, json_schema)
         if items is not None:
             return ExtractResult(items, "local")
 
-        items, error = self._attempt(self._local, retry_prompt(prompt, error), schema)
+        items, error = self._attempt(self._local, retry_prompt(prompt, error), schema, json_schema)
         if items is not None:
             return ExtractResult(items, "local")
 
@@ -87,16 +88,16 @@ class Extractor[T: BaseModel]:
 
         self.escalations_used += 1
         logger.warning("escalating to frontier (%d used)", self.escalations_used)
-        items, error = self._attempt(self._frontier, prompt, schema)
+        items, error = self._attempt(self._frontier, prompt, schema, json_schema)
         if items is not None:
             return ExtractResult(items, "frontier")
         raise ExtractionFailed(f"frontier model also failed: {error}")
 
     def _attempt(
-        self, client: LLMClient, prompt: str, schema: type[T]
+        self, client: LLMClient, prompt: str, schema: type[T], json_schema: dict[str, Any]
     ) -> tuple[list[T] | None, str]:
         """One model call; returns (items, "") on success or (None, error)."""
-        response = client.complete(prompt)
+        response = client.complete(prompt, schema=json_schema)
         try:
             return _parse_items(response, schema), ""
         except (json.JSONDecodeError, ValueError, ValidationError) as error:

@@ -56,17 +56,25 @@ here, all verified before writing this down (WORKFLOW.md rule 2):
    comment search for interview questions") — stale since phase 2. Update to
    reflect the real current state: 9 sources across jobs/questions, Huey
    scheduling/queueing, multi-select scrapes. No smoke test (docs-only).
-2. **Schema-constrained local extraction (backend).** `extractor.py` already
-   builds the wrapper schema (`{"items": [...]}` around the target Pydantic
-   model) for the retry prompt — pass that same schema to
-   `OllamaClient.complete()`'s `format` argument instead of the bare string
-   `"json"`. `LLMClient.complete(prompt) -> str` doesn't currently take a
-   schema, so this needs a small protocol change (add an optional `schema`
-   parameter, ignored by `FrontierClient` which has no equivalent
-   constrained-decoding feature). Smoke: re-run the same real 10-chunk
-   comparison from research — confirm the measured 1/10 → 0/10 validation
-   failure improvement holds on a fresh sample, not just the one already
-   tested.
+2. **Schema-constrained local extraction (backend).** Build the real
+   `{"items": [...]}` JSON schema around the target Pydantic model (new
+   `prompts.wrapper_schema()` — the retry *prompt* already describes this
+   shape in text, but no code built it as an actual schema object before
+   this step) and pass it to `OllamaClient.complete()`'s `format` argument
+   instead of the bare string `"json"`. `LLMClient.complete(prompt) -> str`
+   didn't take a schema, so this needed a small protocol change: `complete`
+   now takes a keyword-only `schema: dict[str, Any] | None = None`, ignored
+   by `FrontierClient` (no equivalent constrained-decoding feature on the
+   Anthropic API). Smoke: re-ran the real 10-chunk comparison from research
+   on a *fresh* batch of live Himalayas job chunks — **0/10 failures for
+   both** bare `format="json"` and the real-schema path this time, not the
+   1/10 → 0/10 delta measured in research. Reported honestly rather than
+   re-run until it matched: `qwen2.5:7b-instruct` evidently handles
+   `JobExtract`'s shape reliably either way on this sample; the schema path
+   still ships because it constrains generation by construction (a
+   guarantee, not a probability) and cannot be worse than the bare string,
+   even though this particular smoke test didn't catch a regression to
+   demonstrate the difference.
 3. **Selectable local model (backend + frontend).** New `GET
    /api/models` returns `ollama.list()`'s real output (name, size) — only
    models actually pulled on the machine, never a hardcoded list. Add a

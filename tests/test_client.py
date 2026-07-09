@@ -29,6 +29,19 @@ def test_ollama_client_calls_generate_with_json_mode(monkeypatch: pytest.MonkeyP
     assert calls["prompt"] == "extract this"
 
 
+def test_ollama_client_passes_real_schema_when_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, Any] = {}
+    schema = {"type": "object", "properties": {"items": {"type": "array"}}}
+
+    def fake_generate(**kwargs: Any) -> SimpleNamespace:
+        calls.update(kwargs)
+        return SimpleNamespace(response='{"items": []}')
+
+    monkeypatch.setattr(client_module.ollama, "generate", fake_generate)
+    OllamaClient(model="test-model").complete("extract this", schema=schema)
+    assert calls["format"] == schema
+
+
 def test_frontier_client_joins_text_blocks() -> None:
     frontier = FrontierClient(api_key="sk-test")
 

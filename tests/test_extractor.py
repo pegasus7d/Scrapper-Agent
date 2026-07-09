@@ -26,9 +26,11 @@ class ScriptedClient:
     def __init__(self, responses: list[str]) -> None:
         self._responses = list(responses)
         self.prompts: list[str] = []
+        self.schemas: list[dict | None] = []
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, *, schema: dict | None = None) -> str:
         self.prompts.append(prompt)
+        self.schemas.append(schema)
         return self._responses.pop(0)
 
 
@@ -39,6 +41,16 @@ def test_local_succeeds_first_try() -> None:
     assert result.tier == "local"
     assert result.items[0].company == "Acme"
     assert len(local.prompts) == 1
+
+
+def test_local_call_passes_wrapper_json_schema() -> None:
+    local = ScriptedClient([VALID_RESPONSE])
+    extractor: Extractor[JobExtract] = Extractor(local, frontier=None)
+    extractor.extract("some chunk", JobExtract)
+    assert local.schemas[0] is not None
+    assert local.schemas[0]["type"] == "object"
+    assert local.schemas[0]["properties"]["items"]["type"] == "array"
+    assert local.schemas[0]["properties"]["items"]["items"] == JobExtract.model_json_schema()
 
 
 def test_empty_items_is_success_not_failure() -> None:

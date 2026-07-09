@@ -3,7 +3,7 @@
 import pytest
 
 from backend.schemas import JobExtract, QuestionExtract
-from backend.scraper.prompts import extraction_prompt, retry_prompt
+from backend.scraper.prompts import extraction_prompt, retry_prompt, wrapper_schema
 
 
 def test_job_prompt_contains_label_schema_and_text() -> None:
@@ -49,3 +49,11 @@ def test_retry_prompt_includes_previous_and_error() -> None:
     prompt = retry_prompt("original prompt", "field 'title' is required")
     assert "original prompt" in prompt
     assert "field 'title' is required" in prompt
+
+
+def test_wrapper_schema_wraps_items_array() -> None:
+    schema = wrapper_schema(JobExtract)
+    assert schema["type"] == "object"
+    assert schema["required"] == ["items"]
+    assert schema["properties"]["items"]["type"] == "array"
+    assert schema["properties"]["items"]["items"] == JobExtract.model_json_schema()

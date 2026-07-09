@@ -4,6 +4,8 @@ Prompts live here as constants so they can be reviewed and changed in one
 place; extractor.py never builds prompt strings inline.
 """
 
+from typing import Any
+
 from pydantic import BaseModel
 
 _SCHEMA_LABELS = {
@@ -67,3 +69,17 @@ def extraction_prompt(schema: type[BaseModel], text: str) -> str:
 def retry_prompt(previous: str, error: str) -> str:
     """Build the one-shot retry prompt, feeding the validation error back."""
     return _RETRY_TEMPLATE.format(previous=previous, error=error)
+
+
+def wrapper_schema(schema: type[BaseModel]) -> dict[str, Any]:
+    """Build the real {"items": [...]} JSON schema for constrained decoding.
+
+    Ollama's `format` parameter accepts a full JSON schema, not just the
+    string "json" — this is that schema, matching the shape the extraction
+    prompt already asks for (PHASE6.md step 2).
+    """
+    return {
+        "type": "object",
+        "properties": {"items": {"type": "array", "items": schema.model_json_schema()}},
+        "required": ["items"],
+    }
