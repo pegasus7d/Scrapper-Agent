@@ -131,3 +131,72 @@ def test_recover_stale_runs_marks_only_running_rows(session: Session) -> None:
     assert stale.status == "failed"
     assert stale.errors[-1]["error"] == "interrupted by restart"
     assert done.status == "completed"
+
+
+def save_jobs(session: Session, run: Run, *titles: str, tier: str = "local") -> None:
+    for n, title in enumerate(titles):
+        extract = JOB.model_copy(update={"title": title, "company": f"Company {n}"})
+        url = f"https://x.com/j/{title}"
+        repo.save_job(session, extract, posting_url=url, source="hn", tier=tier, run=run)
+
+
+def test_list_runs_newest_first_with_total(session: Session) -> None:
+    first = repo.create_run(session, kind="jobs", source="hn")
+    second = repo.create_run(session, kind="jobs", source="hn")
+    runs, total = repo.list_runs(session, limit=1, offset=0)
+    assert total == 2
+    assert [r.id for r in runs] == [second.id]
+    assert repo.get_run(session, first.id) is first
+    assert repo.get_run(session, 999) is None
+
+
+def test_list_jobs_paginates_newest_first(session: Session, run: Run) -> None:
+    save_jobs(session, run, "A", "B", "C")
+    jobs, total = repo.list_jobs(session, limit=2, offset=1)
+    assert total == 3
+    assert [job.title for job in jobs] == ["B", "A"]
+
+
+def test_list_jobs_filters_by_company_source_and_title(session: Session, run: Run) -> None:
+    save_jobs(session, run, "Backend Engineer", "Data Scientist")
+    by_company, total = repo.list_jobs(session, company="company 0", limit=20, offset=0)
+    assert (total, by_company[0].title) == (1, "Backend Engineer")
+    by_title, total = repo.list_jobs(session, q="scientist", limit=20, offset=0)
+    assert (total, by_title[0].title) == (1, "Data Scientist")
+    assert repo.list_jobs(session, source="reddit", limit=20, offset=0) == ([], 0)
+
+
+def test_list_questions_filters_by_company_round_and_text(session: Session, run: Run) -> None:
+    repo.save_question(
+        session, QUESTION, source_url="https://r.com/t/1", source="reddit", tier="local", run=run
+    )
+    by_round, total = repo.list_questions(session, round_="onsite", limit=20, offset=0)
+    assert (total, by_round[0].company) == (1, "Acme")
+    by_text, total = repo.list_questions(session, q="shortener", limit=20, offset=0)
+    assert total == 1 and by_text[0].question == QUESTION.question
+    assert repo.list_questions(session, company="other", limit=20, offset=0) == ([], 0)
+
+
+def test_compute_stats_counts_and_escalation_rate(session: Session, run: Run) -> None:
+    save_jobs(session, run, "A", "B", "C")
+    repo.save_job(
+        session,
+        JOB.model_copy(update={"company": "Company 0"}),  # duplicate company, frontier tier
+        posting_url="https://x.com/j/frontier",
+        source="hn",
+        tier="frontier",
+        run=run,
+    )
+    repo.save_question(
+        session, QUESTION, source_url="https://r.com/t/1", source="reddit", tier="local", run=run
+    )
+    stats = repo.compute_stats(session)
+    assert (stats.jobs, stats.questions) == (4, 1)
+    assert stats.companies == 4  # Company 0/1/2 + Acme; the duplicate not double-counted
+    assert stats.escalation_rate == pytest.approx(0.2)  # 1 frontier item of 5
+
+
+def test_compute_stats_empty_db_is_all_zeros(session: Session) -> None:
+    assert repo.compute_stats(session) == repo.Stats(
+        jobs=0, questions=0, companies=0, escalation_rate=0.0
+    )
