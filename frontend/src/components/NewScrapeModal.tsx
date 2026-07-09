@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { toast } from 'sonner'
 
-import { apiPost } from '../api/client'
-import type { RunCreated, RunKind } from '../api/types'
+import type { RunKind } from '../api/types'
 import { SOURCES } from '../lib/sources'
 import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -22,30 +21,30 @@ import {
 
 interface Props {
   onClose: () => void
-  onStarted: () => void
+  // The backend keeps its one-run-at-a-time invariant (DESIGN.md §6) — the
+  // parent owns running the selected sources one at a time so the queue
+  // survives this modal closing.
+  onStart: (kind: RunKind, sources: string[]) => void
 }
 
-export function NewScrapeModal({ onClose, onStarted }: Props) {
+export function NewScrapeModal({ onClose, onStart }: Props) {
   const [kind, setKind] = useState<RunKind>('jobs')
-  const [source, setSource] = useState(SOURCES.jobs[0] ?? '')
-  const [busy, setBusy] = useState(false)
+  const [selected, setSelected] = useState<string[]>([])
 
   function selectKind(next: RunKind) {
     setKind(next)
-    setSource(SOURCES[next][0] ?? '')
+    setSelected([])
   }
 
-  async function start() {
-    setBusy(true)
-    try {
-      await apiPost<RunCreated>('/runs', { kind, source })
-      toast.success(`Started ${kind} scrape from ${source}`)
-      onStarted()
-      onClose()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err))
-      setBusy(false)
-    }
+  function toggleSource(source: string, checked: boolean) {
+    setSelected((prev) =>
+      checked ? [...prev, source] : prev.filter((s) => s !== source)
+    )
+  }
+
+  function start() {
+    onStart(kind, selected)
+    onClose()
   }
 
   return (
@@ -68,21 +67,23 @@ export function NewScrapeModal({ onClose, onStarted }: Props) {
           </Select>
         </label>
 
-        <label className="block text-sm font-medium text-muted-foreground">
-          Source
-          <Select value={source} onValueChange={(v) => setSource(v ?? '')}>
-            <SelectTrigger className="mt-1 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SOURCES[kind].map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
+        <div className="block text-sm font-medium text-muted-foreground">
+          Sources
+          <div className="mt-1 flex flex-col gap-2">
+            {SOURCES[kind].map((s) => (
+              <label
+                key={s}
+                className="flex items-center gap-2 text-sm font-normal text-foreground"
+              >
+                <Checkbox
+                  checked={selected.includes(s)}
+                  onCheckedChange={(checked) => toggleSource(s, checked === true)}
+                />
+                {s}
+              </label>
+            ))}
+          </div>
+        </div>
         {SOURCES[kind].length === 0 && (
           <p className="text-xs text-muted-foreground">No sources for this kind yet.</p>
         )}
@@ -91,8 +92,8 @@ export function NewScrapeModal({ onClose, onStarted }: Props) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={busy || source === ''} onClick={() => void start()}>
-            Start
+          <Button disabled={selected.length === 0} onClick={start}>
+            Start {selected.length > 1 ? `(${selected.length})` : ''}
           </Button>
         </DialogFooter>
       </DialogContent>

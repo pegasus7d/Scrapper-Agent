@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import { apiPost } from '../api/client'
-import type { Paginated, Run, Stats } from '../api/types'
+import { apiGet, apiPost } from '../api/client'
+import type { Paginated, Run, RunCreated, RunKind, Stats } from '../api/types'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { NewScrapeModal } from '../components/NewScrapeModal'
 import { RunProgressPanel } from '../components/RunProgressPanel'
@@ -93,8 +93,23 @@ function useRunLifecycleToasts(runs: Run[]) {
   }, [runs])
 }
 
+interface Queue {
+  kind: RunKind
+  sources: string[]
+  index: number
+}
+
+async function pollUntilTerminal(runId: number): Promise<void> {
+  for (;;) {
+    const run = await apiGet<Run>(`/runs/${runId}`)
+    if (run.status !== 'running') return
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+  }
+}
+
 export function Dashboard() {
   const [showModal, setShowModal] = useState(false)
+  const [queue, setQueue] = useState<Queue | null>(null)
   // Poll every 3s while a run is active so the counters tick live (DESIGN.md §6).
   const [pollMs, setPollMs] = useState<number | undefined>(undefined)
   const runs = useApi<Paginated<Run>>('/runs', pollMs)
@@ -113,11 +128,37 @@ export function Dashboard() {
     runs.reload()
   }
 
+  // Runs the selected sources one at a time — the backend keeps its
+  // one-run-at-a-time invariant (DESIGN.md §6, PHASE4.md step 4), so the
+  // frontend queues them instead of firing them all at once.
+  async function startQueue(kind: RunKind, sources: string[]) {
+    for (let index = 0; index < sources.length; index++) {
+      setQueue({ kind, sources, index })
+      try {
+        const created = await apiPost<RunCreated>('/runs', { kind, source: sources[index] })
+        await pollUntilTerminal(created.run_id)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err))
+      }
+      runs.reload()
+    }
+    setQueue(null)
+  }
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-        <Button onClick={() => setShowModal(true)}>New scrape</Button>
+        <div className="flex items-center gap-3">
+          {queue && (
+            <p className="text-sm text-muted-foreground">
+              Scraping {queue.index + 1} of {queue.sources.length}: {queue.sources[queue.index]}…
+            </p>
+          )}
+          <Button disabled={queue !== null} onClick={() => setShowModal(true)}>
+            New scrape
+          </Button>
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -184,7 +225,10 @@ export function Dashboard() {
       </div>
 
       {showModal && (
-        <NewScrapeModal onClose={() => setShowModal(false)} onStarted={() => runs.reload()} />
+        <NewScrapeModal
+          onClose={() => setShowModal(false)}
+          onStart={(kind, sources) => void startQueue(kind, sources)}
+        />
       )}
     </div>
   )
