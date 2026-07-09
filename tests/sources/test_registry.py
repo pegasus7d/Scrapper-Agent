@@ -38,6 +38,7 @@ def test_job_and_question_sources_are_disjoint_and_registered() -> None:
     assert "weworkremotely" in JOB_SOURCES
     assert "arbeitnow" in JOB_SOURCES
     assert "himalayas" in JOB_SOURCES
+    assert "remotejobs" in JOB_SOURCES
     assert "hn-interviews" in QUESTION_SOURCES
     assert "github-questions" in QUESTION_SOURCES
 
