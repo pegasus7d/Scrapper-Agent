@@ -2,16 +2,8 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
-import type {
-  Company,
-  DiscoveryResult,
-  Job,
-  Paginated,
-  Question,
-  ResolutionResult,
-  RunCreated,
-} from '../api/types'
-import { Drawer } from '../components/Drawer'
+import type { Company, DiscoveryResult, Paginated, ResolutionResult, RunCreated } from '../api/types'
+import { CompanyDrawer, ProviderBadge, sourceLabel } from '../components/CompanyDrawer'
 import { Pagination } from '../components/Pagination'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
@@ -19,23 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Skeleton } from '../components/ui/skeleton'
 import { useApi } from '../hooks/useApi'
 import { formatTime } from '../lib/format'
+import { COMPANY_DISCOVERY_SOURCES } from '../lib/sources'
 
 const LIMIT = 20
 const ALL_PROVIDERS = 'all'
 const ALL_SOURCES = 'all'
 
-const SOURCE_LABELS: Record<string, string> = {
-  yc: 'YC',
-  largest_us_companies: 'Largest US companies',
-}
-
 const inputStyle =
   'rounded-lg border border-border bg-card px-3 py-2 text-sm ' +
   'placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none'
-
-function sourceLabel(source: string): string {
-  return SOURCE_LABELS[source] ?? source
-}
 
 function companiesPath(q: string, atsProvider: string, source: string, offset: number): string {
   const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) })
@@ -43,102 +27,6 @@ function companiesPath(q: string, atsProvider: string, source: string, offset: n
   if (atsProvider !== ALL_PROVIDERS) params.set('ats_provider', atsProvider)
   if (source !== ALL_SOURCES) params.set('source', source)
   return `/companies?${params.toString()}`
-}
-
-function ProviderBadge({ company }: { company: Company }) {
-  if (company.ats_provider === null) {
-    return <Badge variant="outline">unresolved</Badge>
-  }
-  return <Badge variant="secondary">{company.ats_provider}</Badge>
-}
-
-// The real payoff of phase 7's discovery/resolution/scraping: a company's
-// own scraped jobs and any interview questions tagged with its name, both
-// already real, filterable endpoints — no new backend needed for either
-// (PHASE8.md step 1).
-function CompanyDrawer({
-  company,
-  scraping,
-  onScrape,
-  onClose,
-}: {
-  company: Company
-  scraping: boolean
-  onScrape: () => void
-  onClose: () => void
-}) {
-  const jobs = useApi<Paginated<Job>>(
-    `/jobs?source=company:${company.slug ?? 'unresolved'}&limit=10`
-  )
-  const questions = useApi<Paginated<Question>>(
-    `/questions?company=${encodeURIComponent(company.name)}&limit=10`
-  )
-
-  return (
-    <Drawer title={company.name} onClose={onClose}>
-      <div className="flex items-center gap-2">
-        <ProviderBadge company={company} />
-        {company.slug && <span className="text-sm text-muted-foreground">{company.slug}</span>}
-        <Badge variant="outline">{sourceLabel(company.source)}</Badge>
-        {company.batch && <Badge variant="outline">{company.batch}</Badge>}
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        discovered {formatTime(company.discovered_at)}
-        {company.last_checked_at && ` · checked ${formatTime(company.last_checked_at)}`}
-      </p>
-      <Button
-        className="mt-4"
-        variant="outline"
-        size="sm"
-        disabled={company.ats_provider === null || scraping}
-        onClick={onScrape}
-      >
-        {scraping ? 'Starting…' : 'Scrape this company'}
-      </Button>
-
-      <h3 className="mt-6 text-sm font-semibold text-foreground">Scraped jobs</h3>
-      {!company.slug && (
-        <p className="mt-2 text-sm text-muted-foreground">Not resolved to an ATS yet.</p>
-      )}
-      {company.slug && !jobs.data && <Skeleton className="mt-2 h-16 w-full" />}
-      {company.slug && jobs.data && jobs.data.items.length === 0 && (
-        <p className="mt-2 text-sm text-muted-foreground">No jobs scraped from here yet.</p>
-      )}
-      {jobs.data && jobs.data.items.length > 0 && (
-        <ul className="mt-2 space-y-2">
-          {jobs.data.items.map((job) => (
-            <li key={job.id} className="text-sm">
-              <a
-                href={job.posting_url}
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium text-indigo-600 hover:text-indigo-800"
-              >
-                {job.title}
-              </a>
-              {job.location && <span className="text-muted-foreground"> · {job.location}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <h3 className="mt-6 text-sm font-semibold text-foreground">Interview questions</h3>
-      {!questions.data && <Skeleton className="mt-2 h-16 w-full" />}
-      {questions.data && questions.data.items.length === 0 && (
-        <p className="mt-2 text-sm text-muted-foreground">No questions reported yet.</p>
-      )}
-      {questions.data && questions.data.items.length > 0 && (
-        <ul className="mt-2 space-y-2">
-          {questions.data.items.map((question) => (
-            <li key={question.id} className="text-sm text-foreground">
-              {question.question}
-              {question.round && <span className="text-muted-foreground"> — {question.round}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Drawer>
-  )
 }
 
 // Discovered companies (PHASE7.md steps 5-7): scraped from ycombinator.com
@@ -150,6 +38,7 @@ export function Companies() {
   const [source, setSource] = useState(ALL_SOURCES)
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<Company | null>(null)
+  const [discoverySource, setDiscoverySource] = useState<string>(COMPANY_DISCOVERY_SOURCES[0])
   const [discovering, setDiscovering] = useState<string | null>(null)
   const [resolving, setResolving] = useState(false)
   const [scrapingId, setScrapingId] = useState<number | null>(null)
@@ -235,25 +124,32 @@ export function Companies() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_SOURCES}>All sources</SelectItem>
-              <SelectItem value="yc">YC</SelectItem>
-              <SelectItem value="largest_us_companies">Largest US companies</SelectItem>
+              {COMPANY_DISCOVERY_SOURCES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {sourceLabel(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={discoverySource} onValueChange={(value) => setDiscoverySource(value ?? discoverySource)}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {COMPANY_DISCOVERY_SOURCES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {sourceLabel(s)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button
             variant="outline"
             size="sm"
             disabled={discovering !== null}
-            onClick={() => void discover('yc')}
+            onClick={() => void discover(discoverySource)}
           >
-            {discovering === 'yc' ? 'Discovering…' : 'Discover YC companies'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={discovering !== null}
-            onClick={() => void discover('largest_us_companies')}
-          >
-            {discovering === 'largest_us_companies' ? 'Discovering…' : 'Discover largest US companies'}
+            {discovering === discoverySource ? 'Discovering…' : `Discover ${sourceLabel(discoverySource)}`}
           </Button>
           <Button variant="outline" size="sm" disabled={resolving} onClick={() => void resolve()}>
             {resolving ? 'Resolving…' : 'Resolve companies'}
@@ -268,7 +164,7 @@ export function Companies() {
           <p className="p-6 text-sm text-muted-foreground">
             {q || atsProvider !== ALL_PROVIDERS || source !== ALL_SOURCES
               ? 'No companies match those filters.'
-              : 'No companies discovered yet — click "Discover companies" to scrape ycombinator.com/companies.'}
+              : 'No companies discovered yet — pick a source above and click "Discover" to scrape one.'}
           </p>
         )}
 
