@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from backend.api.deps import SessionDep
+from backend.api.deps import LimitParam, OffsetParam, SessionDep
 from backend.api.dto import CompanyList, CompanyOut, DiscoveryResult, ResolutionResult, RunCreated
 from backend.db import repo
 from backend.db.models import Company
@@ -21,11 +21,17 @@ router = APIRouter()
 
 
 @router.get("/companies")
-def list_companies(session: SessionDep) -> CompanyList:
-    companies = repo.list_companies(session)
-    return CompanyList(
-        items=[CompanyOut.model_validate(c) for c in companies], total=len(companies)
+def list_companies(
+    session: SessionDep,
+    ats_provider: str | None = None,
+    q: str | None = None,
+    limit: LimitParam = 20,
+    offset: OffsetParam = 0,
+) -> CompanyList:
+    companies, total = repo.list_companies(
+        session, ats_provider=ats_provider, q=q, limit=limit, offset=offset
     )
+    return CompanyList(items=[CompanyOut.model_validate(c) for c in companies], total=total)
 
 
 @router.post("/companies/discover")
@@ -35,7 +41,7 @@ def discover_companies(session: SessionDep) -> DiscoveryResult:
     smoke test hits this endpoint directly)."""
     names = discover_yc_companies(build_yc_fetcher())
     discovered = sum(1 for name in names if repo.save_company(session, name))
-    total = len(repo.list_companies(session))
+    _, total = repo.list_companies(session)
     return DiscoveryResult(discovered=discovered, total=total)
 
 

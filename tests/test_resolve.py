@@ -84,7 +84,8 @@ def test_resolve_unresolved_companies_records_hits_and_misses(
 
     assert summary.checked == 2
     assert summary.resolved == 1
-    companies = {c.name: c for c in repo.list_companies(session)}
+    items, _ = repo.list_companies(session)
+    companies = {c.name: c for c in items}
     assert companies["Airbnb"].ats_provider == "greenhouse"
     assert companies["Deel"].ats_provider is None
     assert companies["Airbnb"].last_checked_at is not None

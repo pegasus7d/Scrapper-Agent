@@ -8,12 +8,12 @@ them (DESIGN.md §4). List endpoints return {items, total} with ?limit=
 import logging
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from sqlalchemy import Engine
 
 from backend import config
-from backend.api.deps import SessionDep
+from backend.api.deps import LimitParam, OffsetParam, SessionDep
 from backend.api.dto import (
     BatchQueued,
     Cancelled,
@@ -57,9 +57,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _SOURCES_BY_KIND = {"jobs": JOB_SOURCES, "questions": QUESTION_SOURCES}
-
-LimitParam = Annotated[int, Query(ge=1, le=100)]
-OffsetParam = Annotated[int, Query(ge=0)]
 
 
 def _attachment(filename: str) -> dict[str, str]:

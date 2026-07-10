@@ -96,7 +96,8 @@ def test_scrape_company_returns_422_for_an_unresolved_company(
 ) -> None:
     with Session(engine) as session:
         repo.save_company(session, "Deel")
-        company_id = repo.list_companies(session)[0].id
+        items, _ = repo.list_companies(session)
+        company_id = items[0].id
 
     response = client.post(f"/api/companies/{company_id}/scrape")
     assert response.status_code == 422
@@ -107,7 +108,8 @@ def test_scrape_company_enqueues_a_real_run_for_a_resolved_company(
 ) -> None:
     with Session(engine) as session:
         repo.save_company(session, "Airbnb")
-        company = repo.list_companies(session)[0]
+        items, _ = repo.list_companies(session)
+        company = items[0]
         repo.mark_company_checked(session, company, slug="airbnb", ats_provider="greenhouse")
         company_id = company.id
 
@@ -127,7 +129,8 @@ def test_scrape_company_rejects_a_second_run_while_one_is_active(
 ) -> None:
     with Session(engine) as session:
         repo.save_company(session, "Airbnb")
-        company = repo.list_companies(session)[0]
+        items, _ = repo.list_companies(session)
+        company = items[0]
         repo.mark_company_checked(session, company, slug="airbnb", ats_provider="greenhouse")
         company_id = company.id
         repo.create_run(session, "jobs", "hn")  # left "running" — no finish_run call

@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from backend.db.models import Company
@@ -35,9 +35,33 @@ def save_company(session: Session, name: str) -> bool:
     return True
 
 
-def list_companies(session: Session) -> list[Company]:
-    """Every discovered company, newest first."""
-    return list(session.scalars(select(Company).order_by(Company.id.desc())).all())
+def _company_query(*, ats_provider: str | None, q: str | None) -> Select[tuple[Company]]:
+    query = select(Company).order_by(Company.id.desc())
+    if ats_provider:
+        query = query.where(Company.ats_provider == ats_provider)
+    if q:
+        query = query.where(Company.name.ilike(f"%{q}%"))
+    return query
+
+
+def list_companies(
+    session: Session,
+    *,
+    ats_provider: str | None = None,
+    q: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> tuple[list[Company], int]:
+    """One page of discovered companies (newest first) matching the
+    filters, plus the total matching count (independent of limit/offset) —
+    same shape as repo.list_jobs (PHASE8.md step 1). limit/offset default
+    to "one big page" rather than requiring every internal caller (the
+    discover/resolve endpoints just want a total; tests just want every
+    row) to pass them explicitly."""
+    query = _company_query(ats_provider=ats_provider, q=q)
+    total = session.scalar(select(func.count()).select_from(query.subquery())) or 0
+    rows = session.scalars(query.limit(limit).offset(offset)).all()
+    return list(rows), total
 
 
 def unresolved_companies(session: Session) -> list[Company]:

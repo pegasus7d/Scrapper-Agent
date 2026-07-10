@@ -1,12 +1,12 @@
 """Shared FastAPI dependencies (DESIGN.md §4) — split out so every router
 module (routes.py, routes_companies.py) can depend on the request-scoped
-session without importing each other.
+session (and common pagination params) without importing each other.
 """
 
 from collections.abc import Iterator
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, Query, Request
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
@@ -18,3 +18,5 @@ def _session(request: Request) -> Iterator[Session]:
 
 
 SessionDep = Annotated[Session, Depends(_session)]
+LimitParam = Annotated[int, Query(ge=1, le=100)]
+OffsetParam = Annotated[int, Query(ge=0)]
