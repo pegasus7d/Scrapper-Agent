@@ -18,6 +18,12 @@ dependencies = [
     "alembic==1.18.5",
     "pymupdf4llm==1.28.0",
     "python-multipart==0.0.32",
+    # Real interactive browser control (PHASE10.md step 1) — direct click/
+    # type/select/upload, not scrapling's fetch-then-parse abstraction.
+    # Already present transitively via scrapling[fetchers] -> camoufox, but
+    # relying on that silently is fragile (a scrapling bump could drop it);
+    # pinned explicitly at the version already installed and exercised.
+    "playwright==1.61.0",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,123 @@
+"""Tests for the Playwright-driven form fill-and-submit spike (PHASE10.md
+step 1). A real, live HTTP server (uvicorn in a background thread) serving
+the real `test_form_server` app, driven by a real headless-Chromium
+browser — Playwright needs a genuine socket, not an ASGI TestClient, so
+this suite is deliberately real end-to-end, not mocked."""
+
+import threading
+import time
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+import uvicorn
+from playwright.sync_api import Browser, Page, sync_playwright
+
+from backend.autoapply import filler, test_form_server
+
+_PORT = 8923
+_URL = f"http://127.0.0.1:{_PORT}"
+
+
+@pytest.fixture(scope="module")
+def live_form_server() -> Iterator[None]:
+    config = uvicorn.Config(test_form_server.app, host="127.0.0.1", port=_PORT, log_level="warning")
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    for _ in range(50):
+        if server.started:
+            break
+        time.sleep(0.1)
+    else:
+        raise RuntimeError("test form server did not start in time")
+    yield
+    server.should_exit = True
+    thread.join(timeout=5)
+
+
+@pytest.fixture(scope="module")
+def browser() -> Iterator[Browser]:
+    with sync_playwright() as p:
+        b = p.chromium.launch(headless=True)
+        yield b
+        b.close()
+
+
+@pytest.fixture
+def page(browser: Browser, live_form_server: None) -> Iterator[Page]:
+    p = browser.new_page()
+    yield p
+    p.close()
+
+
+@pytest.fixture
+def resume_file(tmp_path: Path) -> Path:
+    path = tmp_path / "resume.txt"
+    path.write_text("Backend Engineer with real Python experience.")
+    return path
+
+
+def test_detect_fields_finds_real_fields_with_ax_confirmed_labels(page: Page) -> None:
+    page.goto(_URL)
+    fields = filler.detect_fields(page)
+    by_name = {f.name: f for f in fields}
+    assert set(by_name) == {"full_name", "email", "phone", "role", "resume", "cover_note"}
+    assert by_name["full_name"].label == "Full name"
+    assert by_name["full_name"].confirmed_by_ax_tree is True
+    assert by_name["email"].input_type == "email"
+    assert by_name["role"].tag == "select"
+    assert by_name["resume"].input_type == "file"
+    assert by_name["cover_note"].tag == "textarea"
+
+
+def test_fill_and_submit_real_happy_path(page: Page, resume_file: Path) -> None:
+    text_values = {
+        "full_name": "Ada Lovelace",
+        "email": "ada@example.com",
+        "phone": "555-0100",
+        "role": "backend",
+        "cover_note": "Real test submission.",
+    }
+    result = filler.fill_and_submit(page, _URL, text_values, {"resume": str(resume_file)})
+    assert result.success is True
+    assert "confirmed" in result.reason
+
+    # Real confirmation page content, not just a 200 — echoed back by the
+    # server, read back out of the real rendered page.
+    assert page.locator("#received-full_name").inner_text() == "Ada Lovelace"
+    assert page.locator("#received-email").inner_text() == "ada@example.com"
+    assert page.locator("#received-phone").inner_text() == "555-0100"
+    assert page.locator("#received-role").inner_text() == "backend"
+    assert page.locator("#received-cover_note").inner_text() == "Real test submission."
+    assert page.locator("#received-resume_filename").inner_text() == "resume.txt"
+    assert int(page.locator("#received-resume_size_bytes").inner_text()) > 0
+
+
+def test_fill_and_submit_is_not_flaky_across_repeated_runs(
+    browser: Browser, live_form_server: None, resume_file: Path
+) -> None:
+    """Re-runs the real happy path a few times (PHASE10.md step 1's own
+    smoke-test requirement) against fresh pages each time."""
+    for _ in range(3):
+        p = browser.new_page()
+        try:
+            result = filler.fill_and_submit(
+                p,
+                _URL,
+                {
+                    "full_name": "Grace Hopper",
+                    "email": "grace@example.com",
+                    "role": "fullstack",
+                },
+                {"resume": str(resume_file)},
+            )
+            assert result.success is True
+        finally:
+            p.close()
+
+
+def test_fill_and_submit_reports_failure_for_an_unreachable_url(page: Page) -> None:
+    result = filler.fill_and_submit(page, "http://127.0.0.1:1", {"full_name": "X"}, {})
+    assert result.success is False
+    assert "failed to load form" in result.reason
