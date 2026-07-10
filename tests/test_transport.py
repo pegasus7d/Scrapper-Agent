@@ -67,3 +67,36 @@ def test_scrapling_transport_wraps_playwright_error(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(transport_module.DynamicFetcher, "fetch", staticmethod(fake_fetch))
     with pytest.raises(TransportError, match="timeout"):
         ScraplingTransport().get("https://x.com/a", timeout=10, headers={})
+
+
+def test_scrapling_transport_defaults_to_no_scroll_action(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, Any] = {}
+
+    def fake_fetch(url: str, **kwargs: Any) -> Any:
+        seen.update(kwargs)
+        return SimpleNamespace(status=200, body=b"", get_all_text=lambda **kw: "")
+
+    monkeypatch.setattr(transport_module.DynamicFetcher, "fetch", staticmethod(fake_fetch))
+    ScraplingTransport().get("https://x.com/a", timeout=10, headers={})
+    assert seen["page_action"] is None
+
+
+def test_scrapling_transport_scroll_action_scrolls_the_real_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, Any] = {}
+
+    def fake_fetch(url: str, **kwargs: Any) -> Any:
+        seen.update(kwargs)
+        return SimpleNamespace(status=200, body=b"", get_all_text=lambda **kw: "")
+
+    monkeypatch.setattr(transport_module.DynamicFetcher, "fetch", staticmethod(fake_fetch))
+    ScraplingTransport(scroll_count=3).get("https://x.com/a", timeout=10, headers={})
+
+    wheel_calls = []
+    fake_page = SimpleNamespace(
+        mouse=SimpleNamespace(wheel=lambda x, y: wheel_calls.append((x, y))),
+        wait_for_timeout=lambda ms: None,
+    )
+    seen["page_action"](fake_page)
+    assert len(wheel_calls) == 3

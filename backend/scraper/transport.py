@@ -25,7 +25,10 @@ from typing import Protocol
 
 import httpx
 from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Page
 from scrapling.fetchers import DynamicFetcher
+
+_SCROLL_WAIT_MS = 800
 
 
 @dataclass
@@ -58,7 +61,24 @@ class HttpxTransport:
 class ScraplingTransport:
     """Scrapling's real JS-rendering fetch (Camoufox via `DynamicFetcher`) —
     opt-in for a source that needs a genuinely rendered DOM, not just a
-    stealthier plain HTTP request."""
+    stealthier plain HTTP request.
+
+    `scroll_count` (PHASE8.md step 5): some JS-rendered pages only render
+    the first page of results until scrolled — confirmed real for
+    `ycombinator.com/companies` (40 companies statically, 120 after 5
+    scroll+wait cycles). 0 (default) does no scrolling, unchanged behavior
+    for every other current caller; a source that needs more sets it
+    explicitly rather than this transport scrolling everywhere by default.
+    """
+
+    def __init__(self, scroll_count: int = 0) -> None:
+        self._scroll_count = scroll_count
+
+    def _scroll(self, page: Page) -> Page:
+        for _ in range(self._scroll_count):
+            page.mouse.wheel(0, 3000)
+            page.wait_for_timeout(_SCROLL_WAIT_MS)
+        return page
 
     def get(self, url: str, *, timeout: int, headers: dict[str, str]) -> TransportResponse:
         try:
@@ -67,6 +87,7 @@ class ScraplingTransport:
                 timeout=timeout * 1000,  # DynamicFetcher's timeout is milliseconds, not seconds
                 extra_headers=headers,
                 network_idle=True,
+                page_action=self._scroll if self._scroll_count else None,
             )
         except PlaywrightError as error:
             raise TransportError(str(error)) from error
