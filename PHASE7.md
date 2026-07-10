@@ -265,6 +265,50 @@ down here (WORKFLOW.md rule 2):
    — reuses phase 5's already-verified answer for this exact site pattern,
    not a new decision) and stores company names, unresolved. Smoke: one
    real discovery run, confirm real company names land in the table.
+   **Real bug found before any discovery code could work at all:**
+   `ScraplingTransport` never actually rendered JavaScript, despite its own
+   docstring claiming that as its purpose since phase 4 — nothing had
+   genuinely exercised that claim until now, since every prior source was a
+   plain JSON/XML API. Confirmed directly: `ScraplingTransport().get(
+   'https://www.ycombinator.com/companies', ...)` returned only 39
+   characters (just the page `<title>`), identical to what a bare `httpx`
+   GET would return. Root cause: it wrapped Scrapling's plain `Fetcher`
+   (`curl_cffi`-based, no JS execution at all), never Scrapling's actual
+   browser-backed fetchers (`DynamicFetcher`/`StealthyFetcher`, found via
+   `dir(scrapling.fetchers)`). Fixing it for real requires a genuine
+   browser binary (Camoufox, ~298MB, `python -m camoufox fetch`) — the
+   first browser-binary dependency this project has needed, so this was
+   checked with the user before installing rather than assumed
+   ("Install Camoufox now" — confirmed). `ScraplingTransport` now calls
+   `DynamicFetcher.fetch(...)`, catching `playwright.sync_api.Error`
+   (confirmed real: the same object as `playwright._impl._errors.Error`,
+   and `TimeoutError` is a subclass of it, so one `except` clause covers
+   both connection and timeout failures — not `CurlError`/`OSError`, which
+   were specific to the old `curl_cffi`-based fetcher). Also fixed a real
+   unit mismatch caught by reading `DynamicFetcher.fetch`'s actual
+   `help()` output: its `timeout` kwarg is milliseconds, while this
+   project's `Transport.get(..., timeout: int)` convention is seconds —
+   now multiplied by 1000 at the call site, with a test asserting that
+   conversion directly so it can't silently regress.
+   Re-verified against the real live site after the fix:
+   `ScraplingTransport` now returns 5827 characters of real rendered page
+   text (nav, footer, filter sidebar) against the same URL that returned
+   39 characters before — confirmed with real company cards present via
+   direct DOM inspection: `a[href^="/companies/"]` finds 40 real company
+   links on initial page load (no scroll needed for a first version),
+   each `href` containing the company's real YC slug (e.g.
+   `/companies/doordash` → `doordash`), each with a clean company name in
+   a child `span[class*="coName"]` (partial-class match — the exact
+   hashed class name is build-specific/fragile, so matched loosely on
+   purpose). Real companies confirmed present: DoorDash, Airbnb,
+   Coinbase, Groww, Instacart, Oklo, Meesho, Rigetti Computing, Dropbox,
+   and more.
+   `tests/test_transport.py` rewritten to mock `DynamicFetcher.fetch` and
+   raise/catch `playwright.sync_api.Error` instead of the old
+   `ScraplingFetcher`/`CurlError` mocks. Full validation gate (pytest,
+   mypy, ruff check, ruff format) green.
+   The `Company` table, migration, and discovery module itself are next —
+   this fix was a hard prerequisite, not yet the step's own smoke test.
 6. **Slug resolution (backend).** For each undiscovered-provider company,
    try a name-derived slug guess against both
    `boards-api.greenhouse.io/v1/boards/{slug}/jobs` and

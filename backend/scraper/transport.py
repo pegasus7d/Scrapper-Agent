@@ -8,14 +8,24 @@ Confirmed before writing this: no source's `split_items` reads
 `HttpxTransport` is the default. `ScraplingTransport` stays a real, tested
 alternative for the moment a source genuinely needs HTML-cleaning or a
 stealth fetch.
+
+`ScraplingTransport` originally wrapped Scrapling's plain `Fetcher`, which
+never actually rendered JavaScript despite the class's own docstring
+claiming "JS rendering" as its purpose — nothing had exercised that claim
+until PHASE7.md step 5 needed a genuinely JS-rendered page
+(`ycombinator.com/companies`, empty without real rendering) and it came
+back essentially blank. Fixed by switching to `DynamicFetcher` (Camoufox,
+a real browser — `camoufox fetch` must be run once locally), which
+actually renders. This is the first genuine browser-binary dependency
+this project has needed; every other source still defaults to `httpx`.
 """
 
 from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
-from curl_cffi.curl import CurlError
-from scrapling.fetchers import Fetcher as ScraplingFetcher
+from playwright.sync_api import Error as PlaywrightError
+from scrapling.fetchers import DynamicFetcher
 
 
 @dataclass
@@ -46,13 +56,19 @@ class HttpxTransport:
 
 
 class ScraplingTransport:
-    """Scrapling's stealth fetch — opt-in for a source that needs HTML
-    cleaning or JS rendering."""
+    """Scrapling's real JS-rendering fetch (Camoufox via `DynamicFetcher`) —
+    opt-in for a source that needs a genuinely rendered DOM, not just a
+    stealthier plain HTTP request."""
 
     def get(self, url: str, *, timeout: int, headers: dict[str, str]) -> TransportResponse:
         try:
-            response = ScraplingFetcher.get(url, timeout=timeout, headers=headers)
-        except (CurlError, OSError) as error:
+            response = DynamicFetcher.fetch(
+                url,
+                timeout=timeout * 1000,  # DynamicFetcher's timeout is milliseconds, not seconds
+                extra_headers=headers,
+                network_idle=True,
+            )
+        except PlaywrightError as error:
             raise TransportError(str(error)) from error
         text = response.get_all_text(ignore_tags=("script", "style"))
         return TransportResponse(status=response.status, body=response.body, text=text)

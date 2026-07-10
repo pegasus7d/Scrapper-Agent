@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 import pytest
-from curl_cffi.curl import CurlError
+from playwright.sync_api import Error as PlaywrightError
 
 from backend.scraper import transport as transport_module
 from backend.scraper.transport import HttpxTransport, ScraplingTransport, TransportError
@@ -36,8 +36,8 @@ def test_scrapling_transport_returns_response(monkeypatch: pytest.MonkeyPatch) -
         status=200, body=b"<html>hi</html>", get_all_text=lambda **kwargs: "hi"
     )
     monkeypatch.setattr(
-        transport_module.ScraplingFetcher,
-        "get",
+        transport_module.DynamicFetcher,
+        "fetch",
         staticmethod(lambda url, **kwargs: fake_response),
     )
     response = ScraplingTransport().get("https://x.com/a", timeout=10, headers={})
@@ -46,10 +46,24 @@ def test_scrapling_transport_returns_response(monkeypatch: pytest.MonkeyPatch) -
     assert response.text == "hi"
 
 
-def test_scrapling_transport_wraps_curl_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_get(url: str, **kwargs: Any) -> Any:
-        raise CurlError("timeout")
+def test_scrapling_transport_passes_timeout_in_milliseconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, Any] = {}
 
-    monkeypatch.setattr(transport_module.ScraplingFetcher, "get", staticmethod(fake_get))
+    def fake_fetch(url: str, **kwargs: Any) -> Any:
+        seen.update(kwargs)
+        return SimpleNamespace(status=200, body=b"", get_all_text=lambda **kw: "")
+
+    monkeypatch.setattr(transport_module.DynamicFetcher, "fetch", staticmethod(fake_fetch))
+    ScraplingTransport().get("https://x.com/a", timeout=10, headers={})
+    assert seen["timeout"] == 10_000
+
+
+def test_scrapling_transport_wraps_playwright_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_fetch(url: str, **kwargs: Any) -> Any:
+        raise PlaywrightError("timeout")
+
+    monkeypatch.setattr(transport_module.DynamicFetcher, "fetch", staticmethod(fake_fetch))
     with pytest.raises(TransportError, match="timeout"):
         ScraplingTransport().get("https://x.com/a", timeout=10, headers={})
