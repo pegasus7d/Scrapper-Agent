@@ -35,6 +35,10 @@ def create_app(engine: Engine | None = None, *, start_consumer: bool = True) -> 
 
     app = FastAPI(title="Hirable API")
     app.state.engine = engine
+    # None when start_consumer=False (every test) — GET /health (PHASE9.md
+    # step 6) checks this is both set and .is_alive(), so a test app
+    # correctly reports no consumer running rather than a stale True.
+    app.state.consumer_thread = None
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(config.CORS_ORIGINS),
@@ -47,5 +51,7 @@ def create_app(engine: Engine | None = None, *, start_consumer: bool = True) -> 
     app.include_router(runs_router, prefix="/api")
 
     if start_consumer:
-        threading.Thread(target=run_consumer, daemon=True).start()
+        thread = threading.Thread(target=run_consumer, daemon=True)
+        thread.start()
+        app.state.consumer_thread = thread
     return app

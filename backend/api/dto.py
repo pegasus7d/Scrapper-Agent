@@ -9,6 +9,11 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class HealthOut(BaseModel):
+    database: bool
+    huey_consumer: bool
+
+
 class RunRequest(BaseModel):
     kind: Literal["jobs", "questions"]
     source: str

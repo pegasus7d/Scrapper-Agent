@@ -154,6 +154,27 @@ def _fake_local_models(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(routes_runs, "list_local_models", lambda: models)
 
 
+def test_health_reports_database_ok_and_no_consumer_in_tests(client: TestClient) -> None:
+    """Every test client runs with start_consumer=False (main.py) — a real,
+    verifiable distinction from the live app, not a hardcoded field."""
+    body = client.get("/api/health").json()
+    assert body == {"database": True, "huey_consumer": False}
+
+
+def test_health_reports_database_down_for_a_genuinely_broken_engine(engine: Engine) -> None:
+    """A real broken engine (an unreachable path), not a mock — proves the
+    check actually queries the database rather than always returning True.
+    Swapped in *after* create_app() succeeds (using the real, working
+    `engine` fixture) since create_app() itself already touches the
+    database during startup (recover_stale_runs) — a broken engine passed
+    directly in would fail app construction, not reach GET /health at all."""
+    app = create_app(engine, start_consumer=False)
+    app.state.engine = create_engine("sqlite:////nonexistent_dir_xyz/broken.db")
+    broken_client = TestClient(app)
+    body = broken_client.get("/api/health").json()
+    assert body["database"] is False
+
+
 def test_list_models_returns_installed_only(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

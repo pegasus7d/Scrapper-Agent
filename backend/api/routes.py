@@ -12,11 +12,13 @@ cap, mirroring the existing routes_companies.py/routes_resume.py splits.
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
+from sqlalchemy import text
 
 from backend.api.deps import LimitParam, OffsetParam, SessionDep
 from backend.api.dto import (
+    HealthOut,
     JobList,
     JobOut,
     ModelOut,
@@ -41,6 +43,27 @@ router = APIRouter()
 
 def _attachment(filename: str) -> dict[str, str]:
     return {"Content-Disposition": f'attachment; filename="{filename}"'}
+
+
+@router.get("/health")
+def health(request: Request, session: SessionDep) -> HealthOut:
+    """Real status (PHASE9.md step 6), not a bare 200 — the app now runs
+    unattended background work (Huey's scheduler ticks once a minute), so
+    "is it actually alive" needs an answer that doesn't depend on hitting
+    an unrelated business endpoint and hoping it doesn't fail for a
+    different reason. A health check's whole job is to report failure, not
+    raise it — broad except is the correct, deliberate choice here (same
+    justification execute_run's own broad except uses, DESIGN.md §3), not
+    swallowed-by-accident."""
+    try:
+        session.execute(text("SELECT 1"))
+        database_ok = True
+    except Exception:
+        logger.warning("health check: database unreachable", exc_info=True)
+        database_ok = False
+    thread = request.app.state.consumer_thread
+    huey_consumer_ok = thread is not None and thread.is_alive()
+    return HealthOut(database=database_ok, huey_consumer=huey_consumer_ok)
 
 
 @router.get("/models")
