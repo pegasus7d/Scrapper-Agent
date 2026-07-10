@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
-import type { RunKind, Schedule } from '../api/types'
+import type { DiscoverySource, RunKind, Schedule } from '../api/types'
 import { useApi } from '../hooks/useApi'
-import { COMPANY_DISCOVERY_SOURCES, SOURCES } from '../lib/sources'
+import { SOURCES } from '../lib/sources'
 import { formatTime } from '../lib/format'
 import { Button } from './ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
@@ -17,9 +17,19 @@ const HOURS_OPTIONS = [1, 6, 12, 24, 24 * 7]
 // it belongs in the same panel, not a separate one.
 type ScheduleKind = RunKind | 'companies'
 
-const SOURCES_BY_SCHEDULE_KIND: Record<ScheduleKind, readonly string[]> = {
-  ...SOURCES,
-  companies: COMPANY_DISCOVERY_SOURCES,
+// Company discovery source names/labels come from a real GET
+// /companies/sources fetch (PHASE9.md step 2), not a hand-mirrored
+// constant — jobs/questions stay the static SOURCES constant since that
+// registry (backend/scraper/sources/__init__.py) isn't part of this
+// refactor.
+function sourceOptionsFor(
+  kind: ScheduleKind,
+  discoverySources: DiscoverySource[] | null
+): { value: string; label: string }[] {
+  if (kind === 'companies') {
+    return (discoverySources ?? []).map((s) => ({ value: s.name, label: s.label }))
+  }
+  return SOURCES[kind].map((s) => ({ value: s, label: s }))
 }
 
 function ScheduleRow({ schedule, onToggled }: { schedule: Schedule; onToggled: () => void }) {
@@ -54,21 +64,27 @@ function ScheduleRow({ schedule, onToggled }: { schedule: Schedule; onToggled: (
 // just an inline create row plus the toggle list.
 export function SchedulesPanel() {
   const schedules = useApi<Schedule[]>('/schedules')
+  const discoverySources = useApi<DiscoverySource[]>('/companies/sources')
   const [kind, setKind] = useState<ScheduleKind>('jobs')
   const [source, setSource] = useState(SOURCES.jobs[0] ?? '')
   const [everyHours, setEveryHours] = useState(24)
   const [busy, setBusy] = useState(false)
+  const sourceOptions = sourceOptionsFor(kind, discoverySources.data)
+  // Falls back to the first real option (e.g. "companies" selected before
+  // GET /companies/sources has resolved, same pattern NewScrapeModal
+  // already uses for its model select) rather than sending an empty source.
+  const effectiveSource = source || (sourceOptions[0]?.value ?? '')
 
   function selectKind(next: ScheduleKind) {
     setKind(next)
-    setSource(SOURCES_BY_SCHEDULE_KIND[next][0] ?? '')
+    setSource(sourceOptionsFor(next, discoverySources.data)[0]?.value ?? '')
   }
 
   async function create() {
     setBusy(true)
     try {
-      await apiPost('/schedules', { kind, source, every_hours: everyHours })
-      toast.success(`Scheduled ${kind}/${source} every ${everyHours}h`)
+      await apiPost('/schedules', { kind, source: effectiveSource, every_hours: everyHours })
+      toast.success(`Scheduled ${kind}/${effectiveSource} every ${everyHours}h`)
       schedules.reload()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -92,14 +108,14 @@ export function SchedulesPanel() {
             <SelectItem value="companies">companies</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={source} onValueChange={(v) => setSource(v ?? '')}>
+        <Select value={effectiveSource} onValueChange={(v) => setSource(v ?? '')}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {SOURCES_BY_SCHEDULE_KIND[kind].map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
+            {sourceOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -116,7 +132,7 @@ export function SchedulesPanel() {
             ))}
           </SelectContent>
         </Select>
-        <Button size="sm" disabled={busy || source === ''} onClick={() => void create()}>
+        <Button size="sm" disabled={busy || effectiveSource === ''} onClick={() => void create()}>
           Add
         </Button>
       </div>

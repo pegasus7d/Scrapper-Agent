@@ -84,6 +84,14 @@ export interface LocalModel {
   size_bytes: number
 }
 
+// Real (name, label) pairs for every company discovery source (PHASE9.md
+// step 2) — fetched from GET /companies/sources instead of a hand-mirrored
+// frontend constant, which drifted out of sync once already.
+export interface DiscoverySource {
+  name: string
+  label: string
+}
+
 export interface ResumeMarkdown {
   markdown: string
 }

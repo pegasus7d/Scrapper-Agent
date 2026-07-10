@@ -1,23 +1,11 @@
-import type { Company, Job, Paginated, Question } from '../api/types'
+import type { Company, DiscoverySource, Job, Paginated, Question } from '../api/types'
 import { useApi } from '../hooks/useApi'
 import { formatTime } from '../lib/format'
+import { labelFor } from '../lib/sources'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Drawer } from './Drawer'
 import { Skeleton } from './ui/skeleton'
-
-const SOURCE_LABELS: Record<string, string> = {
-  yc: 'YC',
-  largest_us_companies: 'Largest US companies',
-  a16z: 'a16z',
-  sequoia: 'Sequoia',
-  foundersfund: 'Founders Fund',
-  bvp: 'BVP',
-}
-
-export function sourceLabel(source: string): string {
-  return SOURCE_LABELS[source] ?? source
-}
 
 export function ProviderBadge({ company }: { company: Company }) {
   if (company.ats_provider === null) {
@@ -33,11 +21,13 @@ export function ProviderBadge({ company }: { company: Company }) {
 export function CompanyDrawer({
   company,
   scraping,
+  sources,
   onScrape,
   onClose,
 }: {
   company: Company
   scraping: boolean
+  sources: DiscoverySource[] | null
   onScrape: () => void
   onClose: () => void
 }) {
@@ -53,7 +43,7 @@ export function CompanyDrawer({
       <div className="flex items-center gap-2">
         <ProviderBadge company={company} />
         {company.slug && <span className="text-sm text-muted-foreground">{company.slug}</span>}
-        <Badge variant="outline">{sourceLabel(company.source)}</Badge>
+        <Badge variant="outline">{labelFor(sources, company.source)}</Badge>
         {company.batch && <Badge variant="outline">{company.batch}</Badge>}
       </div>
       <p className="mt-1 text-xs text-muted-foreground">

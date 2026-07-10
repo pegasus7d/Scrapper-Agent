@@ -2,8 +2,15 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
-import type { Company, DiscoveryResult, Paginated, ResolutionResult, RunCreated } from '../api/types'
-import { CompanyDrawer, ProviderBadge, sourceLabel } from '../components/CompanyDrawer'
+import type {
+  Company,
+  DiscoveryResult,
+  DiscoverySource,
+  Paginated,
+  ResolutionResult,
+  RunCreated,
+} from '../api/types'
+import { CompanyDrawer, ProviderBadge } from '../components/CompanyDrawer'
 import { Pagination } from '../components/Pagination'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
@@ -11,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Skeleton } from '../components/ui/skeleton'
 import { useApi } from '../hooks/useApi'
 import { formatTime } from '../lib/format'
-import { COMPANY_DISCOVERY_SOURCES } from '../lib/sources'
+import { labelFor } from '../lib/sources'
 
 const LIMIT = 20
 const ALL_PROVIDERS = 'all'
@@ -38,11 +45,15 @@ export function Companies() {
   const [source, setSource] = useState(ALL_SOURCES)
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<Company | null>(null)
-  const [discoverySource, setDiscoverySource] = useState<string>(COMPANY_DISCOVERY_SOURCES[0])
+  const [discoverySource, setDiscoverySource] = useState<string | undefined>(undefined)
   const [discovering, setDiscovering] = useState<string | null>(null)
   const [resolving, setResolving] = useState(false)
   const [scrapingId, setScrapingId] = useState<number | null>(null)
   const companies = useApi<Paginated<Company>>(companiesPath(q, atsProvider, source, offset))
+  // Real (name, label) pairs (PHASE9.md step 2) — fetched once here, no
+  // longer a hand-mirrored frontend constant that can drift out of sync.
+  const discoverySources = useApi<DiscoverySource[]>('/companies/sources')
+  const effectiveDiscoverySource = discoverySource ?? discoverySources.data?.[0]?.name ?? ''
 
   function updateFilter(setter: (value: string) => void) {
     return (value: string) => {
@@ -124,21 +135,24 @@ export function Companies() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_SOURCES}>All sources</SelectItem>
-              {COMPANY_DISCOVERY_SOURCES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {sourceLabel(s)}
+              {discoverySources.data?.map((s) => (
+                <SelectItem key={s.name} value={s.name}>
+                  {s.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={discoverySource} onValueChange={(value) => setDiscoverySource(value ?? discoverySource)}>
+          <Select
+            value={effectiveDiscoverySource}
+            onValueChange={(value) => setDiscoverySource(value ?? undefined)}
+          >
             <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {COMPANY_DISCOVERY_SOURCES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {sourceLabel(s)}
+              {discoverySources.data?.map((s) => (
+                <SelectItem key={s.name} value={s.name}>
+                  {s.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -146,10 +160,12 @@ export function Companies() {
           <Button
             variant="outline"
             size="sm"
-            disabled={discovering !== null}
-            onClick={() => void discover(discoverySource)}
+            disabled={discovering !== null || effectiveDiscoverySource === ''}
+            onClick={() => void discover(effectiveDiscoverySource)}
           >
-            {discovering === discoverySource ? 'Discovering…' : `Discover ${sourceLabel(discoverySource)}`}
+            {discovering === effectiveDiscoverySource
+              ? 'Discovering…'
+              : `Discover ${labelFor(discoverySources.data, effectiveDiscoverySource)}`}
           </Button>
           <Button variant="outline" size="sm" disabled={resolving} onClick={() => void resolve()}>
             {resolving ? 'Resolving…' : 'Resolve companies'}
@@ -180,7 +196,7 @@ export function Companies() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-foreground">{company.name}</span>
                     <ProviderBadge company={company} />
-                    <Badge variant="outline">{sourceLabel(company.source)}</Badge>
+                    <Badge variant="outline">{labelFor(discoverySources.data, company.source)}</Badge>
                     {company.batch && <Badge variant="outline">{company.batch}</Badge>}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -211,6 +227,7 @@ export function Companies() {
         <CompanyDrawer
           company={selected}
           scraping={scrapingId === selected.id}
+          sources={discoverySources.data}
           onScrape={() => void scrape(selected)}
           onClose={() => setSelected(null)}
         />
