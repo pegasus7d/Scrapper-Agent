@@ -183,6 +183,34 @@ rule 2):
    like every other filter this phase touches. Smoke: real status
    transitions through the live API and UI, confirm a job's status
    survives a reload and filters correctly by it.
+   **Done, in two commits (backend, frontend).** Resolved: one `status`
+   column (`JOB_STATUSES = ("none", "applied", "interviewing", "offer",
+   "rejected")`, matching every other status-like field already in this
+   schema — `Run.status`, `Run.kind`) plus `status_changed_at`, not a
+   history table — kept separate from the pre-existing `starred`
+   bookmark on purpose (a starred-but-untouched job and one actually
+   applied to are real, distinct states). New migration verified against
+   both a scratch DB and a real copy of the populated dev `hirable.db`
+   (174 real jobs) — `server_default='none'` turned out to be required,
+   not optional: SQLite's `ALTER TABLE ADD COLUMN` rejects a `NOT NULL`
+   column with no default against a non-empty table. `POST
+   /jobs/{id}/status` validates against `JOB_STATUSES` before writing
+   (422 on an unknown value). Adding the route pushed `routes.py` past
+   the 300-line cap — split the resume endpoints into a new
+   `routes_resume.py` (mirroring `routes_companies.py`'s existing split).
+   Real bug caught before shipping, not after: the drawer's status
+   control originally called `jobs.reload()` then immediately looked up
+   the "refreshed" job in `jobs.data` — `reload()` is async, so that
+   lookup always found the stale value. Fixed by having the status
+   endpoint's own response (the real updated `Job`) flow directly back
+   into the drawer's state, with `reload()` only responsible for
+   refreshing the underlying list.
+   Smoke: real headless-Chromium session against the live app (174 real
+   jobs) — changed a real job's status `none` → `applied`, the drawer
+   showed the real `status_changed_at` timestamp immediately (not after
+   a manual refresh), the table showed the new status badge, filtering
+   by "applied" narrowed to exactly that 1 real job, zero console
+   errors.
 3. **Dashboard stat cards become clickable (frontend).** Each `StatCard`
    navigates to its matching view on click — needs `onNavigate`/`setView`
    threaded from `App.tsx` into `Dashboard`, the same prop shape
