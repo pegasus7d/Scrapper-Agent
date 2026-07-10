@@ -1,9 +1,9 @@
 # Phase 1 — MVP build order
 
-Read [[DESIGN.md]] first — this file only holds the step-by-step build order and
+Read [[docs/DESIGN.md]] first — this file only holds the step-by-step build order and
 its rationale; the system contract (DB models, module layout, API surface,
 UI plan) lives there and gets amended in place as phases land, not repeated
-here. See [[WORKFLOW.md]] for the recurring process this and every later phase
+here. See [[docs/WORKFLOW.md]] for the recurring process this and every later phase
 file follows.
 
 Workflow rule: each numbered step below is finished and validated (`pytest` + `mypy`
@@ -23,4 +23,4 @@ workflow") — never mix two steps in one commit.
 
 **Phase 1 (steps 0–6) is complete** — every step validated and smoke-tested.
 
-Next: [[PHASE2.md]].
+Next: [[docs/PHASE2.md]].

@@ -1,10 +1,10 @@
 # Phase 8 — interactive UI, pipeline tracking, and full company discovery
 
-Read [[DESIGN.md]] first for the system contract; this file only holds phase 8's
-step-by-step build order and rationale. See [[WORKFLOW.md]] for the recurring
+Read [[docs/DESIGN.md]] first for the system contract; this file only holds phase 8's
+step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as [[PHASE1.md]]–[[PHASE7.md]]. Requested directly across
+Same workflow rules as [[docs/PHASE1.md]]–[[docs/PHASE7.md]]. Requested directly across
 several messages in one conversation, consolidated here before any code
 changes (WORKFLOW.md rule 1 — discuss, don't build — plus rule 3, docs
 first). Research threads verified before being written down (WORKFLOW.md

@@ -1,6 +1,6 @@
 # Hirable — Low-Level Design
 
-Read [[IDEA.md]] first for the product idea. This document is the technical contract:
+Read [[docs/IDEA.md]] first for the product idea. This document is the technical contract:
 DB models, module layout, API surface, UI plan, and testing strategy. Code that
 deviates from this design should update this file in the same change.
 
@@ -194,7 +194,7 @@ tests/
   (mirrors backend/ one test file per module — see §7)
 ```
 
-See **[[ARCHITECTURE.md]]** for the module-level contracts (`Chunk`, `Source`,
+See **[[docs/ARCHITECTURE.md]]** for the module-level contracts (`Chunk`, `Source`,
 `Transport`, `LLMClient`, `ExtractResult`), the extraction cascade algorithm,
 fetcher/transport policy, and the pipeline loop — split out since it was the
 largest single chunk of this file and most orientation reading doesn't need
@@ -282,7 +282,7 @@ dashboard charts. Rules:
 - Animation is seasoning, not sauce: transitions on drawers/dialogs, count-up on
   stat cards, a pulse on the running badge — nothing animates without a reason.
   No animation library — a hand-rolled `requestAnimationFrame` tween replaced
-  **motion** in [[PHASE5.md]] step 4 (it pulled in the full `framer-motion/dom`
+  **motion** in [[docs/PHASE5.md]] step 4 (it pulled in the full `framer-motion/dom`
   build for one count-up).
 - Everything else (views, hooks, api client) stays hand-written and reviewable.
 
@@ -317,7 +317,7 @@ queue growth. Never `print()`.
 
 ## Schema management
 
-Real Alembic migrations (`migrations/`, [[PHASE7.md]] step 1) — `make_engine()`
+Real Alembic migrations (`migrations/`, [[docs/PHASE7.md]] step 1) — `make_engine()`
 brings the schema to head automatically on every startup (stamp-vs-upgrade
 detection), replacing the MVP-era `Base.metadata.create_all()` approach (no
 migrations, `create_all()` only creates missing tables, never alters existing
@@ -362,24 +362,24 @@ unbounded with build history — the same reasoning that split `repo.py` and
 `sources.py` into packages once they grew past the 300-line cap, applied to
 docs instead of code:
 
-- **[[PHASE1.md]]** — MVP (done): scaffolding through the second source type.
-- **[[PHASE2.md]]** — polish & usefulness (done): dedupe, relevance gate,
+- **[[docs/PHASE1.md]]** — MVP (done): scaffolding through the second source type.
+- **[[docs/PHASE2.md]]** — polish & usefulness (done): dedupe, relevance gate,
   shadcn/ui, dashboard, dark mode, scheduling, RemoteOK, export/bookmarks.
-- **[[PHASE3.md]]** — plugin architecture + more platforms (done): `Source`
+- **[[docs/PHASE3.md]]** — plugin architecture + more platforms (done): `Source`
   protocol/registry, WeWorkRemotely, Arbeitnow, curated GitHub questions.
-- **[[PHASE4.md]]** — architecture for scale (done): domain-split sources,
+- **[[docs/PHASE4.md]]** — architecture for scale (done): domain-split sources,
   `Transport` protocol, per-source politeness, multi-select scrape UI.
-- **[[PHASE5.md]]** — Huey, dependency audit, and 3 new sources (done):
+- **[[docs/PHASE5.md]]** — Huey, dependency audit, and 3 new sources (done):
   replaces `scheduler.py`'s hand-rolled poll loop and the phase 4 frontend
   queue-runner with `SqliteHuey` tasks/pipelines running in-process; drops
   the oversized `motion` dependency; adds Himalayas, RemoteJobs.org, and
   FAQGURU sources.
-- **[[PHASE6.md]]** — search, live updates, and cleanup (done):
+- **[[docs/PHASE6.md]]** — search, live updates, and cleanup (done):
   schema-constrained local extraction + selectable local model, live run
   updates via SSE, `sqlite-vec` + FTS5 hybrid search, drops `recharts`,
   README rewrite, real bottleneck pass (no code change needed — nothing
   measured slow at current scale).
-- **[[PHASE7.md]]** — real migrations, resume-driven search, company career
+- **[[docs/PHASE7.md]]** — real migrations, resume-driven search, company career
   pages (done): replaces the hand-rolled schema-patch function from phase 6
   step 3 with real Alembic migrations (stamp-vs-upgrade detection, a
   connection shared via `config.attributes`); resume PDF upload → Markdown
@@ -392,7 +392,7 @@ docs instead of code:
   real hit rate), then turns resolved companies into real dynamic
   `Source`s at scrape time (`sources.SOURCES` mutated per company, not a
   hand-curated dict entry) — surfaced end-to-end in a new Companies view.
-- **[[PHASE8.md]]** — interactive UI, pipeline tracking, and full company
+- **[[docs/PHASE8.md]]** — interactive UI, pipeline tracking, and full company
   discovery (not started): Companies gets real filter/pagination parity
   with Jobs/Questions (`ats_provider`/`source`/`q`, not a client-side-only
   name match) plus a unified detail page joining its own scraped jobs and
@@ -419,6 +419,6 @@ When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
 the list above, and amend the sections above it in *this* file wherever the
 new phase changes current state — the numbered list here is an index, not a
-changelog. See [[WORKFLOW.md]] for the full discuss → docs → `/loop` → smoke-test
+changelog. See [[docs/WORKFLOW.md]] for the full discuss → docs → `/loop` → smoke-test
 → report cycle this is part of.
 

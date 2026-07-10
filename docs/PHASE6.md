@@ -1,10 +1,10 @@
 # Phase 6 — search, live updates, and cleanup
 
-Read [[DESIGN.md]] first for the system contract; this file only holds phase 6's
-step-by-step build order and rationale. See [[WORKFLOW.md]] for the recurring
+Read [[docs/DESIGN.md]] first for the system contract; this file only holds phase 6's
+step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as [[PHASE1.md]]–[[PHASE5.md]]. Four research threads led
+Same workflow rules as [[docs/PHASE1.md]]–[[docs/PHASE5.md]]. Four research threads led
 here, all verified before writing this down (WORKFLOW.md rule 2):
 
 - **Search over scraped data.** PageIndex-style vectorless, reasoning-based
@@ -351,4 +351,4 @@ including this investigation step, which correctly found nothing that
 needed fixing at the app's real current scale.
 
 Next: no phase 7 yet — propose next steps and wait to be asked, per
-[[WORKFLOW.md]] rule 7.
+[[docs/WORKFLOW.md]] rule 7.

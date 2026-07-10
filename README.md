@@ -18,22 +18,22 @@ are scheduled and queued through Huey (`SqliteHuey`, no separate services). Resu
 land in SQLite, deduplicated, and a FastAPI backend + React UI let you browse jobs,
 questions, and live scrape-run status.
 
-- Product idea and rationale: [[IDEA.md]]
-- Technical contract (DB models, modules, API, test plan): [[DESIGN.md]]
-- Module contracts, extraction cascade, fetcher/pipeline internals: [[ARCHITECTURE.md]]
+- Product idea and rationale: [[docs/IDEA.md]]
+- Technical contract (DB models, modules, API, test plan): [[docs/DESIGN.md]]
+- Module contracts, extraction cascade, fetcher/pipeline internals: [[docs/ARCHITECTURE.md]]
 - Contributor rules (code quality, testing, git workflow): [[CLAUDE.md]]
-- How this project actually moves from idea to shipped phase: [[WORKFLOW.md]]
+- How this project actually moves from idea to shipped phase: [[docs/WORKFLOW.md]]
 
-> **Status:** phases 1–6 complete (see [[WORKFLOW.md]] and [[PHASE6.md]]).
+> **Status:** phases 1–6 complete (see [[docs/WORKFLOW.md]] and [[docs/PHASE6.md]]).
 > **9 sources** across jobs and questions — jobs: HN "Who is hiring?",
 > RemoteOK, WeWorkRemotely, Arbeitnow, Himalayas, RemoteJobs.org; questions:
 > HN comment search, GitHub's h5bp interview-questions bank, FAQGURU
-> (Reddit's robots.txt disallows crawling, so it's excluded — see [[DESIGN.md]]
+> (Reddit's robots.txt disallows crawling, so it's excluded — see [[docs/DESIGN.md]]
 > §3, and `backend/scraper/sources/`'s own CLAUDE.md for the full
 > verify-before-adding history). Hybrid search (⌘K — `sqlite-vec` similarity +
 > FTS5 keyword, reciprocal rank fusion) and live run updates (SSE) are real,
 > not just planned. Scheduling and multi-source queueing run
-> through [[PHASE5.md|Huey]] (`SqliteHuey`, no Redis) — manual runs, a
+> through [[docs/PHASE5.md|Huey]] (`SqliteHuey`, no Redis) — manual runs, a
 > once-a-minute periodic dispatch for user-defined schedules, and multi-select
 > batch runs all go through the same task pipeline.
 

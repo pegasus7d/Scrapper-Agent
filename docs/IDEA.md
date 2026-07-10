@@ -2,7 +2,7 @@
 
 > Renamed **Hirable** in phase 8, once the project grew past scraping into
 > resume-matched search, company intelligence, and application pipeline
-> tracking (see [[DESIGN.md]] §8, [[PHASE8.md]]). This doc is kept as the
+> tracking (see [[docs/DESIGN.md]] §8, [[docs/PHASE8.md]]). This doc is kept as the
 > original idea/rationale snapshot — historical, not renamed retroactively.
 
 ## What this is
@@ -85,7 +85,7 @@ for url in queue:
   endpoints) for interview questions. LeetCode Discuss/Blind deferred (JS-heavy,
   anti-bot).
 - Local model: **qwen2.5:7b-instruct via Ollama**; escalation tier: Claude Haiku.
-- Full technical contract (DB models, chunking, API, tests): see [[DESIGN.md]].
+- Full technical contract (DB models, chunking, API, tests): see [[docs/DESIGN.md]].
 
 ## Open questions / not yet decided
 - Whether resume parsing should feed into job matching (separate feature, not scoped
