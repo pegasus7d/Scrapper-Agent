@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from backend import config
 from backend.api.routes import router
+from backend.api.routes_companies import router as companies_router
 from backend.db import repo
 from backend.scraper.tasks import run_consumer
 
@@ -39,6 +40,7 @@ def create_app(engine: Engine | None = None, *, start_consumer: bool = True) -> 
         allow_headers=["*"],
     )
     app.include_router(router, prefix="/api")
+    app.include_router(companies_router, prefix="/api")
 
     if start_consumer:
         threading.Thread(target=run_consumer, daemon=True).start()

@@ -143,3 +143,24 @@ class ResumeMarkdown(BaseModel):
 
 class ResumePositionsOut(BaseModel):
     positions: list[str]
+
+
+class CompanyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str | None
+    ats_provider: str | None
+    discovered_at: datetime
+    last_checked_at: datetime | None
+
+
+class CompanyList(BaseModel):
+    items: list[CompanyOut]
+    total: int
+
+
+class DiscoveryResult(BaseModel):
+    discovered: int  # newly-inserted companies this run
+    total: int  # all companies now on file

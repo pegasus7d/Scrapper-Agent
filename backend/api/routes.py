@@ -6,15 +6,14 @@ them (DESIGN.md §4). List endpoints return {items, total} with ?limit=
 """
 
 import logging
-from collections.abc import Iterator
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from sqlalchemy import Engine
-from sqlalchemy.orm import Session
 
 from backend import config
+from backend.api.deps import SessionDep
 from backend.api.dto import (
     BatchQueued,
     Cancelled,
@@ -59,14 +58,6 @@ router = APIRouter()
 
 _SOURCES_BY_KIND = {"jobs": JOB_SOURCES, "questions": QUESTION_SOURCES}
 
-
-def _session(request: Request) -> Iterator[Session]:
-    engine: Engine = request.app.state.engine
-    with Session(engine) as session:
-        yield session
-
-
-SessionDep = Annotated[Session, Depends(_session)]
 LimitParam = Annotated[int, Query(ge=1, le=100)]
 OffsetParam = Annotated[int, Query(ge=0)]
 
