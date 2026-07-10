@@ -8,18 +8,31 @@ both, and is registered in that domain's own small `SOURCES` dict; this
 module merges the two into one flat `SOURCES` so `pipeline.py`'s calls
 (`sources.seed_urls(...)`, `sources.split_items(...)`, `sources.Chunk`) never
 change — same re-export-flat pattern as `db/repo/__init__.py`.
+
+Resolved companies (PHASE7.md step 7) are the one exception: `SOURCES` is a
+plain mutable dict, so `register_company_source` adds a company's Source to
+it at scrape time, keyed `company:{slug}` — driven by the `companies` table
+(steps 5/6), never a fixed per-company dict entry hand-written here.
 """
 
+from collections.abc import Callable
 from typing import Literal
 
+from backend.db.models import Company
 from backend.scraper.fetcher import Page
 from backend.scraper.sources import jobs, questions
 from backend.scraper.sources._base import Chunk, Source
+from backend.scraper.sources.companies import GreenhouseCompanySource, LeverCompanySource
 
 SOURCES: dict[str, Source] = {**jobs.SOURCES, **questions.SOURCES}
 
 JOB_SOURCES = tuple(name for name, source in SOURCES.items() if source.kind == "jobs")
 QUESTION_SOURCES = tuple(name for name, source in SOURCES.items() if source.kind == "questions")
+
+_COMPANY_SOURCE_BUILDERS: dict[str, Callable[[str, str], Source]] = {
+    "greenhouse": GreenhouseCompanySource,
+    "lever": LeverCompanySource,
+}
 
 
 def _get(source: str) -> Source:
@@ -54,14 +67,37 @@ def delay_for(source: str) -> float:
     return _get(source).delay_s
 
 
+def company_source_key(company: Company) -> str:
+    """The dynamic SOURCES key a resolved company scrapes under."""
+    return f"company:{company.slug}"
+
+
+def register_company_source(company: Company) -> str:
+    """Build a resolved company's Source and register it into SOURCES
+    (PHASE7.md step 7), returning the key to scrape it with. Re-registering
+    is cheap and safe — every scrape call does it fresh, so there's no
+    stale-registry problem after a process restart (SOURCES is in-memory
+    only; the Company row itself is the durable record)."""
+    if company.slug is None or company.ats_provider is None:
+        raise ValueError(f"company {company.name!r} has not been resolved to an ATS yet")
+    builder = _COMPANY_SOURCE_BUILDERS.get(company.ats_provider)
+    if builder is None:
+        raise ValueError(f"unknown ATS provider: {company.ats_provider}")
+    key = company_source_key(company)
+    SOURCES[key] = builder(company.slug, company.name)
+    return key
+
+
 __all__ = [
     "Chunk",
     "JOB_SOURCES",
     "QUESTION_SOURCES",
     "SOURCES",
     "Source",
+    "company_source_key",
     "delay_for",
     "next_links",
+    "register_company_source",
     "seed_urls",
     "split_items",
     "transport_for",
