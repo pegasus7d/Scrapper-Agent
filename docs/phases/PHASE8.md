@@ -301,6 +301,31 @@ rule 2):
    from the automation step below). Smoke: one real discovery run,
    confirm real, recognizable company names land (Walmart, Amazon, etc.),
    distinguishable from YC-discovered ones.
+   **Done.** Named `"largest_us_companies"`, not `"fortune500"` as
+   originally sketched — matches this phase's own commitment to name it
+   honestly (Fortune's own list is paywalled; this is the real, public
+   proxy). Real structural finding confirmed before writing the parser:
+   the page has three `table.wikitable` elements (revenue/employees/
+   profits rankings) — the first is the one wanted; each row's company
+   name lives in the second `<td>`'s child `<a>` link, not the cell's
+   own `.text` (empty on the real markup, the same quirk YC's batch pill
+   already taught this codebase). `POST /companies/discover` gained a
+   `source` query param (`"yc"`/`"largest_us_companies"`, default `"yc"`
+   for backward compatibility) rather than a second endpoint — matches
+   how `POST /runs` already dispatches by a `source` discriminator.
+   `GET /companies` gained a matching `source` filter (the `source`
+   filter param this step's own research thread flagged as depending on
+   this step landing). Frontend: a second "Discover largest US
+   companies" button, a source filter `Select`, and a source badge on
+   every row/drawer.
+   Smoke: one real discovery run through the live API —
+   `{"discovered": 100, "total": 220}` (120 real YC + 100 real
+   largest-US-companies). Confirmed real, recognizable names present
+   (Walmart, Amazon, Apple, Alphabet, Berkshire Hathaway — all found),
+   correctly distinguishable by `source` (`?source=yc` → 120,
+   `?source=largest_us_companies` → 100). Confirmed in a real browser
+   too: filtering to "Walmart" showed a real "Largest US companies"
+   badge, zero console errors.
 7. **Scheduled company automation (backend).** Resolve the two-shapes
    question above for real, wire it in, and expose enable/disable the
    same way existing schedules do (reuse `SchedulesPanel.tsx` or add a
