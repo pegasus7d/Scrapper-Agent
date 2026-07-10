@@ -312,6 +312,24 @@ sync by hand.
    oversized file gets a fast, clear rejection instead of a slow read
    followed by a late failure; a real valid resume PDF still uploads
    correctly afterward.
+   **Done.** New `config.RESUME_MAX_BYTES` (5 MB — real resumes are a
+   handful of pages, well under 1 MB as a PDF) and
+   `RESUME_CONTENT_TYPE`. Two checks, not one: `Content-Length` header
+   checked first (fast rejection, zero bytes read, for the common case a
+   browser/curl client sends it), real byte count checked again after
+   reading as a fallback for the rare case a client omits the header
+   (chunked transfer encoding). Content-type checked before either size
+   check — genuinely free, no bytes touched.
+   Smoke: real live app, fresh process. A real 6.3 MB dummy file was
+   rejected in 18ms total (`413`, `"resume file too large (max 5242880
+   bytes)"`) — no slow read/parse first. A real, valid, existing resume
+   PDF (`~/career-ops/resume.pdf`, sent with a deliberately wrong
+   `Content-Type: text/plain`) was rejected (`422`,
+   `"unsupported file type: text/plain"`) before ever reaching
+   `pdf_to_markdown`. That same real resume PDF, sent correctly, still
+   uploaded and parsed successfully (3700 real Markdown characters, real
+   name/contact/education content extracted correctly) — the guard
+   rejects genuinely bad input without breaking the real, working path.
 8. **Bound the export endpoints (backend).** `GET /jobs/export` and
    `/questions/export` pull every matching row into memory in one
    unbounded query. Real decision to make during this step, not assumed:
