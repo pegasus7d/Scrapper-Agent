@@ -7,26 +7,51 @@ import { apiPost, apiUrl } from '../api/client'
 import type { Job, Paginated } from '../api/types'
 import { Drawer } from '../components/Drawer'
 import { Pagination } from '../components/Pagination'
+import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { useApi } from '../hooks/useApi'
 import { formatTime } from '../lib/format'
+import { JOB_STATUSES, statusLabel } from '../lib/jobStatus'
 
 const LIMIT = 20
+const ALL_STATUSES = 'all'
 
-function jobsPath(q: string, company: string, starredOnly: boolean, offset: number): string {
+function jobsPath(
+  q: string,
+  company: string,
+  starredOnly: boolean,
+  status: string,
+  offset: number
+): string {
   const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) })
   if (q) params.set('q', q)
   if (company) params.set('company', company)
   if (starredOnly) params.set('starred', 'true')
+  if (status !== ALL_STATUSES) params.set('status', status)
   return `/jobs?${params.toString()}`
 }
 
-function exportPath(format: 'csv' | 'json', q: string, company: string, starredOnly: boolean): string {
+function exportPath(
+  format: 'csv' | 'json',
+  q: string,
+  company: string,
+  starredOnly: boolean,
+  status: string
+): string {
   const params = new URLSearchParams({ format })
   if (q) params.set('q', q)
   if (company) params.set('company', company)
   if (starredOnly) params.set('starred', 'true')
+  if (status !== ALL_STATUSES) params.set('status', status)
   return apiUrl(`/jobs/export?${params.toString()}`)
+}
+
+function statusBadgeVariant(status: string): 'outline' | 'secondary' | 'default' | 'destructive' {
+  if (status === 'none') return 'outline'
+  if (status === 'rejected') return 'destructive'
+  if (status === 'offer') return 'default'
+  return 'secondary'
 }
 
 function StarButton({ job, onToggled }: { job: Job; onToggled: () => void }) {
@@ -49,7 +74,46 @@ function StarButton({ job, onToggled }: { job: Job; onToggled: () => void }) {
   )
 }
 
-function JobDrawer({ job, onClose }: { job: Job; onClose: () => void }) {
+function StatusControl({ job, onChanged }: { job: Job; onChanged: (job: Job) => void }) {
+  const [updating, setUpdating] = useState(false)
+
+  async function change(status: string) {
+    setUpdating(true)
+    try {
+      const updated = await apiPost<Job>(`/jobs/${job.id}/status`, { status })
+      onChanged(updated)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  return (
+    <Select value={job.status} onValueChange={(value) => value && void change(value)}>
+      <SelectTrigger className="mt-3 w-48" disabled={updating}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {JOB_STATUSES.map((status) => (
+          <SelectItem key={status} value={status}>
+            {statusLabel(status)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+function JobDrawer({
+  job,
+  onClose,
+  onStatusChanged,
+}: {
+  job: Job
+  onClose: () => void
+  onStatusChanged: (job: Job) => void
+}) {
   return (
     <Drawer title={job.title} onClose={onClose}>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -57,6 +121,12 @@ function JobDrawer({ job, onClose }: { job: Job; onClose: () => void }) {
         {job.location && ` · ${job.location}`}
         {job.salary && ` · ${job.salary}`}
       </p>
+      <StatusControl job={job} onChanged={onStatusChanged} />
+      {job.status_changed_at && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          status changed {formatTime(job.status_changed_at)}
+        </p>
+      )}
       {job.requirements.length > 0 && (
         <>
           <h3 className="mt-6 text-sm font-semibold text-foreground">Requirements</h3>
@@ -102,15 +172,25 @@ export function Jobs() {
   const [q, setQ] = useState('')
   const [company, setCompany] = useState('')
   const [starredOnly, setStarredOnly] = useState(false)
+  const [status, setStatus] = useState(ALL_STATUSES)
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<Job | null>(null)
-  const jobs = useApi<Paginated<Job>>(jobsPath(q, company, starredOnly, offset))
+  const jobs = useApi<Paginated<Job>>(jobsPath(q, company, starredOnly, status, offset))
 
   function updateFilter(setter: (value: string) => void) {
     return (value: string) => {
       setter(value)
       setOffset(0)
     }
+  }
+
+  function selectJob(job: Job) {
+    setSelected(job)
+  }
+
+  function onStatusChanged(updated: Job) {
+    setSelected(updated)
+    jobs.reload()
   }
 
   return (
@@ -130,6 +210,19 @@ export function Jobs() {
             value={company}
             onChange={(e) => updateFilter(setCompany)(e.target.value)}
           />
+          <Select value={status} onValueChange={(v) => updateFilter(setStatus)(v ?? ALL_STATUSES)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
+              {JOB_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {statusLabel(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             variant={starredOnly ? 'secondary' : 'outline'}
             size="sm"
@@ -141,12 +234,12 @@ export function Jobs() {
             <Star className={`size-4 ${starredOnly ? 'fill-amber-400 text-amber-400' : ''}`} />
             Starred
           </Button>
-          <a href={exportPath('csv', q, company, starredOnly)}>
+          <a href={exportPath('csv', q, company, starredOnly, status)}>
             <Button variant="outline" size="sm">
               Export CSV
             </Button>
           </a>
-          <a href={exportPath('json', q, company, starredOnly)}>
+          <a href={exportPath('json', q, company, starredOnly, status)}>
             <Button variant="outline" size="sm">
               Export JSON
             </Button>
@@ -164,6 +257,7 @@ export function Jobs() {
               <th className="px-4 py-2 font-medium">Company</th>
               <th className="px-4 py-2 font-medium">Location</th>
               <th className="px-4 py-2 font-medium">Salary</th>
+              <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 font-medium">Source</th>
               <th className="px-4 py-2 font-medium">Scraped</th>
             </tr>
@@ -173,7 +267,7 @@ export function Jobs() {
               <tr
                 key={job.id}
                 className="cursor-pointer border-t border-border hover:bg-indigo-50/40"
-                onClick={() => setSelected(job)}
+                onClick={() => selectJob(job)}
               >
                 <td className="px-4 py-3">
                   <StarButton job={job} onToggled={jobs.reload} />
@@ -182,6 +276,11 @@ export function Jobs() {
                 <td className="px-4 py-3">{job.company}</td>
                 <td className="px-4 py-3 text-muted-foreground">{job.location ?? '—'}</td>
                 <td className="px-4 py-3 text-muted-foreground">{job.salary ?? '—'}</td>
+                <td className="px-4 py-3">
+                  {job.status !== 'none' && (
+                    <Badge variant={statusBadgeVariant(job.status)}>{statusLabel(job.status)}</Badge>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-muted-foreground">{job.source}</td>
                 <td className="px-4 py-3 text-muted-foreground">{formatTime(job.scraped_at)}</td>
               </tr>
@@ -201,7 +300,9 @@ export function Jobs() {
         )}
       </div>
 
-      {selected && <JobDrawer job={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <JobDrawer job={selected} onClose={() => setSelected(null)} onStatusChanged={onStatusChanged} />
+      )}
     </div>
   )
 }
