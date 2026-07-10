@@ -490,6 +490,30 @@ stops, not routed around.
    the moment you fill it in yourself; nothing downstream that reads this
    profile can be meaningfully tested end-to-end with real values until
    you do.
+   **Done — hard stop honored.** `ApplicantProfile` (`backend/db/models.py`)
+   is a real, single-row (id=1) table with all six fields nullable,
+   defaulting to unset; migration `1ba87578c3b3` applied and both
+   directions verified against the real dev DB. `backend/autoapply/profile.py`
+   (`get_profile`/`save_profile`) and `GET`/`POST /api/profile`
+   (`backend/api/routes_profile.py`) store and return exactly what's
+   given — no server-side default ever synthesizes a phone number, salary,
+   or work-authorization string. `frontend/src/views/Profile.tsx` is a new
+   nav view (plain controlled inputs + a `Select` for relocation's
+   tri-state `not specified`/`yes`/`no`, mirroring `SchedulesPanel.tsx`'s
+   pattern since this project has no form library) — every field starts
+   blank, matching the backend's unset default; "Willing to relocate"
+   explicitly offers "Not specified" rather than defaulting a checkbox to
+   false, since false is a real, different answer from "haven't said."
+   12 real unit/API tests (`tests/test_autoapply_profile.py`,
+   `tests/test_api_profile.py`). Real smoke test: started the actual
+   FastAPI app against the real dev DB, confirmed `GET /api/profile`
+   returned all-null before any save, `POST /api/profile` with real
+   request bodies persisted and read back correctly, then reset the
+   profile back to all-null afterward — the smoke-test values
+   (`"555-0100"`) were never real applicant data and were not left behind.
+   `npm run build` (strict `tsc` + Vite) green; the built bundle confirmed
+   to contain the new view. `pytest` (400 passed) / `mypy` / `ruff check` /
+   `ruff format --check` all green.
 6. **Match-score gating pipeline (backend).** A real gate step (score →
    threshold → proceed/skip) against the resume's derived search
    positions, structured as one shared, namespaced context object per
