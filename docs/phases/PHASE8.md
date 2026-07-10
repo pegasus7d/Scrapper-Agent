@@ -496,9 +496,35 @@ rule 2):
    Confirmed genuinely distinguishable by `source`
    (`?source=sequoia&q=HubSpot` returns exactly one real row). Confirmed
    idempotent: an immediate second discovery run found 0 new companies.
-   **Founders Fund and Bessemer still pending** — real page structure not
-   yet confirmed for either; that's the next unit of work for this step,
-   one VC at a time, same discipline as a16z/Sequoia above.
+   **Founders Fund done** (3/4), in two commits. The simplest real shape
+   of the four so far: `robots.txt` confirmed wide open (10s crawl-delay
+   requested, honored via `PageFetcher(delay_s=10.0)` — the same
+   per-source override Arbeitnow already established, not a new concept),
+   and the page itself needed no scroll, no click, and no pagination —
+   confirmed by grepping the fetched HTML for "load more"/"infinite"/
+   "pagination" markers and finding none. The entire real portfolio (62
+   companies) is plain server-rendered HTML in one page load; each name
+   lives as a direct text node inside `h2.tile-heading span` (confirmed
+   directly, no `.text`-returns-empty quirk this time).
+   `discovery.py` crossed the 300-line hard cap (CLAUDE.md) once this
+   fifth source landed — split into `discovery.py` (orchestrator: YC,
+   Wikipedia, `DISCOVERY_SOURCES`, `discover_and_save_companies`) and a
+   new `discovery_vc.py` (a16z, Sequoia, Founders Fund — the VC-specific
+   sources), matching the file's own natural responsibility boundary
+   rather than an arbitrary line-count split.
+   Smoke: real live app (fresh process, confirmed by PID), real POST to
+   `/companies/discover?source=foundersfund` — 34 new real companies
+   discovered and saved, 1440 total after. The other 28 (Stripe, SpaceX,
+   Anduril, Airbnb, Palantir, and more) were correctly *not* re-attributed
+   — confirmed directly that `Anduril` already existed under `source:
+   "a16z"` from an earlier discovery run, and `Company.name` is globally
+   unique, so the first source to discover a company keeps that
+   attribution — expected, pre-existing dedup behavior, not new to this
+   step. Confirmed genuinely distinguishable by `source`. Confirmed
+   idempotent: an immediate second discovery run found 0 new companies.
+   **Bessemer Venture Partners still pending** — real page structure not
+   yet confirmed; that's the last unit of work for this step, same
+   discipline as the four VCs above.
 10. **`FEATURES.md` (docs).** A user-facing summary of what the app can
     actually do today, written last and only after steps 1-9 are real —
     describing a feature before it exists is exactly the kind of thing
