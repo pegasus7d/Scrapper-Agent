@@ -520,6 +520,33 @@ stops, not routed around.
    application attempt (Dify's pattern, not Dify itself) — not an
    implicit if-statement. A real threshold value gets proposed and is
    tunable, not fixed in code.
+   **Done.** `backend/autoapply/matching.py` reuses this project's own
+   embedding infrastructure — `embed_text` (`backend/llm/embeddings.py`)
+   and the `job_embeddings` vec0 table `backend/db/search.py`'s hybrid
+   search already ranks against — rather than a new similarity mechanism:
+   `compute_match_score` embeds the resume text fresh and computes real
+   cosine similarity (`vec_distance_cosine`, confirmed a real, working
+   sqlite-vec scalar function, distinct from the KNN-`MATCH` machinery
+   `search.py` uses) against the job's already-stored embedding. `gate`
+   wraps that in a `MatchContext` dataclass (job_id, resume_text, score,
+   passed) — the shared, namespaced per-attempt context object, not an
+   inline if-statement — comparing against `config.MATCH_SCORE_THRESHOLD`
+   (default `0.5`, explicitly tunable). 5 real unit tests
+   (`tests/test_autoapply_matching.py`, `embed_text` monkeypatched, no
+   real Ollama call, real stored `job_embeddings` rows via
+   `repo.save_job(..., embed=...)`).
+   Real smoke test (a real Ollama `nomic-embed-text` call, a real job with
+   a real stored embedding from the dev DB): re-embedding the *exact* text
+   a job was originally embedded from scored a real `1.0` (confirms the
+   mechanism itself is correct); a genuinely unrelated resume text scored
+   `0.34`; a relevant-but-differently-worded (and, for that specific real
+   posting, differently-languaged — German requirements vs. an English
+   resume text) resume text scored `0.48`, just under the `0.5` default.
+   This is a real, honest calibration finding, not swept under the rug —
+   `config.py`'s comment was corrected to report exactly this rather than
+   an unverified guess, and flags the threshold as easy to tune down if
+   real usage shows relevant jobs getting gated out. `pytest` (405
+   passed) / `mypy` / `ruff check` / `ruff format --check` all green.
 7. **Form-filler answer-tool system (backend).** Structured-profile
    lookups (`get_phone`, `get_salary_expectation`, etc.) as plain
    type-hinted, docstringed Python functions — the schema the LLM cascade
