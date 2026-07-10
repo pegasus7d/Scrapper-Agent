@@ -12,4 +12,5 @@ export const COMPANY_DISCOVERY_SOURCES = [
   'largest_us_companies',
   'a16z',
   'sequoia',
+  'foundersfund',
 ] as const
