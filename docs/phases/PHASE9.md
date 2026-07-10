@@ -1,4 +1,4 @@
-# Phase 9 — extensibility refactor: company discovery sources
+# Phase 9 — extensibility refactor and robustness: company discovery sources + small fixes
 
 Read [[docs/DESIGN.md]] first for the system contract; this file only holds phase 9's
 step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurring
@@ -10,10 +10,21 @@ usage report, which covers general Claude Code usage patterns across
 unrelated projects, not this one): phase 8 added five new company discovery
 sources (a16z, Sequoia, Founders Fund, BVP, plus the earlier Wikipedia
 source) without reusing the plugin-registry pattern `backend/scraper/
-sources/__init__.py` already established for job/question sources. This
-phase is pure refactor — no new user-facing features, no new sources — so
-every step's "done" bar is: same real behavior, verified via the existing
-test suite plus one real smoke test, just less coupled to extend next time.
+sources/__init__.py` already established for job/question sources. Steps
+1-4 are that refactor — no new user-facing features, no new sources, every
+step's "done" bar is: same real behavior, verified via the existing test
+suite plus one real smoke test, just less coupled to extend next time.
+
+Steps 5-8 are a second, separate real code-quality pass (same session,
+found while looking for more "small but important" gaps beyond coupling):
+concrete robustness gaps found by reading the actual code, not brainstormed
+— no DB backup story despite 1920+ real companies and months of scraped
+data on file, no health-check endpoint despite the app now running
+unattended scheduled work, an unbounded resume-upload read before any
+validation, and fully unbounded export endpoints. Each is small and
+independently shippable; none require a design discussion the way the
+deferred auto-apply feature (see the standing `FEATURES.md` backlog and
+this session's own conversation history) does.
 
 ## Why this matters (the actual evidence, not a hunch)
 
@@ -98,13 +109,56 @@ sync by hand.
    and test count reduction confirmed real (not just moved around), full
    suite still green.
 
+5. **Real SQLite backup mechanism (backend).** `hirable.db` is correctly
+   gitignored but has no backup story at all — no scheduled copy, no
+   "export everything" path, nothing. SQLite is a single file, so the fix
+   is genuinely small: a scheduled or manually-triggered copy to a
+   `backups/` directory (gitignored, timestamped filenames, a small
+   retention cap so it doesn't grow unbounded — same bounded-growth
+   reasoning `LOG_BACKUP_COUNT` already uses for log rotation). Decide
+   during this step whether it's a Huey periodic task (consistent with how
+   every other unattended background behavior in this app already runs)
+   or a documented manual `./backup.sh` — a real tradeoff to weigh, not
+   pre-decided here. Smoke: trigger a real backup against the actual
+   populated `hirable.db`, confirm the copy is a genuine, openable SQLite
+   file with the real row counts, not an empty or partial file.
+6. **`/health` endpoint (backend).** The app runs real unattended
+   background work today (Huey's scheduler ticks once a minute,
+   dispatching discovery/scrape schedules) with no way to check "is the
+   backend actually alive" except hitting an unrelated business endpoint
+   and hoping it doesn't fail for a different reason. A small `GET
+   /health` returning real status (DB reachable, Huey consumer running)
+   — not just a bare 200. Smoke: real curl against a live app confirms a
+   real status payload; killing the Huey consumer process and re-checking
+   confirms the endpoint actually reflects real state, not a hardcoded OK.
+7. **Resume upload gets a real size/type guard (backend).** `routes_resume.py`'s
+   `upload_resume` does `await file.read()` with no limit before any
+   validation runs — an oversized or wrong-type file is fully read into
+   memory before it's rejected. Add a real max-size constant to
+   `config.py` (no magic number inline, per CLAUDE.md) and check content
+   length before reading the full body. Smoke: real upload of an
+   oversized file gets a fast, clear rejection instead of a slow read
+   followed by a late failure; a real valid resume PDF still uploads
+   correctly afterward.
+8. **Bound the export endpoints (backend).** `GET /jobs/export` and
+   `/questions/export` pull every matching row into memory in one
+   unbounded query. Real decision to make during this step, not assumed:
+   a hard cap with a clear error past it, or real streaming (FastAPI's
+   `StreamingResponse`, already used elsewhere in `routes.py` for the SSE
+   endpoint) so memory use doesn't scale with row count. Smoke: export
+   against the real, current row counts (1920+ companies, however many
+   real jobs/questions are on file) and confirm it still completes
+   correctly under whichever bound this step lands on.
+
 ## Deliberately out of scope
 
-**No new discovery sources, no new features.** This phase exists to make
-the *next* source (or the next unrelated feature — see the standing
-`FEATURES.md` backlog) cheaper to add, not to add one itself. Job/question
-sources (`sources/__init__.py`) are explicitly *not* touched here — that
-registry is already the pattern being copied, not a thing under repair.
+**No new discovery sources, no new user-facing features.** This phase
+exists to make the *next* source (or the next unrelated feature — see the
+standing `FEATURES.md` backlog, and the auto-apply scope this session
+discussed but deliberately deferred) cheaper and safer to build, not to add
+one itself. Job/question sources (`sources/__init__.py`) are explicitly
+*not* touched in steps 1-4 — that registry is already the pattern being
+copied, not a thing under repair.
 
 Next: not started — driven by `/loop` once this file is committed on its
 own, per WORKFLOW.md rule 3.

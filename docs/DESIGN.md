@@ -414,17 +414,23 @@ docs instead of code:
   four open); a closing `FEATURES.md` written only once the above is
   real. Every other VC beyond those four deliberately deferred — not yet
   verified per-site (WORKFLOW.md rule 2).
-- **[[docs/phases/PHASE9.md]]** — extensibility refactor (not started): company
-  discovery sources (`discovery.py`/`discovery_vc.py`) never adopted the
-  `Source`-registry pattern `sources/__init__.py` already established for
-  job/question sources — phase 8's five new sources instead grew an
-  `if/elif` dispatch chain, requiring 8 files touched per new source (real,
-  observed drift already happened once — a source shipped in the backend
-  before it was wired into the frontend). Migrates discovery sources onto a
-  real registry, stops hand-mirroring the source list into the frontend,
-  splits `routes.py` proactively before it re-crosses the 300-line cap, and
-  reduces `test_discovery.py`'s per-source test duplication. Pure refactor —
-  no new sources, no new user-facing features.
+- **[[docs/phases/PHASE9.md]]** — extensibility refactor and robustness (not
+  started): company discovery sources (`discovery.py`/`discovery_vc.py`)
+  never adopted the `Source`-registry pattern `sources/__init__.py` already
+  established for job/question sources — phase 8's five new sources instead
+  grew an `if/elif` dispatch chain, requiring 8 files touched per new source
+  (real, observed drift already happened once — a source shipped in the
+  backend before it was wired into the frontend). Migrates discovery
+  sources onto a real registry, stops hand-mirroring the source list into
+  the frontend, splits `routes.py` proactively before it re-crosses the
+  300-line cap, and reduces `test_discovery.py`'s per-source test
+  duplication (steps 1-4, pure refactor — no new sources, no new
+  user-facing features). Steps 5-8 are a second real-code-quality pass
+  found the same way: no SQLite backup mechanism despite 1920+ real
+  companies and months of scraped data on file, no `/health` endpoint
+  despite the app now running unattended scheduled work, an unbounded
+  resume-upload read before any validation, and fully unbounded export
+  endpoints.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to

@@ -135,7 +135,7 @@ Used so far: phase 1 ([[docs/phases/PHASE1.md]], stop at step 6 — the MVP), ph
 ([[docs/phases/PHASE4.md]], stop at step 4), phase 5 ([[docs/phases/PHASE5.md]], stop at step 7), phase 6
 ([[docs/phases/PHASE6.md]], stop at step 9 — done), phase 7 ([[docs/phases/PHASE7.md]], stop at
 step 8 — done), phase 8 ([[docs/phases/PHASE8.md]], stop at step 10 — done), phase 9
-([[docs/phases/PHASE9.md]], stop at step 4 — not started).
+([[docs/phases/PHASE9.md]], stop at step 8 — not started).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.
