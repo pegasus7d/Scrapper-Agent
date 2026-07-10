@@ -12,6 +12,7 @@ from backend.api import routes_companies
 from backend.api.main import create_app
 from backend.db import migrate, repo, vectors
 from backend.db.models import Run
+from backend.scraper.discovery import DiscoveredCompany
 from backend.scraper.resolve import ResolutionSummary
 
 
@@ -46,25 +47,36 @@ def test_list_companies_starts_empty(client: TestClient) -> None:
     assert response.json() == {"items": [], "total": 0}
 
 
-def test_discover_companies_saves_real_names(
+def test_discover_companies_saves_real_names_and_batch(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        routes_companies, "discover_yc_companies", lambda fetcher: ["DoorDash", "Airbnb"]
+        routes_companies,
+        "discover_yc_companies",
+        lambda fetcher: [
+            DiscoveredCompany(name="DoorDash", batch="Summer 2013"),
+            DiscoveredCompany(name="Airbnb", batch=None),
+        ],
     )
     response = client.post("/api/companies/discover")
     assert response.status_code == 200
     assert response.json() == {"discovered": 2, "total": 2}
 
-    listed = client.get("/api/companies")
-    names = {item["name"] for item in listed.json()["items"]}
-    assert names == {"DoorDash", "Airbnb"}
+    listed = client.get("/api/companies").json()["items"]
+    by_name = {item["name"]: item for item in listed}
+    assert by_name.keys() == {"DoorDash", "Airbnb"}
+    assert by_name["DoorDash"]["batch"] == "Summer 2013"
+    assert by_name["Airbnb"]["batch"] is None
 
 
 def test_discover_companies_is_idempotent(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(routes_companies, "discover_yc_companies", lambda fetcher: ["DoorDash"])
+    monkeypatch.setattr(
+        routes_companies,
+        "discover_yc_companies",
+        lambda fetcher: [DiscoveredCompany(name="DoorDash", batch=None)],
+    )
     client.post("/api/companies/discover")
     second = client.post("/api/companies/discover")
     assert second.json() == {"discovered": 0, "total": 1}

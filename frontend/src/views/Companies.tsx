@@ -68,6 +68,7 @@ function CompanyDrawer({
       <div className="flex items-center gap-2">
         <ProviderBadge company={company} />
         {company.slug && <span className="text-sm text-muted-foreground">{company.slug}</span>}
+        {company.batch && <Badge variant="outline">YC {company.batch}</Badge>}
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         discovered {formatTime(company.discovered_at)}
@@ -245,6 +246,7 @@ export function Companies() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-foreground">{company.name}</span>
                     <ProviderBadge company={company} />
+                    {company.batch && <Badge variant="outline">YC {company.batch}</Badge>}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     discovered {formatTime(company.discovered_at)}

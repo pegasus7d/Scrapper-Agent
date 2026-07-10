@@ -36,11 +36,12 @@ def list_companies(
 
 @router.post("/companies/discover")
 def discover_companies(session: SessionDep) -> DiscoveryResult:
-    """Run one real discovery pass against the YC company directory,
-    storing any real company names not already on file (step 5's own
-    smoke test hits this endpoint directly)."""
-    names = discover_yc_companies(build_yc_fetcher())
-    discovered = sum(1 for name in names if repo.save_company(session, name))
+    """Run one real discovery pass against the YC company directory (a real
+    scrolled session, PHASE8.md step 5 — not just the first 40 cards),
+    storing any real companies not already on file (step 5's own smoke
+    test hits this endpoint directly)."""
+    companies = discover_yc_companies(build_yc_fetcher())
+    discovered = sum(1 for c in companies if repo.save_company(session, c.name, batch=c.batch))
     _, total = repo.list_companies(session)
     return DiscoveryResult(discovered=discovered, total=total)
 

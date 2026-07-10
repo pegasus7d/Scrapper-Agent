@@ -159,6 +159,7 @@ class CompanyOut(BaseModel):
     name: str
     slug: str | None
     ats_provider: str | None
+    batch: str | None
     discovered_at: datetime
     last_checked_at: datetime | None
 

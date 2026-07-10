@@ -25,12 +25,14 @@ def mark_company_checked(
     session.commit()
 
 
-def save_company(session: Session, name: str) -> bool:
-    """Insert one discovered company; returns False when already known."""
+def save_company(session: Session, name: str, *, batch: str | None = None) -> bool:
+    """Insert one discovered company; returns False when already known.
+    `batch` (PHASE8.md step 5) is only meaningful for YC-discovered
+    companies — any other discovery source leaves it null."""
     exists = session.scalar(select(Company.id).where(Company.name == name))
     if exists is not None:
         return False
-    session.add(Company(name=name, discovered_at=datetime.now(UTC)))
+    session.add(Company(name=name, batch=batch, discovered_at=datetime.now(UTC)))
     session.commit()
     return True
 

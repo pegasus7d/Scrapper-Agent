@@ -100,6 +100,9 @@ class Company(Base):
     name: Mapped[str] = mapped_column(unique=True)
     slug: Mapped[str | None] = mapped_column(default=None)
     ats_provider: Mapped[str | None] = mapped_column(default=None)  # "greenhouse" | "lever"
+    # YC batch (e.g. "Summer 2013") — only meaningful for YC-discovered
+    # companies (PHASE8.md step 5); null for any other discovery source.
+    batch: Mapped[str | None] = mapped_column(default=None)
     discovered_at: Mapped[datetime]
     last_checked_at: Mapped[datetime | None] = mapped_column(default=None)
 
