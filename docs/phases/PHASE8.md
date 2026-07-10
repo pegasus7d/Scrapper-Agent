@@ -455,9 +455,50 @@ rule 2):
    seeing it already included `"a16z"`, which meant the *server process*,
    not the code, was stale. Killed by PID directly, confirmed a truly new
    process before retrying.
-   **Sequoia, Founders Fund, and Bessemer still pending** — real page
-   structure not yet confirmed for any of the three; that's the next unit
-   of work for this step, one VC at a time, same discipline as a16z above.
+   **Sequoia done** (2/4), in two commits plus one real bug fix caught
+   mid-smoke-test. A genuinely different real shape from a16z's inline JS
+   array: Sequoia's full, accessible company table
+   (`table#company_listing`) lives inside a Bootstrap tab-pane hidden by
+   default and is itself paginated behind a real "Load More" button, not a
+   scroll — confirmed directly (52 companies, alphabetically A-C only,
+   before any interaction; 412, A-Z, after clicking the tab open once and
+   "Load More" repeatedly). Rather than a Sequoia-specific hack,
+   generalized `ScraplingTransport` with `tab_selector`/`load_more_selector`
+   params (`_click_load_more`, alongside the existing `_scroll`) — the
+   same real dependency-injection discipline as everywhere else in this
+   project, since a future VC source may need the same shape again.
+   Real bug caught mid-smoke-test, not assumed away: the first live run
+   through the actual API found **0** companies despite the direct script
+   test right before it finding 412. Root-caused by re-fetching and
+   inspecting the actual returned DOM: clicking `#all-tab` triggers a real
+   FacetWP AJAX re-render that *replaces* the whole results table —
+   sometimes leaving `<tbody class="facetwp-template"></tbody>` genuinely
+   empty for a window after the tab click, and a `.facetwp-load-more`
+   click during that window either finds nothing or clicks a soon-to-be
+   -stale `ElementHandle`, raising a generic Playwright `Error` (not a
+   clean timeout) when the AJAX re-render replaces the DOM mid-click. Not
+   a one-off flake: a second bare-script repro (bypassing the API) showed
+   the same failure at iteration 2. Fixed by waiting for real rows
+   (`page.wait_for_selector(...)`) after the tab click instead of a blind
+   sleep, and by tolerating up to 3 *consecutive* click errors (retrying
+   with a fresh `query_selector` each time, since each failure is a
+   transient race with in-flight AJAX, not proof the button is gone) while
+   still stopping immediately and correctly when the button is genuinely
+   `None` — the real end-of-results signal once the last page has loaded.
+   Confirmed fixed with a direct script run (411 companies, A-Z,
+   reproducible) before trusting the live API smoke test again.
+   Smoke: real live app (a truly fresh process this time, killed by exact
+   PID rather than a `pkill` pattern, after the same-shaped stale-process
+   trap already documented for step 1/a16z above), real POST to
+   `/companies/discover?source=sequoia` against the actual internet — 355
+   new real companies discovered and saved, 1406 total after (some
+   overlap with a16z/YC/Wikipedia rows already on file, expected).
+   Confirmed genuinely distinguishable by `source`
+   (`?source=sequoia&q=HubSpot` returns exactly one real row). Confirmed
+   idempotent: an immediate second discovery run found 0 new companies.
+   **Founders Fund and Bessemer still pending** — real page structure not
+   yet confirmed for either; that's the next unit of work for this step,
+   one VC at a time, same discipline as a16z/Sequoia above.
 10. **`FEATURES.md` (docs).** A user-facing summary of what the app can
     actually do today, written last and only after steps 1-9 are real —
     describing a feature before it exists is exactly the kind of thing
