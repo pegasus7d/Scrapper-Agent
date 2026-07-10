@@ -15,6 +15,7 @@ from backend import config
 from backend.api.routes import router
 from backend.api.routes_companies import router as companies_router
 from backend.api.routes_resume import router as resume_router
+from backend.api.routes_runs import router as runs_router
 from backend.db import repo
 from backend.scraper.tasks import run_consumer
 
@@ -43,6 +44,7 @@ def create_app(engine: Engine | None = None, *, start_consumer: bool = True) -> 
     app.include_router(router, prefix="/api")
     app.include_router(companies_router, prefix="/api")
     app.include_router(resume_router, prefix="/api")
+    app.include_router(runs_router, prefix="/api")
 
     if start_consumer:
         threading.Thread(target=run_consumer, daemon=True).start()

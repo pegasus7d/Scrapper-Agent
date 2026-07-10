@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from backend import config
-from backend.api import routes
+from backend.api import routes, routes_runs
 from backend.api.main import create_app
 from backend.db import migrate, repo, vectors
 from backend.db.models import Run
@@ -34,7 +34,9 @@ def engine() -> Engine:
 def batch_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, list[str], str]]:
     calls: list[tuple[str, list[str], str]] = []
     monkeypatch.setattr(
-        routes, "enqueue_batch", lambda kind, sources, model: calls.append((kind, sources, model))
+        routes_runs,
+        "enqueue_batch",
+        lambda kind, sources, model: calls.append((kind, sources, model)),
     )
     return calls
 
@@ -54,7 +56,7 @@ def client(
     # enqueue_batch is faked the same way — batch_calls records what it
     # would have queued, tested separately (Huey pipeline wiring is
     # tested in test_tasks).
-    monkeypatch.setattr(routes, "run_scrape_task", fake_run_scrape_task)
+    monkeypatch.setattr(routes_runs, "run_scrape_task", fake_run_scrape_task)
     return TestClient(create_app(engine, start_consumer=False))
 
 
@@ -141,14 +143,15 @@ def test_start_run_batch_rejects_empty_sources(client: TestClient) -> None:
 
 
 def _fake_local_models(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        routes,
-        "list_local_models",
-        lambda: [
-            LocalModel(name="qwen2.5:7b-instruct", size_bytes=4_683_087_332),
-            LocalModel(name="phi4-mini:3.8b", size_bytes=2_400_000_000),
-        ],
-    )
+    # Patches both modules: routes.py's GET /models calls list_local_models
+    # directly, routes_runs.py's _resolve_model calls it independently
+    # (PHASE9.md step 3 split them into separate files).
+    models = [
+        LocalModel(name="qwen2.5:7b-instruct", size_bytes=4_683_087_332),
+        LocalModel(name="phi4-mini:3.8b", size_bytes=2_400_000_000),
+    ]
+    monkeypatch.setattr(routes, "list_local_models", lambda: models)
+    monkeypatch.setattr(routes_runs, "list_local_models", lambda: models)
 
 
 def test_list_models_returns_installed_only(
