@@ -114,6 +114,11 @@ SUBMIT_CONFIRMATION_POLICY = "risky"  # "always" | "risky" | "never"
 AUTOAPPLY_LLM_CONFIDENCE_THRESHOLD = 0.7
 MAX_APPLICATIONS_PER_DAY = 10
 MAX_CONSECUTIVE_APPLICATION_FAILURES = 3
+# Pacing (PHASE10.md step 3) — a real, minimum gap between application
+# starts. A human applying to jobs one at a time doesn't fire submissions
+# back-to-back; a fixed 5-minute floor is a real, conservative bound, not
+# tuned to any platform's specific detection thresholds (none published).
+MIN_SECONDS_BETWEEN_APPLICATIONS = 300
 
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 

@@ -29,6 +29,11 @@ class ApplicationCapReached(Exception):
     """Raised when MAX_APPLICATIONS_PER_DAY would be exceeded."""
 
 
+class PacingViolation(Exception):
+    """Raised when MIN_SECONDS_BETWEEN_APPLICATIONS hasn't elapsed since the
+    last application attempt."""
+
+
 def _settings(session: Session) -> AutoApplySettings:
     row = session.get(AutoApplySettings, _SETTINGS_ROW_ID)
     if row is None:
@@ -100,6 +105,29 @@ def check_daily_cap(session: Session) -> None:
     if applications_started_today(session) >= config.MAX_APPLICATIONS_PER_DAY:
         raise ApplicationCapReached(
             f"already started {config.MAX_APPLICATIONS_PER_DAY} applications today"
+        )
+
+
+def seconds_since_last_application(session: Session) -> float | None:
+    """Real elapsed time since the most recently started Application, or
+    None when no application has ever been attempted."""
+    last_started_at = session.scalar(select(func.max(Application.started_at)))
+    if last_started_at is None:
+        return None
+    if last_started_at.tzinfo is None:
+        last_started_at = last_started_at.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - last_started_at).total_seconds()
+
+
+def check_pacing(session: Session) -> None:
+    """Raise PacingViolation when the last application started less than
+    MIN_SECONDS_BETWEEN_APPLICATIONS ago — a human applying one at a time
+    doesn't fire submissions back-to-back."""
+    elapsed = seconds_since_last_application(session)
+    if elapsed is not None and elapsed < config.MIN_SECONDS_BETWEEN_APPLICATIONS:
+        raise PacingViolation(
+            f"only {elapsed:.0f}s since the last application "
+            f"(minimum {config.MIN_SECONDS_BETWEEN_APPLICATIONS}s)"
         )
 
 

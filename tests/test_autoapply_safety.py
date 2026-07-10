@@ -134,6 +134,45 @@ def test_check_daily_cap_raises_once_the_limit_is_reached(
         safety.check_daily_cap(session)
 
 
+def test_seconds_since_last_application_is_none_with_no_applications(session: Session) -> None:
+    assert safety.seconds_since_last_application(session) is None
+
+
+def test_seconds_since_last_application_reflects_a_real_gap(session: Session) -> None:
+    company = make_company(session)
+    make_application(
+        session, company=company, started_at=datetime.now(UTC) - timedelta(seconds=120)
+    )
+    elapsed = safety.seconds_since_last_application(session)
+    assert elapsed is not None
+    assert 110 <= elapsed <= 130
+
+
+def test_check_pacing_does_not_raise_with_no_applications(session: Session) -> None:
+    safety.check_pacing(session)
+
+
+def test_check_pacing_raises_when_too_recent(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(config, "MIN_SECONDS_BETWEEN_APPLICATIONS", 300)
+    company = make_company(session)
+    make_application(session, company=company, started_at=datetime.now(UTC))
+    with pytest.raises(safety.PacingViolation):
+        safety.check_pacing(session)
+
+
+def test_check_pacing_does_not_raise_once_enough_time_has_passed(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(config, "MIN_SECONDS_BETWEEN_APPLICATIONS", 300)
+    company = make_company(session)
+    make_application(
+        session, company=company, started_at=datetime.now(UTC) - timedelta(seconds=301)
+    )
+    safety.check_pacing(session)
+
+
 def test_stuck_detector_resets_on_success() -> None:
     detector = safety.StuckDetector(max_consecutive_failures=2)
     detector.record(success=False)
