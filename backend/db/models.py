@@ -77,6 +77,21 @@ class InterviewQuestion(Base):
     run_id: Mapped[int] = mapped_column(ForeignKey("runs.id"))
 
 
+class Company(Base):
+    """One discovered company (PHASE7.md step 5) — unresolved until slug
+    resolution (step 6) finds a real ATS match; resolved rows become
+    dynamic scrape sources (step 7) instead of a hand-curated list."""
+
+    __tablename__ = "companies"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True)
+    slug: Mapped[str | None] = mapped_column(default=None)
+    ats_provider: Mapped[str | None] = mapped_column(default=None)  # "greenhouse" | "lever"
+    discovered_at: Mapped[datetime]
+    last_checked_at: Mapped[datetime | None] = mapped_column(default=None)
+
+
 class Schedule(Base):
     """A recurring scrape: run this kind/source every N hours (PHASE2.md step 6)."""
 

@@ -3,6 +3,7 @@
 - `_writes`: run lifecycle, dedupe normalization, item saving.
 - `_queries`: paginated lists, filters, export, dashboard stats.
 - `_schedules`: schedule CRUD and the due-check the scheduler polls.
+- `_companies`: discovered-company CRUD (PHASE7.md step 5).
 
 Re-exported flat here so callers keep writing `repo.save_job(...)`,
 `repo.list_jobs(...)`, `repo.due_schedules(...)` etc. — the split is purely
@@ -10,6 +11,7 @@ an internal file-size concern (CLAUDE.md's 300-line cap), not a public API
 change.
 """
 
+from ._companies import list_companies, save_company, unresolved_companies
 from ._queries import (
     Stats,
     compute_stats,
@@ -59,6 +61,7 @@ __all__ = [
     "finish_run",
     "get_run",
     "item_url_exists",
+    "list_companies",
     "list_jobs",
     "list_questions",
     "list_runs",
@@ -70,8 +73,10 @@ __all__ = [
     "record_error",
     "recover_stale_runs",
     "request_cancel",
+    "save_company",
     "save_job",
     "save_question",
     "set_job_starred",
     "set_schedule_enabled",
+    "unresolved_companies",
 ]

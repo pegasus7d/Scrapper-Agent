@@ -28,6 +28,9 @@ USER_AGENT = "scraper-agent/0.1 (personal research tool; debayanbiswas1111@gmail
 API_PORT = 8000
 CORS_ORIGINS = ["http://localhost:5173"]
 DATABASE_URL = "sqlite:///scraper.db"
+# robots.txt confirmed (PHASE7.md step 5): only /companies?* (query-string
+# filtered views) is disallowed — the bare listing page below is not.
+YC_COMPANIES_URL = "https://www.ycombinator.com/companies"
 
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 
