@@ -223,6 +223,23 @@ rule 2):
    or whether the stat itself needs a second card/rename so both real
    numbers stay visible and distinct. `npm run build` gate; real look in a
    browser.
+   **Done.** Resolved: a second real number, not a rename that loses one.
+   `Stats`/`StatsOut` gain `discovered_companies` (one extra `COUNT` in
+   `compute_stats`, against the real `companies` table), the existing
+   card relabeled "Companies hiring" and kept pointed at Jobs (that's
+   where those company names actually live), a new "Discovered
+   companies" card added pointing at the Companies view. Confirmed for
+   real against live data the two numbers are genuinely different (115
+   vs. 40) — not a hypothetical edge case. `StatCard` takes an optional
+   `onClick`; Escalation rate stays deliberately non-interactive — no
+   filter for extraction tier exists on Jobs/Questions today, so forcing
+   a destination would be worse than leaving it inert.
+   Smoke: real headless-Chromium session against the live app — clicking
+   "Discovered companies" navigated to Companies, clicking "Jobs"
+   navigated to Jobs, and Playwright's own strictness (refuses to click
+   a disabled element) confirmed the Escalation rate card is genuinely
+   non-interactive rather than just visually different, zero console
+   errors.
 4. **Richer live-run feedback (frontend).** Build on `RunProgressPanel` +
    `useRunsLive`'s existing SSE stream — no animation library (frontend/
    CLAUDE.md), CSS transitions / hand-rolled tweens only, following
