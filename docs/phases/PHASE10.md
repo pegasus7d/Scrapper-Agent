@@ -465,6 +465,22 @@ stops, not routed around.
    giving a genuine per-application replay rather than a final-outcome
    summary. Buildable and testable now, independent of any real
    submission ever happening.
+   **Done.** `backend/autoapply/events.py` mirrors
+   `backend/db/repo/_writes.py`'s `create_run`/`finish_run` lifecycle
+   exactly: `start_application`/`finish_application` for the `Application`
+   row (schema from step 3), plus `record_event`/`list_events` for the
+   append-only `ApplicationEvent` trail — `record_event` only ever
+   inserts, `parent_event_id` links a retry back to the failed attempt it
+   responds to, `list_events` replays oldest-first. 9 real unit tests
+   (`tests/test_autoapply_events.py`, in-memory SQLite) cover a full
+   detect → fill → failed-submit → retry-submit sequence, log scoping
+   across multiple applications, and that later events never mutate
+   earlier ones. Real smoke test against the actual dev DB: started a
+   real `Application` row against a real company, recorded 4 real events
+   including a failed→retried `submit` pair, replayed the log in order,
+   finished the application, then deleted the smoke-test rows and
+   confirmed both tables were back to empty. `pytest` (392 passed) /
+   `mypy` / `ruff check` / `ruff format --check` all green.
 5. **Structured applicant profile (backend + frontend).** New fields on
    resume upload: current/expected salary, phone, work authorization,
    relocation, start-date availability. **Real, hard stop on real data**:
