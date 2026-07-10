@@ -326,15 +326,31 @@ down here (WORKFLOW.md rule 2):
    `routes.py`, which was already at the 300-line cap; `_session`/
    `SessionDep` pulled out into a new shared `backend/api/deps.py` so both
    router files can depend on it without importing each other.
-   Smoke: real discovery run through the live API (against a scratch copy
-   of `scraper.db`, never the original) — `POST /api/companies/discover`
-   returned `{"discovered": 40, "total": 40}` on the first pass, with real,
-   recognizable company names landing in the table (Deel, Heap, Lever,
-   Checkr, Codecademy, Brex, and 34 more), all correctly unresolved
-   (`ats_provider: null`) since slug resolution is step 6. Re-ran the same
-   endpoint a second time to confirm dedupe: `{"discovered": 0, "total": 40}`
-   — no duplicate rows, confirming `save_company`'s check-then-insert is
-   correctly idempotent across repeated discovery runs.
+   Smoke: real discovery run through the live API — `POST
+   /api/companies/discover` returned `{"discovered": 40, "total": 40}` on
+   the first pass, with real, recognizable company names landing in the
+   table (Deel, Heap, Lever, Checkr, Codecademy, Brex, and 34 more), all
+   correctly unresolved (`ats_provider: null`) since slug resolution is
+   step 6. Re-ran the same endpoint a second time to confirm dedupe:
+   `{"discovered": 0, "total": 40}` — no duplicate rows, confirming
+   `save_company`'s check-then-insert is correctly idempotent across
+   repeated discovery runs.
+   **Correction (caught while smoke-testing step 6):** this smoke test was
+   meant to run against a scratch copy, `DATABASE_URL=... uvicorn ...`, the
+   same override pattern earlier steps used for the real dev DB. It
+   silently did not work: `config.DATABASE_URL` is a hardcoded module
+   constant, never read from the environment — unlike the Alembic
+   `-x db_url=...` override (step 1), there is no equivalent hook for the
+   running app. The 40 real companies above actually landed in the real
+   `scraper.db`, confirmed via a direct `sqlite3` query. Assessed as
+   harmless rather than reverted: this is exactly the real, intended output
+   of the feature just built (discovering real companies to scrape later),
+   not a destructive mutation of unrelated data — jobs/questions/runs rows
+   were untouched. Noted here for honesty, not swept under the rug; no code
+   fix needed since single-user local tools have no real reason to swap
+   databases at runtime — worth remembering next time a "scratch DB" smoke
+   test is claimed, verify the override actually took effect before
+   trusting it.
 6. **Slug resolution (backend).** For each undiscovered-provider company,
    try a name-derived slug guess against both
    `boards-api.greenhouse.io/v1/boards/{slug}/jobs` and
@@ -342,6 +358,38 @@ down here (WORKFLOW.md rule 2):
    skip, not a failure. Smoke: run against real discovered companies,
    confirm the real hit rate (won't be 100% — slugs don't always match
    names) and that misses are skipped cleanly, not treated as errors.
+   **Done.** `backend/scraper/resolve.py`: `guess_slug(name)` strips
+   everything but lowercase alphanumerics — verified for real against 10 of
+   step 5's actual discovered companies before writing the algorithm
+   (curl'd both APIs directly): "Airbnb"/"Checkr"/"Brex"/"Coinbase"/
+   "Figma"/"Stripe" all hit Greenhouse under a plain no-space lowercase
+   slug, "The Athletic" hits Lever only as `theathletic` (a hyphenated
+   `the-athletic` guess 404s on both) — confirming the normalization rule
+   before committing to it, not guessing. `resolve_company(name,
+   transport)` probes Greenhouse then Lever directly via `HttpxTransport`
+   (not `PageFetcher`, which collapses every non-2xx/429/5xx status into
+   one `FetchError` — this needs the real per-call `200`/`404` distinction).
+   `resolve_unresolved_companies(session)` orchestrates it against
+   `repo.unresolved_companies`, returning a `ResolutionSummary(checked,
+   resolved)`; every probed company gets `last_checked_at` set via the new
+   `repo.mark_company_checked`, whether or not it resolved, so a future run
+   only re-probes genuinely still-unresolved companies. New `POST
+   /api/companies/resolve` endpoint.
+   Smoke: real resolution run through the live API against the real 40
+   companies step 5's smoke test actually discovered (see step 5's
+   correction note above) — `POST /api/companies/resolve` returned
+   `{"checked": 40, "resolved": 22}`, a genuine 55% hit rate, not 100% as
+   expected. Spot-checked real results: Lever→lever, Checkr→greenhouse,
+   "The Athletic"→lever (slug `theathletic`, confirming the normalization
+   rule held on a real company beyond the one it was derived from),
+   Brex/Bird/Twitch/Truebill/Algolia→greenhouse. Unresolved companies
+   (Deel, Sendwave, Heap, Clipboard, Codecademy, and 13 more) correctly got
+   `last_checked_at` set with `ats_provider` still `null` — a real,
+   timestamped "checked, no match" record, not silently indistinguishable
+   from "never checked." Re-ran the endpoint a second time to confirm the
+   unresolved-only scoping: `{"checked": 18, "resolved": 0}` — exactly the
+   18 still-unresolved companies were re-probed, not all 40, and no new
+   matches (deterministic guesses against the same real APIs).
 7. **Resolved companies become real sources (backend).** Turn each
    resolved `Company` row into a `Source` at scrape time (parameterized by
    its stored slug/provider, existing protocol shape) instead of a fixed
