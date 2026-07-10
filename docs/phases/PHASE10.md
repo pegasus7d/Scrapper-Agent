@@ -554,6 +554,46 @@ stops, not routed around.
    — falling back to the existing LLM cascade only for genuinely
    open-ended questions, grounded in resume Markdown + the job posting.
    Every answer logged through step 4's event log.
+   **Done.** `backend/autoapply/answers.py`'s six tools (`get_phone`,
+   `get_current_salary`, `get_expected_salary`, `get_work_authorization`,
+   `get_relocation_willingness`, `get_start_date_availability`) are plain
+   functions over `ApplicantProfile`; `_tool()` builds each one's
+   LLM-visible `AnswerTool.description` straight from `func.__doc__` (a
+   missing docstring is a real `ValueError` at import time, not a silent
+   gap) — `_tools_description()` is what the prompt actually sees, never
+   a hand-duplicated list. New `FormAnswerChoice` schema
+   (`backend/schemas.py`) + its prompt/criteria entry
+   (`backend/scraper/prompts.py`, the same shared registry
+   `backend/resume.py` already extends for `ResumePosition`) route through
+   the real, existing `Extractor` cascade — `build_answer_extractor()`
+   mirrors `build_resume_extractor()` exactly, so
+   `MAX_ESCALATIONS_PER_RUN` really is this feature's LLM-spend cap, per
+   step 3's design decision, not a new constant. `answer_field()` always
+   prefers a matched tool's real profile value over any LLM-written guess,
+   and logs every outcome through step 4's `record_event`
+   (`action="answer_field:<question>"`, `success` = whether a real answer
+   was produced). 8 real unit tests (`tests/test_autoapply_answers.py`,
+   scripted fake `LLMClient`, no network).
+   Real smoke test (real Ollama `qwen2.5:7b-instruct` calls, the real
+   — currently all-unset — applicant profile, a real company from the dev
+   DB): a phone-number question correctly routed to `get_phone` and
+   correctly came back `unanswered` since the real profile has no phone
+   saved (no fabrication); a vague open-ended question ("why are you a
+   good fit") came back empty (`{"items": []}` — the model chose not to
+   guess); a **real, honest failure mode found**: a resume-adjacent but
+   not-quite-matching question ("what programming languages…") made the
+   7b model hallucinate a plausible-sounding but nonexistent tool name
+   (`get_programming_languages`) instead of writing a grounded answer —
+   handled safely by `_resolve_answer`'s unknown-tool-name branch
+   (`unanswered`, never fabricated), not a crash or a wrong answer, but a
+   real reliability limit of the local model worth knowing about; a
+   fourth real check, with a resume containing concrete, specific,
+   on-topic content, produced a real, correctly-grounded free-text answer
+   pulled directly from that content — confirming the open-ended fallback
+   genuinely works when the resume actually supports the answer. Smoke-
+   test `Application`/`ApplicationEvent` rows deleted afterward. `pytest`
+   (413 passed) / `mypy` / `ruff check` / `ruff format --check` all
+   green.
 8. **Real Greenhouse/Lever form-structure investigation, extending step
    1's filler (backend).** Point `detect_fields` at real, live
    Greenhouse/Lever job-posting pages (read-only — loading the page and
