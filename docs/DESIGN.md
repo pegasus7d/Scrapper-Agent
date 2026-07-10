@@ -435,6 +435,17 @@ docs instead of code:
   `largest_us_companies` source only covered the top ~100 companies by
   revenue — real, verified gap, missed companies like Netflix entirely),
   plus more VC portfolio sources beyond the four PHASE8.md already landed.
+- **[[docs/phases/PHASE10.md]]** — auto-apply (not started; only step 1
+  approved to build, everything past it needs fresh confirmation): the
+  project's first *write* action against a third party rather than a read.
+  Step 1 is a self-contained spike — build a local test form and a
+  Playwright routine that fills and submits it, proving the automation
+  mechanism works before ever pointing it at a real ATS. Everything else
+  (fully autonomous submission against real Greenhouse/Lever forms, a
+  mandatory ToS check before that starts, a structured applicant profile,
+  match-score gating, safety caps/kill switch, closing the loop with
+  interview-question surfacing and reply detection) is scoped in the file
+  but deliberately not started.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
