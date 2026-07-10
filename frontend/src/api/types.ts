@@ -88,3 +88,22 @@ export interface ResumeMarkdown {
 export interface ResumePositions {
   positions: string[]
 }
+
+export interface Company {
+  id: number
+  name: string
+  slug: string | null
+  ats_provider: string | null
+  discovered_at: string
+  last_checked_at: string | null
+}
+
+export interface DiscoveryResult {
+  discovered: number
+  total: number
+}
+
+export interface ResolutionResult {
+  checked: number
+  resolved: number
+}
