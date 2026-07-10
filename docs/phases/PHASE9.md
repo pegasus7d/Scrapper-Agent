@@ -395,6 +395,31 @@ sync by hand.
    spot-check of a few other real Russell 1000 names) land with
    `source="russell1000"`, distinguishable from the existing
    `largest_us_companies` rows.
+   **Done, in one commit.** Registered as `"russell1000"` in the step 1
+   registry, exactly as planned — no `if` branch added.
+   `discovery.py` crossed the 300-line cap again the moment Russell 1000
+   landed alongside YC and the registry/orchestration code — split into
+   `discovery.py` + a new `discovery_lists.py` (the two Wikipedia "large
+   company list" sources: `largest_us_companies` and `russell1000`),
+   mirroring the existing `discovery_vc.py` split.
+   The real payoff of step 2's registry refactor showed up here directly:
+   the frontend needed **zero code changes** to support this seventh
+   source — `GET /companies/sources` already serves whatever's in the
+   backend registry, so both the Companies view's dropdowns and
+   `SchedulesPanel` picked up "Russell 1000" automatically.
+   Smoke: real live app, fresh process. `GET /companies/sources` returned
+   all seven real sources including `{"name": "russell1000", "label":
+   "Russell 1000"}`. Confirmed Netflix genuinely absent before discovery
+   (`?q=Netflix` → 0 results) — real POST `/companies/discover?source=
+   russell1000` (897 new companies, 2817 total, fast — 1.3s, plain
+   `HttpxTransport`, no browser) — Netflix now present with
+   `source="russell1000"`. Spot-checked 3M, Zoom (2 real distinct
+   companies — ZoomInfo and Zoom Communications), Tesla — all correct.
+   Confirmed idempotent (second run: 0 new). Real headless-Chromium
+   session confirmed "Russell 1000" genuinely renders in the live
+   Companies view's discovery dropdown with zero console errors — the
+   frontend change that *didn't* need to happen, verified for real, not
+   assumed from the architecture alone.
 10. **More VC portfolio sources (backend).** PHASE8.md's own "Deliberately
     deferred, not forgotten" section already flagged this: every VC beyond
     the four verified there (a16z, Sequoia, Founders Fund, BVP) needs the
