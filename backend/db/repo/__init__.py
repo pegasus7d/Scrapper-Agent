@@ -11,7 +11,7 @@ an internal file-size concern (CLAUDE.md's 300-line cap), not a public API
 change.
 """
 
-from ._companies import list_companies, save_company, unresolved_companies
+from ._companies import list_companies, mark_company_checked, save_company, unresolved_companies
 from ._queries import (
     Stats,
     compute_stats,
@@ -67,6 +67,7 @@ __all__ = [
     "list_runs",
     "list_schedules",
     "make_engine",
+    "mark_company_checked",
     "mark_schedule_run",
     "normalize_url",
     "question_hash",

@@ -38,8 +38,31 @@ def test_unresolved_companies_excludes_resolved(session: Session) -> None:
     repo.save_company(session, "Unresolved")
     resolved = repo.list_companies(session)[1]
     assert resolved.name == "Resolved"
-    resolved.ats_provider = "greenhouse"
-    session.commit()
+    repo.mark_company_checked(session, resolved, slug="resolved", ats_provider="greenhouse")
 
     unresolved = [c.name for c in repo.unresolved_companies(session)]
     assert unresolved == ["Unresolved"]
+
+
+def test_mark_company_checked_sets_last_checked_at_even_without_a_match(
+    session: Session,
+) -> None:
+    repo.save_company(session, "Unresolved")
+    company = repo.list_companies(session)[0]
+    repo.mark_company_checked(session, company)
+
+    session.refresh(company)
+    assert company.last_checked_at is not None
+    assert company.ats_provider is None
+    assert company in repo.unresolved_companies(session)
+
+
+def test_mark_company_checked_records_a_real_match(session: Session) -> None:
+    repo.save_company(session, "Airbnb")
+    company = repo.list_companies(session)[0]
+    repo.mark_company_checked(session, company, slug="airbnb", ats_provider="greenhouse")
+
+    session.refresh(company)
+    assert company.slug == "airbnb"
+    assert company.ats_provider == "greenhouse"
+    assert company not in repo.unresolved_companies(session)
