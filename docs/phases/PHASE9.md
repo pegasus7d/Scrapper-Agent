@@ -128,6 +128,27 @@ sync by hand.
    default into). Smoke: real browser session confirming the Companies
    view's discovery dropdowns still show all six real sources with correct
    labels, sourced from wherever step 2 lands, not a stale hardcoded copy.
+   **Done, in two commits (backend, frontend).** Went with option (a): a
+   real `GET /companies/sources` endpoint, same pattern `GET /models`
+   already uses — this fully closes the gap, not just shrinks it, since
+   option (b) still leaves a hand-maintained label dict that could drift
+   again exactly like it already did once. `DiscoverySource` gained a
+   `label` field (registry-owned, not the frontend's concern anymore);
+   `discovery_source_labels()` exposes real `(name, label)` pairs;
+   `DiscoverySourceOut` DTO and the route mirror `ModelOut`/`GET /models`
+   directly. Frontend: `COMPANY_DISCOVERY_SOURCES` and `SOURCE_LABELS` both
+   deleted outright, replaced by a `DiscoverySource` type + `labelFor()`
+   helper, fetched once per component via `useApi('/companies/sources')`
+   (Companies.tsx, CompanyDrawer.tsx via a new `sources` prop,
+   SchedulesPanel.tsx) — no shared client-side cache, matching this
+   project's existing "no state library" convention (frontend/CLAUDE.md).
+   Smoke: real live app, fresh processes. `curl localhost:8000/api/companies/sources`
+   returned all six real `(name, label)` pairs. Real headless-Chromium
+   session: Companies view's both dropdowns showed all six real labels
+   ("YC", "Largest US companies", "a16z", "Sequoia", "Founders Fund",
+   "BVP"), the Discover button's text updated correctly per selection, and
+   the Dashboard's SchedulesPanel showed the same six real labels once
+   "companies" kind was selected — zero console errors in either view.
 3. **Split `api/routes.py` proactively (backend).** Sitting at 285/300
    lines, importing directly from 8+ modules (discovery, tasks, search,
    models, llm client, export, stream) — it's been split twice already
