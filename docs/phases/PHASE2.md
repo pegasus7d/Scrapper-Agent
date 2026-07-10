@@ -4,7 +4,7 @@ Read [[docs/DESIGN.md]] first for the system contract; this file only holds phas
 step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as [[docs/PHASE1.md]]: one step at a time, small commits, all checks
+Same workflow rules as [[docs/phases/PHASE1.md]]: one step at a time, small commits, all checks
 green (now including `npm run build` for frontend changes), real smoke test at each
 step boundary before moving on.
 
@@ -45,4 +45,4 @@ crossed the 300-line cap, so `routes.py`'s Pydantic models moved to `api/dto.py`
 and `repo.py` became a `repo/` package (`_writes.py`, `_queries.py`,
 `_schedules.py`, re-exported flat via `__init__.py` — no call site changed).
 
-Next: [[docs/PHASE3.md]].
+Next: [[docs/phases/PHASE3.md]].

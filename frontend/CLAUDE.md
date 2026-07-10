@@ -10,7 +10,7 @@ React + Vite + TypeScript strict + Tailwind. **shadcn/ui** primitives are
 vendored into `frontend/src/components/ui/` (reviewable code in the repo, not
 a black-box dependency), plus **sonner** for toasts and **recharts** for
 dashboard charts (phase 2 amendment, rules in DESIGN.md §6 — `recharts` is
-flagged for removal in [[docs/PHASE6.md]] step 5: ~351 KB, 42% of the bundle, for
+flagged for removal in [[docs/phases/PHASE6.md]] step 5: ~351 KB, 42% of the bundle, for
 one simple grouped bar chart a hand-rolled SVG component replaces).
 
 - Vendored `components/ui/` files are generated starting points: type-checked
@@ -18,7 +18,7 @@ one simple grouped bar chart a hand-rolled SVG component replaces).
   only for theme integration, keep app logic out of them.
 - Everything else in `frontend/src` is held to the same standard as the
   backend (see root CLAUDE.md's Code Quality section).
-- **No animation library.** `motion` was dropped in [[docs/PHASE5.md]] step 4:
+- **No animation library.** `motion` was dropped in [[docs/phases/PHASE5.md]] step 4:
   used in exactly one place (`AnimatedNumber.tsx`'s stat-card count-up),
   pulled in the full `framer-motion/dom` build (gesture/layout/SVG-path
   engines never touched), and its `motion/mini` subpath wasn't a safe

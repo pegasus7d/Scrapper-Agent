@@ -23,4 +23,4 @@ workflow") — never mix two steps in one commit.
 
 **Phase 1 (steps 0–6) is complete** — every step validated and smoke-tested.
 
-Next: [[docs/PHASE2.md]].
+Next: [[docs/phases/PHASE2.md]].

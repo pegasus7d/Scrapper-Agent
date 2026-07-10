@@ -4,10 +4,10 @@ Read [[docs/DESIGN.md]] first for the system contract; this file only holds phas
 step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as [[docs/PHASE1.md]]/[[docs/PHASE2.md]]. Two things motivated this phase:
+Same workflow rules as [[docs/phases/PHASE1.md]]/[[docs/phases/PHASE2.md]]. Two things motivated this phase:
 `sources.py`'s flat if/elif dispatch across three functions would hit the
 300-line cap again the moment a 4th or 5th platform landed (the exact failure
-mode [[docs/PHASE2.md]] step 8 just hit for `routes.py`/`repo.py`) — so formalize the
+mode [[docs/phases/PHASE2.md]] step 8 just hit for `routes.py`/`repo.py`) — so formalize the
 plugin shape *before* adding more platforms, not after. Second, the
 interview-questions source is still weak (HN comment search returns mostly
 meta-discussion, few real questions); rather than scrape another forum, ingest
@@ -38,7 +38,7 @@ anti-bot block page even for a plain `robots.txt` request. Both join Reddit
    `robots.txt` has no disallow rules at all. Structured fields (position,
    company, location, description) still routed through the same LLM
    extraction path as every other source, same reasoning as RemoteOK
-   ([[docs/PHASE2.md]] step 7).
+   ([[docs/phases/PHASE2.md]] step 7).
 4. **GitHub curated question-bank source.** Ingests
    `h5bp/Front-end-Developer-Interview-Questions` (MIT licensed, 60k+ stars) —
    flat markdown bullet lists of real questions, no answers, no company
@@ -49,7 +49,7 @@ anti-bot block page even for a plain `robots.txt` request. Both join Reddit
    - `QuestionExtract.company` and `interview_questions.company` become
      nullable (DESIGN.md §2) — this source is genuinely companyless, not a gap
      in the data. `question_hash` normalizes null company to `""` before hashing.
-   - The questions relevance-gate prompt ([[docs/PHASE2.md]] step 2) relaxes the "a
+   - The questions relevance-gate prompt ([[docs/phases/PHASE2.md]] step 2) relaxes the "a
      specific company must be named" requirement to "a company is named, OR
      this is a well-known generic technical/behavioral question" — the
      company-naming rule was never really what filtered HN's junk (the
@@ -75,4 +75,4 @@ listed LeetCode Discuss, Blind, and "relevant subreddits" as example
 or fully disallowed once actually checked. Fixed to reflect what's been
 verified, not what seemed plausible at the start.
 
-Next: [[docs/PHASE4.md]].
+Next: [[docs/phases/PHASE4.md]].

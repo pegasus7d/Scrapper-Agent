@@ -4,7 +4,7 @@ Read [[docs/DESIGN.md]] first for the system contract; this file only holds phas
 step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as [[docs/PHASE1.md]]/[[docs/PHASE2.md]]/[[docs/PHASE3.md]]. Phase 3 added three
+Same workflow rules as [[docs/phases/PHASE1.md]]/[[docs/phases/PHASE2.md]]/[[docs/phases/PHASE3.md]]. Phase 3 added three
 sources on top of the plugin architecture from its own step 1; phase 4 is
 about the two axes that get more valuable the more sources exist, done now
 while there are only 6 (cheap) rather than retrofitted at 15 (expensive) —
@@ -19,7 +19,7 @@ plus one piece of UI polish that doesn't depend on either.
    `sources/__init__.py` merges both into one `SOURCES` dict so
    `pipeline.py`'s calls (`sources.seed_urls(...)`, `sources.Chunk`, etc.)
    don't change at all — same re-export-flat pattern as the `repo/` package
-   split ([[docs/PHASE2.md]] step 8). `_base.py` (`Chunk`, `clean_html`,
+   split ([[docs/phases/PHASE2.md]] step 8). `_base.py` (`Chunk`, `clean_html`,
    `MIN_CHUNK_CHARS`) stays shared at the top level; the one-line
    `_HN_PERMALINK` format string used by both HN sources is small enough to
    just duplicate rather than share (CLAUDE.md: "three lines is better than a

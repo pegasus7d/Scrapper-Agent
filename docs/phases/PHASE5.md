@@ -4,7 +4,7 @@ Read [[docs/DESIGN.md]] first for the system contract; this file only holds phas
 step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as [[docs/PHASE1.md]]–[[docs/PHASE4.md]]. Two things in this codebase
+Same workflow rules as [[docs/phases/PHASE1.md]]–[[docs/phases/PHASE4.md]]. Two things in this codebase
 currently hand-roll a problem a task-queue library solves: `scheduler.py`'s
 `while True` + `sleep(60)` poll loop, and phase 4's frontend queue-runner
 (start → poll `/runs/{id}` → start next, living entirely in the browser's

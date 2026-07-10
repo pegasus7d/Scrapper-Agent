@@ -145,7 +145,7 @@ run_scrape(kind, source):
 ```
 
 The loop is synchronous and boring on purpose. A run is enqueued onto Huey
-(`tasks.py`, [[docs/PHASE5.md]]) and executed on the consumer thread; its progress
+(`tasks.py`, [[docs/phases/PHASE5.md]]) and executed on the consumer thread; its progress
 is readable from the `runs` row at any time — that is the entire "job
 status" mechanism, no separate queue-monitoring infra to build.
 

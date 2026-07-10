@@ -2,7 +2,7 @@
 
 > Renamed **Hirable** in phase 8, once the project grew past scraping into
 > resume-matched search, company intelligence, and application pipeline
-> tracking (see [[docs/DESIGN.md]] §8, [[docs/PHASE8.md]]). This doc is kept as the
+> tracking (see [[docs/DESIGN.md]] §8, [[docs/phases/PHASE8.md]]). This doc is kept as the
 > original idea/rationale snapshot — historical, not renamed retroactively.
 
 ## What this is

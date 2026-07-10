@@ -4,7 +4,7 @@ Read [[docs/DESIGN.md]] first for the system contract; this file only holds phas
 step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as [[docs/PHASE1.md]]–[[docs/PHASE5.md]]. Four research threads led
+Same workflow rules as [[docs/phases/PHASE1.md]]–[[docs/phases/PHASE5.md]]. Four research threads led
 here, all verified before writing this down (WORKFLOW.md rule 2):
 
 - **Search over scraped data.** PageIndex-style vectorless, reasoning-based

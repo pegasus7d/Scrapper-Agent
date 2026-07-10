@@ -4,7 +4,7 @@ Read [[docs/DESIGN.md]] first for the system contract; this file only holds phas
 step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurring
 process this and every phase file follows.
 
-Same workflow rules as [[docs/PHASE1.md]]–[[docs/PHASE6.md]]. Three research threads,
+Same workflow rules as [[docs/phases/PHASE1.md]]–[[docs/phases/PHASE6.md]]. Three research threads,
 requested directly rather than proposed, each verified before being written
 down here (WORKFLOW.md rule 2):
 

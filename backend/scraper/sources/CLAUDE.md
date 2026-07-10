@@ -24,7 +24,7 @@ Do not revisit these without new evidence the policy changed.
 Glassdoor/LinkedIn/Indeed are similarly high-friction (login walls, anti-bot)
 — deprioritize unless specifically requested and re-verified. LinkedIn,
 Indeed, Glassdoor, and Naukri were all explicitly re-checked in phase 5
-([[docs/PHASE5.md]]) and confirmed still hostile (LinkedIn's `robots.txt` states
+([[docs/phases/PHASE5.md]]) and confirmed still hostile (LinkedIn's `robots.txt` states
 automated access is "strictly prohibited"; Indeed/Glassdoor disallow exactly
 the job/interview paths this app wants; Naukri's edge WAF blocks non-browser
 User-Agents, conflicting with this project's honest-UA policy).
@@ -37,7 +37,7 @@ banks — h5bp, FAQGURU) over scraping forums at all.
 ## Fetching
 
 Every source goes through the `Transport` protocol
-(`backend/scraper/transport.py`, [[docs/PHASE4.md]]) — never add a
+(`backend/scraper/transport.py`, [[docs/phases/PHASE4.md]]) — never add a
 source-specific HTTP client outside it. `httpx` is the default (every source
 so far is a plain JSON/XML/text API — none need HTML cleaning or stealth);
 `scrapling` stays available as a per-source opt-in (`transport:
@@ -65,7 +65,7 @@ it's available on the page.
 ## General
 
 - Build one source end-to-end before generalizing to more sources (build
-  order: [[docs/PHASE1.md]]).
+  order: [[docs/phases/PHASE1.md]]).
 - Don't assume two sources share a parsing shape just because they're the
   same *kind* of platform. FAQGURU looked like it could reuse h5bp's
   `_bullet_chunks` (both GitHub-hosted markdown question banks) — a real

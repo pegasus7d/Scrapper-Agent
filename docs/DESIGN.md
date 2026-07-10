@@ -282,7 +282,7 @@ dashboard charts. Rules:
 - Animation is seasoning, not sauce: transitions on drawers/dialogs, count-up on
   stat cards, a pulse on the running badge — nothing animates without a reason.
   No animation library — a hand-rolled `requestAnimationFrame` tween replaced
-  **motion** in [[docs/PHASE5.md]] step 4 (it pulled in the full `framer-motion/dom`
+  **motion** in [[docs/phases/PHASE5.md]] step 4 (it pulled in the full `framer-motion/dom`
   build for one count-up).
 - Everything else (views, hooks, api client) stays hand-written and reviewable.
 
@@ -317,7 +317,7 @@ queue growth. Never `print()`.
 
 ## Schema management
 
-Real Alembic migrations (`migrations/`, [[docs/PHASE7.md]] step 1) — `make_engine()`
+Real Alembic migrations (`migrations/`, [[docs/phases/PHASE7.md]] step 1) — `make_engine()`
 brings the schema to head automatically on every startup (stamp-vs-upgrade
 detection), replacing the MVP-era `Base.metadata.create_all()` approach (no
 migrations, `create_all()` only creates missing tables, never alters existing
@@ -362,24 +362,24 @@ unbounded with build history — the same reasoning that split `repo.py` and
 `sources.py` into packages once they grew past the 300-line cap, applied to
 docs instead of code:
 
-- **[[docs/PHASE1.md]]** — MVP (done): scaffolding through the second source type.
-- **[[docs/PHASE2.md]]** — polish & usefulness (done): dedupe, relevance gate,
+- **[[docs/phases/PHASE1.md]]** — MVP (done): scaffolding through the second source type.
+- **[[docs/phases/PHASE2.md]]** — polish & usefulness (done): dedupe, relevance gate,
   shadcn/ui, dashboard, dark mode, scheduling, RemoteOK, export/bookmarks.
-- **[[docs/PHASE3.md]]** — plugin architecture + more platforms (done): `Source`
+- **[[docs/phases/PHASE3.md]]** — plugin architecture + more platforms (done): `Source`
   protocol/registry, WeWorkRemotely, Arbeitnow, curated GitHub questions.
-- **[[docs/PHASE4.md]]** — architecture for scale (done): domain-split sources,
+- **[[docs/phases/PHASE4.md]]** — architecture for scale (done): domain-split sources,
   `Transport` protocol, per-source politeness, multi-select scrape UI.
-- **[[docs/PHASE5.md]]** — Huey, dependency audit, and 3 new sources (done):
+- **[[docs/phases/PHASE5.md]]** — Huey, dependency audit, and 3 new sources (done):
   replaces `scheduler.py`'s hand-rolled poll loop and the phase 4 frontend
   queue-runner with `SqliteHuey` tasks/pipelines running in-process; drops
   the oversized `motion` dependency; adds Himalayas, RemoteJobs.org, and
   FAQGURU sources.
-- **[[docs/PHASE6.md]]** — search, live updates, and cleanup (done):
+- **[[docs/phases/PHASE6.md]]** — search, live updates, and cleanup (done):
   schema-constrained local extraction + selectable local model, live run
   updates via SSE, `sqlite-vec` + FTS5 hybrid search, drops `recharts`,
   README rewrite, real bottleneck pass (no code change needed — nothing
   measured slow at current scale).
-- **[[docs/PHASE7.md]]** — real migrations, resume-driven search, company career
+- **[[docs/phases/PHASE7.md]]** — real migrations, resume-driven search, company career
   pages (done): replaces the hand-rolled schema-patch function from phase 6
   step 3 with real Alembic migrations (stamp-vs-upgrade detection, a
   connection shared via `config.attributes`); resume PDF upload → Markdown
@@ -392,7 +392,7 @@ docs instead of code:
   real hit rate), then turns resolved companies into real dynamic
   `Source`s at scrape time (`sources.SOURCES` mutated per company, not a
   hand-curated dict entry) — surfaced end-to-end in a new Companies view.
-- **[[docs/PHASE8.md]]** — interactive UI, pipeline tracking, and full company
+- **[[docs/phases/PHASE8.md]]** — interactive UI, pipeline tracking, and full company
   discovery (not started): Companies gets real filter/pagination parity
   with Jobs/Questions (`ats_provider`/`source`/`q`, not a client-side-only
   name match) plus a unified detail page joining its own scraped jobs and

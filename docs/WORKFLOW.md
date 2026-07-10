@@ -67,23 +67,23 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
 
 ## Phase log
 
-- **MVP — [[docs/PHASE1.md]] (done 2026-07-09).** HN "Who is hiring?" jobs + HN
+- **MVP — [[docs/phases/PHASE1.md]] (done 2026-07-09).** HN "Who is hiring?" jobs + HN
   interview-question search, two-tier LLM cascade (local Ollama primary,
   Claude Haiku escalation dormant — free-only mode, never requires an
   Anthropic key), SQLite, FastAPI backend, React/Vite/Tailwind UI.
-- **Phase 2 — [[docs/PHASE2.md]] (done 2026-07-09).** Pre-extraction dedupe,
+- **Phase 2 — [[docs/phases/PHASE2.md]] (done 2026-07-09).** Pre-extraction dedupe,
   questions relevance gate, shadcn/ui foundation (+ fixed the Tailwind build
   bug), dashboard charts/live-progress panel/toasts/skeletons, dark mode +
   Cmd+K command palette, scheduled scrapes, RemoteOK source, CSV/JSON export
   + job starring. This step's size pushed `routes.py`/`repo.py` over the
   300-line cap, triggering a split into `api/dto.py` and a `db/repo/` package.
-- **Phase 3 — [[docs/PHASE3.md]] (done 2026-07-09).** Formalized `sources.py` into
+- **Phase 3 — [[docs/phases/PHASE3.md]] (done 2026-07-09).** Formalized `sources.py` into
   a `Source` protocol + registry (a `sources/` package, one file per
   platform), added WeWorkRemotely (+ fixed the robots.txt User-Agent bug),
   Arbeitnow, and a curated GitHub question-bank source replacing the blocked
   LeetCode Discuss idea (+ fixed the URL-fragment normalization bug; made
   `QuestionExtract.company` nullable for genuinely companyless questions).
-- **Phase 4 — [[docs/PHASE4.md]] (done 2026-07-09).** Split `sources/` into
+- **Phase 4 — [[docs/phases/PHASE4.md]] (done 2026-07-09).** Split `sources/` into
   `jobs/`/`questions/` subpackages, extracted a `Transport` protocol (`httpx`
   default, `scrapling` opt-in — confirmed no source needs Scrapling's actual
   HTML-cleaning/stealth capability), per-source politeness delay (Arbeitnow
@@ -95,7 +95,7 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   (§8 index + one `PHASE{N}.md` file per phase, instead of everything inline)
   landed alongside the phase, prompted by the same doc-size concern that
   motivated phase 4's own step 1.
-- **Phase 5 — [[docs/PHASE5.md]] (done 2026-07-09).** Replaced `scheduler.py`'s
+- **Phase 5 — [[docs/phases/PHASE5.md]] (done 2026-07-09).** Replaced `scheduler.py`'s
   hand-rolled poll loop and phase 4's frontend queue-runner with `huey`
   (verified: MIT licensed, `SqliteHuey` needs zero extra services,
   `huey.consumer.Consumer` runs in-process via a thread — no new
@@ -109,12 +109,12 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   before being added; LinkedIn, Indeed, Glassdoor, and Naukri were checked
   and rejected as hostile, the same pattern phase 3 hit with Reddit/LeetCode
   Discuss/Blind. Two real bugs surfaced by the required smoke tests: step 4's
-  own build-order entry was missing from [[docs/PHASE5.md]] despite the code having
+  own build-order entry was missing from [[docs/phases/PHASE5.md]] despite the code having
   shipped (caught and fixed while closing out the phase); and FAQGURU's
   chunks tanked local-model extraction (1/15) when they included the answer
   body — `QuestionExtract` has no answer field, so chunking on the bare
   question alone fixed it (12/15).
-- **Phase 6 — [[docs/PHASE6.md]] (done 2026-07-10).** Search over scraped data,
+- **Phase 6 — [[docs/phases/PHASE6.md]] (done 2026-07-10).** Search over scraped data,
   live updates, and a cleanup pass. Considered PageIndex-style vectorless
   RAG, ruled out: it solves lossy chunking in one *long* continuous
   document, but this app's data is thousands of independent *short*,
@@ -151,7 +151,7 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
   genuinely cutting round-trips vs. the old poll) and correctly concluded
   no code change was needed at the app's real current scale — not forcing
   a change just to have done something.
-- **Phase 7 — [[docs/PHASE7.md]] (in progress, started 2026-07-10).** Three
+- **Phase 7 — [[docs/phases/PHASE7.md]] (in progress, started 2026-07-10).** Three
   action items requested directly rather than proposed: real migration
   tooling (Alembic, replacing phase 6 step 3's hand-rolled schema patch),
   resume PDF upload → Markdown → LLM-derived job-search positions
