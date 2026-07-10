@@ -13,4 +13,5 @@ export const COMPANY_DISCOVERY_SOURCES = [
   'a16z',
   'sequoia',
   'foundersfund',
+  'bvp',
 ] as const
