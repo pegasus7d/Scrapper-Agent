@@ -53,6 +53,9 @@ SEQUOIA_COMPANIES_URL = "https://sequoiacap.com/our-companies/"
 # delay_s override (same pattern Arbeitnow already uses).
 FOUNDERSFUND_PORTFOLIO_URL = "https://foundersfund.com/portfolio/"
 FOUNDERSFUND_DELAY_S = 10.0
+# Bessemer Venture Partners portfolio (PHASE8.md step 9) — real robots.txt
+# confirmed: a real disallow list, but none of it touches this path.
+BVP_COMPANIES_URL = "https://www.bvp.com/companies"
 # Persistent logs (PHASE8.md step 8) — real gap once scheduled company
 # automation (step 7) runs unattended: stderr alone leaves no record when
 # nobody's watching a terminal. A home-lab, single-user tool, not a

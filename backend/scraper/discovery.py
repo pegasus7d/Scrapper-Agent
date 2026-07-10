@@ -55,9 +55,11 @@ from backend import config
 from backend.db import repo
 from backend.scraper.discovery_vc import (
     build_a16z_fetcher,
+    build_bvp_fetcher,
     build_foundersfund_fetcher,
     build_sequoia_fetcher,
     discover_a16z_companies,
+    discover_bvp_companies,
     discover_foundersfund_companies,
     discover_sequoia_companies,
 )
@@ -76,7 +78,7 @@ _WIKITABLE_SELECTOR = "table.wikitable"
 # The real, valid values for POST /companies/discover's source param and
 # Schedule.source when Schedule.kind == "companies" (PHASE8.md step 7) —
 # shared here rather than duplicated in routes_companies.py/routes.py.
-DISCOVERY_SOURCES = ("yc", "largest_us_companies", "a16z", "sequoia", "foundersfund")
+DISCOVERY_SOURCES = ("yc", "largest_us_companies", "a16z", "sequoia", "foundersfund", "bvp")
 
 
 @dataclass
@@ -190,6 +192,9 @@ def discover_and_save_companies(session: Session, source: str) -> int:
         return sum(
             1 for name in ff_names if repo.save_company(session, name, source="foundersfund")
         )
+    if source == "bvp":
+        bvp_names = discover_bvp_companies(build_bvp_fetcher())
+        return sum(1 for name in bvp_names if repo.save_company(session, name, source="bvp"))
     names = discover_largest_us_companies(build_largest_us_companies_fetcher())
     return sum(
         1 for name in names if repo.save_company(session, name, source="largest_us_companies")

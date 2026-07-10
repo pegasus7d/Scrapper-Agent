@@ -37,6 +37,13 @@ scroll, no click, no pagination markers found anywhere on the page
 entire real portfolio (62 companies) is plain server-rendered HTML in one
 page load. Each company's name lives as a direct text node inside
 `h2.tile-heading span` — confirmed directly, no quirk this time either.
+
+Bessemer Venture Partners' companies page (`config.BVP_COMPANIES_URL`).
+Real `robots.txt` confirmed: a real disallow list, but none of it touches
+this path. The simplest of the four shapes: plain server-rendered HTML,
+517 real companies in one page load, no scroll/click/pagination/delay
+needed (confirmed directly — no markers found, no crawl-delay requested).
+Each name lives inside `h3.name a.name` as a direct text node.
 """
 
 import json
@@ -60,6 +67,8 @@ _SEQUOIA_TAB_SELECTOR = "#all-tab"
 _SEQUOIA_LOAD_MORE_SELECTOR = ".facetwp-load-more"
 
 _FOUNDERSFUND_NAME_SELECTOR = "h2.tile-heading span"
+
+_BVP_NAME_SELECTOR = "h3.name a.name"
 
 
 def build_a16z_fetcher() -> PageFetcher:
@@ -145,4 +154,28 @@ def discover_foundersfund_companies(fetcher: PageFetcher) -> list[str]:
             seen.add(name)
             names.append(name)
     logger.info("foundersfund discovery: %d company names found", len(names))
+    return names
+
+
+def build_bvp_fetcher() -> PageFetcher:
+    """Wire a PageFetcher for the BVP companies page — plain HttpxTransport
+    (no JS needed, confirmed)."""
+    return PageFetcher(transport=HttpxTransport())
+
+
+def discover_bvp_companies(fetcher: PageFetcher) -> list[str]:
+    """Fetch the BVP companies page and return real, deduplicated company
+    names — no batch concept for this source."""
+    page = fetcher.fetch(config.BVP_COMPANIES_URL)
+    selector = Selector(content=page.raw)
+    names: list[str] = []
+    seen: set[str] = set()
+    for link in selector.css(_BVP_NAME_SELECTOR):
+        if not isinstance(link, Selector) or not link.text:
+            continue
+        name = link.text.strip()
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    logger.info("bvp discovery: %d company names found", len(names))
     return names
