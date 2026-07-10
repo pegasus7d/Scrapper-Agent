@@ -57,7 +57,12 @@ class ActionResult:
 
 @dataclass
 class DetectedField:
-    name: str  # the real HTML name= attribute — used to build a stable selector
+    # The real, stable per-field identifier: the HTML name= attribute when
+    # present, else id (PHASE10.md step 8's own real finding — Greenhouse's
+    # embedded application form has no name= attribute on any field at all,
+    # a React form submitted via JS rather than a native HTML POST; id is
+    # real and stable there instead, not a rare fallback case).
+    name: str
     tag: str  # "input" | "select" | "textarea"
     input_type: str  # e.g. "text", "email", "tel", "file"; "" for select/textarea
     label: str | None
@@ -65,6 +70,10 @@ class DetectedField:
     # trusting the DOM-computed label alone) — the actual hybrid-grounding
     # signal, confirmed True/False per field, not assumed.
     confirmed_by_ax_tree: bool
+    # The real Playwright selector to target this field with — computed
+    # once at detect time from whichever of name/id was actually present,
+    # rather than re-derived (and reassumed to be name=) at fill time.
+    selector: str
 
 
 @dataclass
@@ -89,8 +98,13 @@ def detect_fields(page: Page) -> list[DetectedField]:
     fields: list[DetectedField] = []
     for element in page.locator(_FIELD_SELECTOR).all():
         name = element.get_attribute("name")
-        if not name:
-            continue  # unnamed elements can't be targeted by name= later
+        element_id = element.get_attribute("id")
+        if name:
+            identifier, selector = name, f'[name="{name}"]'
+        elif element_id:
+            identifier, selector = element_id, f'[id="{element_id}"]'
+        else:
+            continue  # neither identifier is present -- can't be targeted later
         tag = element.evaluate("el => el.tagName.toLowerCase()")
         input_type = element.get_attribute("type") or "" if tag == "input" else ""
         if input_type in ("submit", "button", "hidden"):
@@ -99,11 +113,12 @@ def detect_fields(page: Page) -> list[DetectedField]:
         confirmed = bool(label) and f'"{label}"' in ax_snapshot
         fields.append(
             DetectedField(
-                name=name,
+                name=identifier,
                 tag=tag,
                 input_type=input_type,
                 label=label,
                 confirmed_by_ax_tree=confirmed,
+                selector=selector,
             )
         )
     logger.info("detect_fields: %d real fields found", len(fields))
@@ -112,7 +127,7 @@ def detect_fields(page: Page) -> list[DetectedField]:
 
 def fill_field(page: Page, field: DetectedField, value: str) -> ActionResult:
     try:
-        locator = page.locator(f'[name="{field.name}"]')
+        locator = page.locator(field.selector)
         if field.tag == "select":
             locator.select_option(value)
         else:
@@ -125,7 +140,7 @@ def fill_field(page: Page, field: DetectedField, value: str) -> ActionResult:
 
 def upload_file(page: Page, field: DetectedField, file_path: str) -> ActionResult:
     try:
-        page.locator(f'[name="{field.name}"]').set_input_files(file_path)
+        page.locator(field.selector).set_input_files(file_path)
         return ActionResult(success=True)
     except PlaywrightError as error:
         logger.warning("upload_file failed for %r: %s", field.name, error)
