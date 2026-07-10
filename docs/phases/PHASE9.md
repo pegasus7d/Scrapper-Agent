@@ -235,6 +235,39 @@ sync by hand.
    pre-decided here. Smoke: trigger a real backup against the actual
    populated `hirable.db`, confirm the copy is a genuine, openable SQLite
    file with the real row counts, not an empty or partial file.
+   **Done.** Went with a Huey periodic task (`create_database_backup`,
+   daily at 3am via `crontab(hour="3", minute="0")`), not a manual script
+   — a manual step the user has to remember to run would just recreate the
+   exact "no real backup happens" gap this closes. Real backup logic in a
+   new `backend/db/backup.py`, using `sqlite3.Connection.backup()` rather
+   than a raw file copy — the documented-safe way to back up a *live*
+   SQLite database (a plain `shutil.copy2` mid-write could produce a
+   genuinely corrupt file; a raw copy is fine for the backup target, an
+   already-closed static file, never for the live source). New
+   `config.DATABASE_FILE`/`BACKUP_DIR`/`BACKUP_RETENTION_COUNT` constants
+   (14 daily backups, ~2 weeks, same bounded-growth reasoning
+   `LOG_BACKUP_COUNT` already uses); `DATABASE_URL` now derives from
+   `DATABASE_FILE` instead of hardcoding the filename twice.
+   Real bug caught by this file's own test suite, not shipped: the first
+   version timestamped backups to second precision
+   (`%Y%m%dT%H%M%SZ`) — two `create_backup()` calls within the same wall
+   -clock second (never happens at the real once-daily cadence, but a real
+   latent bug, not a hypothetical one) silently collide on the same
+   filename, one backup overwriting the other. Caught immediately by
+   `test_create_backup_keeps_the_newest_files_when_pruning` failing for
+   real, not assumed safe. Fixed with microsecond precision
+   (`%Y%m%dT%H%M%S%fZ`).
+   Smoke: real backup triggered against the actual populated `hirable.db`
+   (1920 real companies, 175 real jobs) — the backup file (7.1 MB, a real
+   `backups/hirable-<timestamp>.db`) opened cleanly with `sqlite3` and its
+   row counts matched the source exactly (1920/1920, 175/175), not an
+   empty or partial file. Confirmed `backups/` is correctly gitignored
+   (`git check-ignore -v` matched it against the new rule, `git status`
+   shows nothing untracked). Confirmed on a real live app startup that
+   Huey's consumer genuinely registers `create_database_backup` as a real
+   periodic task (`+ backend.scraper.tasks.create_database_backup` in the
+   real startup log), not just wired in source but never actually picked
+   up.
 6. **`/health` endpoint (backend).** The app runs real unattended
    background work today (Huey's scheduler ticks once a minute,
    dispatching discovery/scrape schedules) with no way to check "is the
