@@ -67,3 +67,15 @@ class ResumePosition(BaseModel):
     validate-before-trusting discipline applies."""
 
     title: NonEmptyStr
+
+
+class FormAnswerChoice(BaseModel):
+    """One routing decision for a single application-form question
+    (PHASE10.md step 7): either name a known answer-tool (a structured
+    profile lookup wins over a guess) or, when none applies, write a
+    direct answer grounded in the resume and job posting given in the
+    prompt. Both fields nullable — a genuinely unanswerable question is a
+    real, valid outcome, not a failure to force an answer for."""
+
+    tool_name: str | None
+    answer: str | None

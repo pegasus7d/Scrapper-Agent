@@ -12,6 +12,7 @@ _SCHEMA_LABELS = {
     "JobExtract": "job posting",
     "QuestionExtract": "interview question",
     "ResumePosition": "job title this candidate should search for",
+    "FormAnswerChoice": "answer to an application-form question",
 }
 
 # Extra criteria per schema, appended to the base template — the relevance gate
@@ -41,6 +42,19 @@ _SCHEMA_CRITERIA = {
         '"Distributed Systems Engineer"), never vague categories '
         '("Software") or a title requiring skills/years the resume does not '
         "show. Do not invent a role the resume doesn't support."
+    ),
+    "FormAnswerChoice": (
+        "The text below contains one job application form's question, a "
+        "list of available answer-tools with real descriptions of what each "
+        "one answers, the candidate's resume, and the job posting. If ONE "
+        "of the listed tools answers this exact question, respond with "
+        '{"items": [{"tool_name": "<that tool\'s exact name>", "answer": '
+        "null}]} — never guess an answer yourself when a real tool applies. "
+        "If none of the tools answer it, but the resume and job posting "
+        "genuinely support one real, specific answer, respond with "
+        '{"items": [{"tool_name": null, "answer": "<your grounded answer>"}]}. '
+        'If neither applies, respond with {"items": []} — do not invent '
+        "an answer with no real basis in the resume or job posting."
     ),
 }
 
