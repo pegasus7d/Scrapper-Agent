@@ -42,7 +42,7 @@ export default function App() {
       <aside className="flex w-56 flex-col gap-1 border-r border-border bg-card p-4">
         <div className="mb-6 flex items-center justify-between px-3 pt-2">
           <span className="text-lg font-bold tracking-tight text-foreground">
-            Hire<span className="text-indigo-600 dark:text-indigo-400">able</span>
+            Hir<span className="text-indigo-600 dark:text-indigo-400">able</span>
           </span>
           <ThemeToggle />
         </div>
