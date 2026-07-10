@@ -246,6 +246,19 @@ rule 2):
    `AnimatedNumber.tsx`'s own precedent. Real look in a browser during an
    actual run (a real company scrape from phase 7 is enough to trigger
    it), confirm it reads as more alive without a layout jank/flicker.
+   **Done.** Three real, hand-rolled additions, no dependency: the four
+   stat numbers now use `AnimatedNumber` (previously a bare number swap);
+   a new `useChangeFlash` hook (`useRef` + `setTimeout`, paired with a
+   Tailwind `transition-colors`) briefly highlights a stat right after a
+   real change; a live elapsed-time ticker in the header gives constant
+   motion even between SSE frames.
+   Smoke: real headless-Chromium session watching two real company
+   scrapes (Checkr, then The Athletic, both via `POST
+   /companies/{id}/scrape`) — the elapsed ticker genuinely counted up
+   (13s → 16s across a real wait), and polling the live DOM caught the
+   flash-highlight firing at the exact tick `Saved` changed `0` → `1`
+   from a genuine SSE-driven update (not simulated — the run's later
+   completion was what ended the polling loop). Zero console errors.
 5. **Full YC discovery coverage (backend).** Extend `discover_yc_companies`
    (or a new function beside it) to drive a real scroll session via the
    existing `ScraplingTransport`/`DynamicFetcher` instead of one static
