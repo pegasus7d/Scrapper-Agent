@@ -13,7 +13,7 @@ from huey import SqliteHuey, crontab
 from huey.consumer import Consumer
 from sqlalchemy.orm import Session
 
-from backend.db import repo
+from backend.db import backup, repo
 from backend.scraper.discovery import discover_and_save_companies
 from backend.scraper.pipeline import build_embedder, build_extractor, build_fetcher, execute_run
 from backend.scraper.resolve import resolve_unresolved_companies
@@ -116,6 +116,19 @@ def dispatch_due_schedule(now: datetime | None = None) -> None:
         run = repo.create_run(session, schedule.kind, schedule.source)
         run_scrape_task(run.id)
         repo.mark_schedule_run(session, schedule, now)
+
+
+@huey.periodic_task(crontab(hour="3", minute="0"))  # type: ignore[untyped-decorator]  # huey ships no stubs
+def create_database_backup() -> None:
+    """Real SQLite backup (PHASE9.md step 5), once daily — a Huey periodic
+    task, the same unattended-background pattern every other scheduled
+    behavior in this app already uses, not a manual script the user has
+    to remember to run (which would just recreate the exact "no real
+    backup happens" gap this closes). Same caveat as every other
+    crontab-scheduled task here: only fires while the app happens to be
+    running at that hour — accepted, not solved differently, since that's
+    already true of dispatch_due_schedule too."""
+    backup.create_backup()
 
 
 class _ThreadSafeConsumer(Consumer):  # type: ignore[misc]  # huey ships no stubs; Consumer resolves to Any

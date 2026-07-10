@@ -240,3 +240,16 @@ def test_dispatch_due_schedule_companies_kind_ignores_active_run(
     tasks.dispatch_due_schedule.call_local(now=NOW)
 
     assert discovery_calls == ["yc"]
+
+
+def test_create_database_backup_calls_the_real_backup_function(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Wiring only (PHASE9.md step 5) — backup.create_backup()'s own real
+    file-creation/pruning behavior is tested directly in test_backup.py."""
+    calls = []
+    monkeypatch.setattr(tasks.backup, "create_backup", lambda: calls.append(1))
+
+    tasks.create_database_backup.call_local()
+
+    assert calls == [1]

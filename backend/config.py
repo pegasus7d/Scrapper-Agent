@@ -28,7 +28,18 @@ REQUEST_DELAY_S = 2.0
 USER_AGENT = "hirable/0.1 (personal research tool; debayanbiswas1111@gmail.com)"
 API_PORT = 8000
 CORS_ORIGINS = ["http://localhost:5173"]
-DATABASE_URL = "sqlite:///hirable.db"
+DATABASE_FILE = "hirable.db"
+DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
+# Real SQLite backup mechanism (PHASE9.md step 5) — hirable.db had no
+# recovery story at all despite holding real, growing personal data
+# (1920+ discovered companies, months of scraped jobs/questions). A daily
+# Huey periodic task (consistent with every other unattended background
+# behavior in this app), not a manual script — a manual step would just
+# recreate the exact "no real backup happens" gap this closes. 14 daily
+# backups (~2 weeks) is a real bound, same bounded-growth reasoning
+# LOG_BACKUP_COUNT already uses for log rotation.
+BACKUP_DIR = "backups"
+BACKUP_RETENTION_COUNT = 14
 # robots.txt confirmed (PHASE7.md step 5): only /companies?* (query-string
 # filtered views) is disallowed — the bare listing page below is not.
 YC_COMPANIES_URL = "https://www.ycombinator.com/companies"
