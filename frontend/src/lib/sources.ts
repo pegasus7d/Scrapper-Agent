@@ -6,5 +6,5 @@ export const SOURCES: Record<RunKind, string[]> = {
   questions: ['hn-interviews', 'github-questions', 'faqguru-questions'],
 }
 
-// Mirrors DISCOVERY_SOURCES in backend/scraper/discovery.py (PHASE8.md step 7).
-export const COMPANY_DISCOVERY_SOURCES = ['yc', 'largest_us_companies'] as const
+// Mirrors DISCOVERY_SOURCES in backend/scraper/discovery.py (PHASE8.md step 9).
+export const COMPANY_DISCOVERY_SOURCES = ['yc', 'largest_us_companies', 'a16z'] as const
