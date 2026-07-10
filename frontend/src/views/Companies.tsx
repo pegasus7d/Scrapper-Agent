@@ -22,15 +22,26 @@ import { formatTime } from '../lib/format'
 
 const LIMIT = 20
 const ALL_PROVIDERS = 'all'
+const ALL_SOURCES = 'all'
+
+const SOURCE_LABELS: Record<string, string> = {
+  yc: 'YC',
+  largest_us_companies: 'Largest US companies',
+}
 
 const inputStyle =
   'rounded-lg border border-border bg-card px-3 py-2 text-sm ' +
   'placeholder:text-muted-foreground focus:border-indigo-400 focus:outline-none'
 
-function companiesPath(q: string, atsProvider: string, offset: number): string {
+function sourceLabel(source: string): string {
+  return SOURCE_LABELS[source] ?? source
+}
+
+function companiesPath(q: string, atsProvider: string, source: string, offset: number): string {
   const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) })
   if (q) params.set('q', q)
   if (atsProvider !== ALL_PROVIDERS) params.set('ats_provider', atsProvider)
+  if (source !== ALL_SOURCES) params.set('source', source)
   return `/companies?${params.toString()}`
 }
 
@@ -68,7 +79,8 @@ function CompanyDrawer({
       <div className="flex items-center gap-2">
         <ProviderBadge company={company} />
         {company.slug && <span className="text-sm text-muted-foreground">{company.slug}</span>}
-        {company.batch && <Badge variant="outline">YC {company.batch}</Badge>}
+        <Badge variant="outline">{sourceLabel(company.source)}</Badge>
+        {company.batch && <Badge variant="outline">{company.batch}</Badge>}
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         discovered {formatTime(company.discovered_at)}
@@ -135,12 +147,13 @@ function CompanyDrawer({
 export function Companies() {
   const [q, setQ] = useState('')
   const [atsProvider, setAtsProvider] = useState(ALL_PROVIDERS)
+  const [source, setSource] = useState(ALL_SOURCES)
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<Company | null>(null)
-  const [discovering, setDiscovering] = useState(false)
+  const [discovering, setDiscovering] = useState<string | null>(null)
   const [resolving, setResolving] = useState(false)
   const [scrapingId, setScrapingId] = useState<number | null>(null)
-  const companies = useApi<Paginated<Company>>(companiesPath(q, atsProvider, offset))
+  const companies = useApi<Paginated<Company>>(companiesPath(q, atsProvider, source, offset))
 
   function updateFilter(setter: (value: string) => void) {
     return (value: string) => {
@@ -149,16 +162,18 @@ export function Companies() {
     }
   }
 
-  async function discover() {
-    setDiscovering(true)
+  async function discover(discoverySource: string) {
+    setDiscovering(discoverySource)
     try {
-      const result = await apiPost<DiscoveryResult>('/companies/discover')
+      const result = await apiPost<DiscoveryResult>(
+        `/companies/discover?source=${discoverySource}`
+      )
       toast.success(`Discovered ${result.discovered} new companies (${result.total} total)`)
       companies.reload()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
-      setDiscovering(false)
+      setDiscovering(null)
     }
   }
 
@@ -214,8 +229,31 @@ export function Companies() {
               <SelectItem value="lever">lever</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" disabled={discovering} onClick={() => void discover()}>
-            {discovering ? 'Discovering…' : 'Discover companies'}
+          <Select value={source} onValueChange={(value) => updateFilter(setSource)(value ?? ALL_SOURCES)}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_SOURCES}>All sources</SelectItem>
+              <SelectItem value="yc">YC</SelectItem>
+              <SelectItem value="largest_us_companies">Largest US companies</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={discovering !== null}
+            onClick={() => void discover('yc')}
+          >
+            {discovering === 'yc' ? 'Discovering…' : 'Discover YC companies'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={discovering !== null}
+            onClick={() => void discover('largest_us_companies')}
+          >
+            {discovering === 'largest_us_companies' ? 'Discovering…' : 'Discover largest US companies'}
           </Button>
           <Button variant="outline" size="sm" disabled={resolving} onClick={() => void resolve()}>
             {resolving ? 'Resolving…' : 'Resolve companies'}
@@ -228,7 +266,7 @@ export function Companies() {
 
         {companies.data && items.length === 0 && (
           <p className="p-6 text-sm text-muted-foreground">
-            {q || atsProvider !== ALL_PROVIDERS
+            {q || atsProvider !== ALL_PROVIDERS || source !== ALL_SOURCES
               ? 'No companies match those filters.'
               : 'No companies discovered yet — click "Discover companies" to scrape ycombinator.com/companies.'}
           </p>
@@ -246,7 +284,8 @@ export function Companies() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-foreground">{company.name}</span>
                     <ProviderBadge company={company} />
-                    {company.batch && <Badge variant="outline">YC {company.batch}</Badge>}
+                    <Badge variant="outline">{sourceLabel(company.source)}</Badge>
+                    {company.batch && <Badge variant="outline">{company.batch}</Badge>}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     discovered {formatTime(company.discovered_at)}

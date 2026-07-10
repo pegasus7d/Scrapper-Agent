@@ -82,6 +82,37 @@ def test_discover_companies_is_idempotent(
     assert second.json() == {"discovered": 0, "total": 1}
 
 
+def test_discover_companies_largest_us_companies_source(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        routes_companies, "discover_largest_us_companies", lambda fetcher: ["Walmart", "Amazon"]
+    )
+    response = client.post("/api/companies/discover", params={"source": "largest_us_companies"})
+    assert response.status_code == 200
+    assert response.json() == {"discovered": 2, "total": 2}
+
+    listed = client.get("/api/companies").json()["items"]
+    by_name = {item["name"]: item for item in listed}
+    assert by_name["Walmart"]["source"] == "largest_us_companies"
+    assert by_name["Walmart"]["batch"] is None
+
+
+def test_discover_companies_rejects_an_unknown_source(client: TestClient) -> None:
+    response = client.post("/api/companies/discover", params={"source": "bogus"})
+    assert response.status_code == 422
+
+
+def test_list_companies_filters_by_source(client: TestClient, engine: Engine) -> None:
+    with Session(engine) as session:
+        repo.save_company(session, "DoorDash", source="yc")
+        repo.save_company(session, "Walmart", source="largest_us_companies")
+
+    response = client.get("/api/companies", params={"source": "largest_us_companies"})
+    names = {item["name"] for item in response.json()["items"]}
+    assert names == {"Walmart"}
+
+
 def test_resolve_companies_returns_the_real_summary(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, engine: Engine
 ) -> None:

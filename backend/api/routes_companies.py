@@ -11,7 +11,12 @@ from backend.api.dto import CompanyList, CompanyOut, DiscoveryResult, Resolution
 from backend.db import repo
 from backend.db.models import Company
 from backend.scraper import sources
-from backend.scraper.discovery import build_yc_fetcher, discover_yc_companies
+from backend.scraper.discovery import (
+    build_largest_us_companies_fetcher,
+    build_yc_fetcher,
+    discover_largest_us_companies,
+    discover_yc_companies,
+)
 from backend.scraper.resolve import resolve_unresolved_companies
 from backend.scraper.tasks import run_scrape_task
 
@@ -19,29 +24,46 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+_DISCOVERY_SOURCES = ("yc", "largest_us_companies")
+
 
 @router.get("/companies")
 def list_companies(
     session: SessionDep,
     ats_provider: str | None = None,
+    source: str | None = None,
     q: str | None = None,
     limit: LimitParam = 20,
     offset: OffsetParam = 0,
 ) -> CompanyList:
     companies, total = repo.list_companies(
-        session, ats_provider=ats_provider, q=q, limit=limit, offset=offset
+        session, ats_provider=ats_provider, source=source, q=q, limit=limit, offset=offset
     )
     return CompanyList(items=[CompanyOut.model_validate(c) for c in companies], total=total)
 
 
 @router.post("/companies/discover")
-def discover_companies(session: SessionDep) -> DiscoveryResult:
-    """Run one real discovery pass against the YC company directory (a real
-    scrolled session, PHASE8.md step 5 — not just the first 40 cards),
-    storing any real companies not already on file (step 5's own smoke
-    test hits this endpoint directly)."""
-    companies = discover_yc_companies(build_yc_fetcher())
-    discovered = sum(1 for c in companies if repo.save_company(session, c.name, batch=c.batch))
+def discover_companies(session: SessionDep, source: str = "yc") -> DiscoveryResult:
+    """Run one real discovery pass against the chosen source — "yc" (a real
+    scrolled session, PHASE8.md step 5 — not just the first 40 cards) or
+    "largest_us_companies" (PHASE8.md step 6, Wikipedia's revenue-ranked
+    table) — storing any real companies not already on file. Defaults to
+    "yc" for backward compatibility with the original single-source
+    endpoint."""
+    if source not in _DISCOVERY_SOURCES:
+        raise HTTPException(422, f"unknown discovery source: {source}")
+    if source == "yc":
+        yc_companies = discover_yc_companies(build_yc_fetcher())
+        discovered = sum(
+            1
+            for c in yc_companies
+            if repo.save_company(session, c.name, source="yc", batch=c.batch)
+        )
+    else:
+        names = discover_largest_us_companies(build_largest_us_companies_fetcher())
+        discovered = sum(
+            1 for name in names if repo.save_company(session, name, source="largest_us_companies")
+        )
     _, total = repo.list_companies(session)
     return DiscoveryResult(discovered=discovered, total=total)
 

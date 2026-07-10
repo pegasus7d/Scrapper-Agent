@@ -25,22 +25,30 @@ def mark_company_checked(
     session.commit()
 
 
-def save_company(session: Session, name: str, *, batch: str | None = None) -> bool:
+def save_company(
+    session: Session, name: str, *, source: str = "yc", batch: str | None = None
+) -> bool:
     """Insert one discovered company; returns False when already known.
     `batch` (PHASE8.md step 5) is only meaningful for YC-discovered
-    companies — any other discovery source leaves it null."""
+    companies — any other discovery source leaves it null. `source`
+    (PHASE8.md step 6) defaults to "yc" — the only source that existed
+    before this step."""
     exists = session.scalar(select(Company.id).where(Company.name == name))
     if exists is not None:
         return False
-    session.add(Company(name=name, batch=batch, discovered_at=datetime.now(UTC)))
+    session.add(Company(name=name, source=source, batch=batch, discovered_at=datetime.now(UTC)))
     session.commit()
     return True
 
 
-def _company_query(*, ats_provider: str | None, q: str | None) -> Select[tuple[Company]]:
+def _company_query(
+    *, ats_provider: str | None, source: str | None, q: str | None
+) -> Select[tuple[Company]]:
     query = select(Company).order_by(Company.id.desc())
     if ats_provider:
         query = query.where(Company.ats_provider == ats_provider)
+    if source:
+        query = query.where(Company.source == source)
     if q:
         query = query.where(Company.name.ilike(f"%{q}%"))
     return query
@@ -50,6 +58,7 @@ def list_companies(
     session: Session,
     *,
     ats_provider: str | None = None,
+    source: str | None = None,
     q: str | None = None,
     limit: int = 100,
     offset: int = 0,
@@ -60,7 +69,7 @@ def list_companies(
     to "one big page" rather than requiring every internal caller (the
     discover/resolve endpoints just want a total; tests just want every
     row) to pass them explicitly."""
-    query = _company_query(ats_provider=ats_provider, q=q)
+    query = _company_query(ats_provider=ats_provider, source=source, q=q)
     total = session.scalar(select(func.count()).select_from(query.subquery())) or 0
     rows = session.scalars(query.limit(limit).offset(offset)).all()
     return list(rows), total

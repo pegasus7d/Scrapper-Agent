@@ -160,6 +160,7 @@ class CompanyOut(BaseModel):
     slug: str | None
     ats_provider: str | None
     batch: str | None
+    source: str
     discovered_at: datetime
     last_checked_at: datetime | None
 

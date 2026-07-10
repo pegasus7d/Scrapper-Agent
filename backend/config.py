@@ -31,6 +31,13 @@ DATABASE_URL = "sqlite:///hirable.db"
 # robots.txt confirmed (PHASE7.md step 5): only /companies?* (query-string
 # filtered views) is disallowed — the bare listing page below is not.
 YC_COMPANIES_URL = "https://www.ycombinator.com/companies"
+# Wikipedia's own revenue-ranked table (PHASE8.md step 6) — the closest
+# real, public, scrape-friendly proxy for "Fortune 500," which paywalls its
+# own full list. en.wikipedia.org/robots.txt only disallows /w/ action
+# paths, not /wiki/ article pages.
+LARGEST_US_COMPANIES_URL = (
+    "https://en.wikipedia.org/wiki/List_of_largest_companies_in_the_United_States_by_revenue"
+)
 
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 

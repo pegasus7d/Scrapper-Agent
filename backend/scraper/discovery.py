@@ -22,6 +22,18 @@ and the first `a[href*="?batch="]` pill inside the same card holds the real
 YC batch (e.g. "Summer 2013") — extracted from the query param, not the
 pill's visible text, since a plain `.text` read returns empty on this
 particular nested structure (confirmed directly; the href is reliable).
+
+A second discovery source (PHASE8.md step 6): Wikipedia's own real
+revenue-ranked companies table (`config.LARGEST_US_COMPANIES_URL`) — plain
+server-rendered HTML, `HttpxTransport` (default), no browser needed unlike
+YC. Confirmed real before writing this: the page has three `table.wikitable`
+elements (revenue/employees/profits rankings); the first is the
+revenue-ranked one this function wants — a real, if slightly fragile,
+positional assumption, same trade-off as YC's hashed-class-name matching.
+Each row's second `<td>`'s child `<a>` link holds the real company name —
+same `.text`-on-a-parent-returns-empty quirk as YC's batch pill (confirmed
+directly against all 100 real rows), so the link's own text is read
+instead of the cell's.
 """
 
 import logging
@@ -32,7 +44,7 @@ from scrapling import Selector
 
 from backend import config
 from backend.scraper.fetcher import PageFetcher
-from backend.scraper.transport import ScraplingTransport
+from backend.scraper.transport import HttpxTransport, ScraplingTransport
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +52,8 @@ _COMPANY_LINK_SELECTOR = 'a[href^="/companies/"]'
 _COMPANY_NAME_SELECTOR = 'span[class*="coName"]'
 _BATCH_LINK_SELECTOR = 'a[href*="?batch="]'
 _SCROLL_COUNT = 5  # confirmed real: 40 -> 120 companies after 5 scroll+wait cycles
+
+_WIKITABLE_SELECTOR = "table.wikitable"
 
 
 @dataclass
@@ -91,3 +105,36 @@ def discover_yc_companies(fetcher: PageFetcher) -> list[DiscoveredCompany]:
             companies.append(DiscoveredCompany(name=name, batch=_extract_batch(link)))
     logger.info("yc discovery: %d company names found", len(companies))
     return companies
+
+
+def build_largest_us_companies_fetcher() -> PageFetcher:
+    """Wire a PageFetcher for the Wikipedia revenue-ranked table — plain
+    HttpxTransport (the page is server-rendered, no JS needed unlike YC)."""
+    return PageFetcher(transport=HttpxTransport())
+
+
+def discover_largest_us_companies(fetcher: PageFetcher) -> list[str]:
+    """Fetch Wikipedia's largest-US-companies-by-revenue table and return
+    real, deduplicated company names — no batch concept for this source."""
+    page = fetcher.fetch(config.LARGEST_US_COMPANIES_URL)
+    selector = Selector(content=page.raw)
+    table = selector.css_first(_WIKITABLE_SELECTOR)
+    if not isinstance(table, Selector):
+        raise ValueError("no wikitable found on the largest-US-companies page")
+    names: list[str] = []
+    seen: set[str] = set()
+    for row in table.css("tr"):
+        if not isinstance(row, Selector):
+            continue
+        cells = [c for c in row.css("td") if isinstance(c, Selector)]
+        if len(cells) < 2:
+            continue  # the header row has <th>, not <td> — naturally skipped
+        name_link = cells[1].css_first("a")
+        if not isinstance(name_link, Selector) or not name_link.text:
+            continue
+        name = name_link.text.strip()
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    logger.info("largest-US-companies discovery: %d company names found", len(names))
+    return names

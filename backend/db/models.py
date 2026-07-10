@@ -103,6 +103,10 @@ class Company(Base):
     # YC batch (e.g. "Summer 2013") — only meaningful for YC-discovered
     # companies (PHASE8.md step 5); null for any other discovery source.
     batch: Mapped[str | None] = mapped_column(default=None)
+    # Which discovery source found this company (PHASE8.md step 6):
+    # "yc" | "largest_us_companies". Defaults to "yc" — every company
+    # discovered before this column existed came from that one source.
+    source: Mapped[str] = mapped_column(default="yc")
     discovered_at: Mapped[datetime]
     last_checked_at: Mapped[datetime | None] = mapped_column(default=None)
 

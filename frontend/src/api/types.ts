@@ -98,6 +98,7 @@ export interface Company {
   slug: string | null
   ats_provider: string | null
   batch: string | null
+  source: string
   discovered_at: string
   last_checked_at: string | null
 }

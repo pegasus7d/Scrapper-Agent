@@ -2,9 +2,16 @@
 
 from typing import Any
 
-from backend.scraper.discovery import build_yc_fetcher, discover_yc_companies
+import pytest
+
+from backend.scraper.discovery import (
+    build_largest_us_companies_fetcher,
+    build_yc_fetcher,
+    discover_largest_us_companies,
+    discover_yc_companies,
+)
 from backend.scraper.fetcher import PageFetcher
-from backend.scraper.transport import ScraplingTransport, TransportResponse
+from backend.scraper.transport import HttpxTransport, ScraplingTransport, TransportResponse
 
 # Mirrors the real YC markup shape confirmed by direct inspection
 # (PHASE7.md step 5, batch pill confirmed PHASE8.md step 5): an
@@ -91,3 +98,45 @@ def test_build_yc_fetcher_scrolls_for_real_full_coverage() -> None:
     transport = fetcher._transport  # type: ignore[attr-defined]
     assert isinstance(transport, ScraplingTransport)
     assert transport._scroll_count > 0  # type: ignore[attr-defined]
+
+
+# Mirrors the real Wikipedia wikitable shape confirmed by direct inspection
+# (PHASE8.md step 6): three table.wikitable elements on the page, the first
+# is the revenue-ranked one; each data row's second <td> holds the company
+# name inside a child <a> link — a plain .text read on the <td> itself
+# returns empty on the real markup (confirmed directly), so the link's own
+# text is what's actually parsed.
+_WIKI_HTML = """
+<html><body>
+<table class="wikitable">
+<tr><th>Rank</th><th>Name</th><th>Revenue</th></tr>
+<tr><td>1</td><td><a href="/wiki/Walmart" title="Walmart">Walmart</a></td><td>680,985</td></tr>
+<tr><td>2</td><td><a href="/wiki/Amazon" title="Amazon">Amazon</a></td><td>637,959</td></tr>
+<tr><td>3</td><td>No link company</td><td>100,000</td></tr>
+</table>
+<table class="wikitable">
+<tr><th>Rank</th><th>Name</th><th>Employees</th></tr>
+<tr><td>1</td><td><a href="/wiki/Walmart">Walmart</a></td><td>2,100,000</td></tr>
+</table>
+</body></html>
+"""
+
+
+def test_discover_largest_us_companies_uses_the_first_wikitable() -> None:
+    names = discover_largest_us_companies(make_fetcher(_WIKI_HTML))
+    assert names == ["Walmart", "Amazon"]
+
+
+def test_discover_largest_us_companies_skips_rows_without_a_link() -> None:
+    names = discover_largest_us_companies(make_fetcher(_WIKI_HTML))
+    assert "No link company" not in names
+
+
+def test_discover_largest_us_companies_raises_when_no_wikitable_found() -> None:
+    with pytest.raises(ValueError, match="no wikitable"):
+        discover_largest_us_companies(make_fetcher("<html><body>nothing here</body></html>"))
+
+
+def test_build_largest_us_companies_fetcher_uses_plain_httpx() -> None:
+    fetcher = build_largest_us_companies_fetcher()
+    assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
