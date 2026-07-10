@@ -5,19 +5,20 @@ step-by-step build order and rationale. See [[docs/WORKFLOW.md]] for the recurri
 process this and every phase file follows.
 
 Same workflow rules as [[docs/phases/PHASE1.md]]–[[docs/phases/PHASE9.md]]. Scoped
-directly across a long conversation, not built from yet — the user
-explicitly deferred the full feature twice ("this feature we will do
-later," "this resume auto apply we will give later") while still refining
-scope in discussion, then approved starting on a narrow, self-contained
-first slice: a basic (v0) version that fills and submits a form we build
-ourselves, using Playwright, before ever pointing automation at a real
-company's real application form. **Only step 1 below is approved to
-start.** Steps 2+ capture everything decided in conversation so it isn't
-lost, but need a fresh go-ahead before any of them are built — this phase
-crosses from "read public pages" (every source in this project so far)
-into "submit write actions on third-party systems unattended," a
-materially different risk category that deserves its own explicit
-confirmation per step, not a blanket approval up front.
+directly across a long conversation — the user explicitly deferred the
+full feature twice ("this feature we will do later," "this resume auto
+apply we will give later") while still refining scope in discussion, then
+approved starting on a narrow, self-contained first slice: a basic (v0)
+version that fills and submits a form we build ourselves, using
+Playwright, before ever pointing automation at a real company's real
+application form. **Step 1 below is done — it's the only step approved to
+build, and this phase's currently-approved scope is now complete.** Steps
+2+ capture everything decided in conversation so it isn't lost, but need a
+fresh go-ahead before any of them are built — this phase crosses from
+"read public pages" (every source in this project so far) into "submit
+write actions on third-party systems unattended," a materially different
+risk category that deserves its own explicit confirmation per step, not a
+blanket approval up front.
 
 ## Why step 1 is scoped the way it is
 
@@ -220,6 +221,53 @@ own fail-safe-to-HIGH design, never fail open into a silent auto-submit.
    confirm the submission actually lands (the test form should record or
    echo back what it received, not just return 200), re-run it a few
    times to confirm it isn't flaky before calling the mechanism trustworthy.
+   **Done — step 1 complete, this phase's currently-approved scope is
+   finished.** New `backend/autoapply/` package: `test_form_server.py`
+   (a real FastAPI app, deliberately never mounted on the real app or
+   listed in DESIGN.md §4 — text/email/tel/select/file/textarea fields,
+   each with a real `<label for=...>`, a real `/submit` handler that
+   echoes back exactly what it received) and `filler.py` (the discrete,
+   typed `detect_fields`/`fill_field`/`upload_file`/`submit` routine plus
+   the `fill_and_submit` orchestrator, exactly as designed above). Added
+   `playwright` as an explicit direct dependency (pinned to 1.61.0, the
+   version already present transitively via `scrapling[fetchers]` →
+   `camoufox` — relying on that transitively was fragile, a scrapling bump
+   could drop it).
+   Two real bugs caught by this step's own test suite, not shipped, not
+   assumed away: (1) `page.accessibility.snapshot()` — the exact API named
+   in this step's own design text above — **does not exist** in the
+   installed Playwright 1.61.0; confirmed directly by running it before
+   writing `detect_fields()`, not assumed from older docs/tutorials.
+   Real, current replacement used instead: `Locator.aria_snapshot()`,
+   confirmed to correctly resolve every real `<label for=...>` in the test
+   form, and — a genuinely useful, non-obvious real finding — Chromium's
+   own accessibility tree exposes a file `<input>` as `button "Resume"`,
+   not `textbox`, which the hybrid cross-reference in `detect_fields()`
+   correctly accounts for. (2) FastAPI treats a plain `str` POST parameter
+   as a query parameter by default — only `UploadFile` is inferred as
+   multipart on its own; a real `httpx` POST against the real endpoint
+   returned a real `422` ("missing: query.full_name") before every text
+   field in `test_form_server.py`'s `/submit` handler got an explicit
+   `Form()` annotation.
+   Smoke, in two layers: (a) the automated suite
+   (`tests/test_autoapply_filler.py`) is itself real end-to-end — a real
+   uvicorn server in a background thread, a real headless-Chromium
+   browser, no mocking, since Playwright needs a genuine socket a
+   `TestClient` can't provide — 4/4 real tests pass, including a real
+   "re-run three times, confirm no flakiness" case and a real unreachable-
+   URL failure case. (b) A second, fully standalone smoke test outside
+   pytest entirely, matching this project's usual discipline: a real
+   uvicorn process started by hand, `filler.fill_and_submit` run against
+   it via a bare script — real submission confirmed (`DoneResult(success=
+   True, reason='submission confirmed')`), real file upload confirmed (a
+   real 47-byte file, real filename preserved through to the confirmation
+   page), re-run three more times with zero flakiness. A real negative
+   case was also confirmed, not just the happy path: submitting with no
+   values filled correctly reports `success=False` — the browser's own
+   native `required`-field validation blocks the actual submission
+   client-side, the page never reaches `/submit`, and `done()` correctly
+   reports failure rather than inferring success from "the click didn't
+   raise an exception."
 
 ## Deferred — scoped but not approved to build (needs fresh confirmation)
 
@@ -324,6 +372,6 @@ here so the scope isn't lost between sessions:
   which auto-applied jobs got real responses, feed that back into tuning
   the match-score threshold over time.
 
-Next: step 1 only, once this file is committed on its own, per
-WORKFLOW.md rule 3. Do not start on the deferred section without the user
-re-confirming scope first.
+Next: not started — step 1 (the only currently-approved step) is done.
+Nothing in the Deferred section above is authorized to build without the
+user explicitly re-confirming scope first, per this file's own header.
