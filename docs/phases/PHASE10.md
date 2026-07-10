@@ -138,6 +138,75 @@ may drift — the *patterns* are what's being borrowed, not literal code.
   Per-tool **valves** (admin-level and per-user, encrypted) separate
   runtime config from the tool's logic.
 
+### Real-world market validation (live products, not just architecture)
+
+Checked directly, not guessed: how real, shipping auto-apply products
+handle the exact submit-autonomy question this phase already resolved
+above. Real, cited findings, not vibes:
+
+- **Simplify** (a well-funded, widely-used real competitor) deliberately
+  does **not** auto-submit — it autofills Greenhouse (~90% accuracy),
+  Lever (~90%), Ashby (~80%), Workday (~70%), but a human clicks submit
+  every time. The most successful real product in this exact space made
+  the same call this phase's `SUBMIT_CONFIRMATION_POLICY` decision
+  reaches for by default (`risky`), independently.
+- **LazyApply and Sonara**, by contrast, do fully auto-submit, and it has
+  real, documented consequences: LinkedIn actively detects "human-
+  impossible velocity," and roughly 23% of automation users get account-
+  restricted within 90 days. LazyApply specifically appears on public
+  lists of blacklisted LinkedIn automation tools.
+- **Real, reassuring finding specific to this project's own plan**: apps
+  that submit directly to an ATS (Greenhouse/Lever) carry meaningfully
+  less risk than apps that automate a platform's own UI (LinkedIn Easy
+  Apply) — exactly the distinction this phase already made when scoping
+  to Greenhouse+Lever rather than LinkedIn.
+
+Net effect: this is real market evidence, independent of the OpenHands/
+Dify architecture signal above, pointing the same direction — `risky` as
+the default `SUBMIT_CONFIRMATION_POLICY`, not `never`, correlates with
+what the most successful real competitor ships; full, unreviewed
+auto-submission is the choice correlated with real, observed account-
+restriction consequences in the wild (for LinkedIn-targeting tools
+specifically — Greenhouse/Lever direct submission is a real, different,
+lower-risk category, but "no safety valve at all" is still the riskier
+end of the spectrum among real products either way).
+
+### Real tooling for closing the loop's reply-detection piece
+
+Checked directly for the one piece of "closing the loop" (below) that
+has a real, non-obvious tooling question: how does an app detect that a
+company replied to an application (rejection, interview invite) without
+the user manually updating status?
+
+- **Real open-source prior art doing exactly this already exists** —
+  worth a closer look before designing from scratch, same discipline as
+  the six-repo dive above: `Tomiwajin/CareerSync` (Gmail-integrated,
+  pattern-matches inbox into Applied/Interview/Rejected/Offer, stateless/
+  zero-storage by design), `JustAJobApp/jobseeker-analytics` (Gmail-
+  connected dashboard), `tatevmane/Job-App-Tracker` (regex+NLP over
+  Gmail). None have been read in depth yet — flagged as real candidates
+  for the same kind of research pass the six repos above got, if/when
+  this deferred item is approved.
+- **Access**: the real **Gmail API** (official, free, OAuth) is the right
+  fit for a single-user local tool like Hirable — not Nylas or Unipile,
+  which are paid, multi-tenant email APIs built for platforms reading
+  *many users'* mailboxes at once (normalized webhooks across Gmail/
+  Outlook/IMAP); genuinely the wrong tool for one person's own inbox.
+  `simplegmail` is a real, thin Python wrapper around the Gmail API worth
+  using over raw `google-api-python-client` OAuth boilerplate.
+- **Classification** (is this email a rejection, an interview invite, or
+  noise?): the real, consistent choice is reusing Hirable's *existing*
+  two-tier LLM cascade (Ollama local → Claude escalation, already doing
+  this exact kind of judgment call for job/question extraction and
+  resume-position derivation) — not a new NLTK/TextBlob keyword-or-
+  sentiment pipeline, which is what most of the open-source trackers
+  above actually use. Higher quality, zero new ML dependency, consistent
+  with everything else this app already does.
+- **`email-reply-parser`** (Zapier's real, real-world-tested library) is a
+  small, genuinely useful addition — strips quoted thread history before
+  an email reaches the LLM classifier, so it sees only the new content,
+  not the entire back-and-forth.
+
 ### Decision: what actually gets adopted from this research
 
 Reviewed with the user directly, resolved per idea rather than left as an
@@ -370,7 +439,18 @@ here so the scope isn't lost between sessions:
   updates when a company actually responds, instead of staying manual
   forever even after applying became automatic; outcome feedback — track
   which auto-applied jobs got real responses, feed that back into tuning
-  the match-score threshold over time.
+  the match-score threshold over time. Real tooling for the reply-
+  detection piece specifically (see "Real tooling for closing the loop's
+  reply-detection piece" above): the Gmail API (not Nylas/Unipile — those
+  solve a multi-tenant problem this single-user tool doesn't have),
+  `simplegmail` as a thin wrapper, `email-reply-parser` to strip quoted
+  thread history, and classification via Hirable's *existing* LLM cascade
+  rather than a new NLTK/TextBlob pipeline — this is a new kind of access
+  (reading email) this app has never needed before, worth its own explicit
+  go-ahead separate from the rest of this bullet, and its own real
+  robots.txt-equivalent check: Gmail's own API terms of service, read for
+  real before any code touches it, same discipline as every other
+  external system this project talks to.
 
 Next: not started — step 1 (the only currently-approved step) is done.
 Nothing in the Deferred section above is authorized to build without the
