@@ -20,6 +20,7 @@ actually renders. This is the first genuine browser-binary dependency
 this project has needed; every other source still defaults to `httpx`.
 """
 
+import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
@@ -30,6 +31,8 @@ from playwright.sync_api import Page
 from scrapling.fetchers import DynamicFetcher
 
 _SCROLL_WAIT_MS = 800
+_LOAD_MORE_WAIT_MS = 1500
+_CONSECUTIVE_ERROR_LIMIT = 3
 
 
 @dataclass
@@ -102,20 +105,42 @@ class ScraplingTransport:
         return page
 
     def _click_load_more(self, page: Page) -> Page:
+        """Confirmed real and necessary against sequoiacap.com (PHASE8.md
+        step 9): each click triggers a FacetWP AJAX re-render that replaces
+        the whole results table, so the *next* button must be re-queried
+        fresh each iteration (a stale ElementHandle from a prior iteration
+        raises a generic Playwright Error, not a clean timeout) — a single
+        click failure is a transient race with that in-flight AJAX call,
+        not proof the button is gone for good, so up to
+        `_CONSECUTIVE_ERROR_LIMIT` consecutive failures are tolerated and
+        retried before giving up. `button is None` (the real end-of-results
+        signal — the button is removed from the DOM once the last page has
+        loaded) still stops immediately.
+        """
         if self._tab_selector:
             tab = page.query_selector(self._tab_selector)
             if tab:
                 tab.click()
-                page.wait_for_timeout(_SCROLL_WAIT_MS)
+                # Best-effort settle; the click loop below still re-checks for real.
+                with contextlib.suppress(PlaywrightError):
+                    page.wait_for_selector(
+                        f"{self._load_more_selector}, table tbody tr", timeout=10_000
+                    )
+        consecutive_errors = 0
         for _ in range(self._load_more_max_clicks):
             button = page.query_selector(self._load_more_selector)  # type: ignore[arg-type]
             if not button:
                 break
             try:
-                button.click(timeout=5000)
+                button.click(timeout=8000)
+                consecutive_errors = 0
             except PlaywrightError:
-                break  # real, expected: button is removed once the last page loads
-            page.wait_for_timeout(_SCROLL_WAIT_MS)
+                consecutive_errors += 1
+                if consecutive_errors >= _CONSECUTIVE_ERROR_LIMIT:
+                    break
+                page.wait_for_timeout(_LOAD_MORE_WAIT_MS)
+                continue
+            page.wait_for_timeout(_LOAD_MORE_WAIT_MS)
         return page
 
     def _page_action(self) -> Callable[[Page], Page] | None:
