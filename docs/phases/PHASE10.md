@@ -7,18 +7,20 @@ process this and every phase file follows.
 Same workflow rules as [[docs/phases/PHASE1.md]]–[[docs/phases/PHASE9.md]]. Scoped
 directly across a long conversation — the user explicitly deferred the
 full feature twice ("this feature we will do later," "this resume auto
-apply we will give later") while still refining scope in discussion, then
-approved starting on a narrow, self-contained first slice: a basic (v0)
-version that fills and submits a form we build ourselves, using
-Playwright, before ever pointing automation at a real company's real
-application form. **Step 1 below is done — it's the only step approved to
-build, and this phase's currently-approved scope is now complete.** Steps
-2+ capture everything decided in conversation so it isn't lost, but need a
-fresh go-ahead before any of them are built — this phase crosses from
-"read public pages" (every source in this project so far) into "submit
-write actions on third-party systems unattended," a materially different
-risk category that deserves its own explicit confirmation per step, not a
-blanket approval up front.
+apply we will give later") while still refining scope in discussion,
+approved starting on a narrow, self-contained first slice (step 1 — done),
+then, once real prior-art and market research was folded in, authorized
+building the rest directly ("invoke the loop and implement this"). **Steps
+2-9 are now approved**, with two real, hard stops marked inline (real
+applicant data only the user can provide; Gmail OAuth setup only the user
+can grant) and **one gate that stays separate no matter what**: nothing in
+this authorization causes a real application to be submitted to a real
+company — the first real submission is its own explicit checkpoint (see
+"The submission gate" below), not bundled into "implement this," because
+that one action is categorically different from everything else in this
+phase (irreversible, visible to a real company, the entire reason this
+phase has had a stricter approval bar than every prior phase in this
+project).
 
 ## Why step 1 is scoped the way it is
 
@@ -338,120 +340,107 @@ own fail-safe-to-HIGH design, never fail open into a silent auto-submit.
    reports failure rather than inferring success from "the click didn't
    raise an exception."
 
-## Deferred — scoped but not approved to build (needs fresh confirmation)
+## Steps 2+ — approved to build, with one explicit gate before any real submission
 
-The rest of this phase, as discussed and decided in conversation, kept
-here so the scope isn't lost between sessions:
+The user authorized building this scope directly ("invoke the loop and
+implement this"). Sequenced into real build-order steps below, in
+dependency order, not the unordered scope-list this section used to be.
+**One gate stays in place regardless**: nothing in steps 2-9 below ever
+causes a real application to be submitted to a real company. The first
+time this app would actually click "submit" on a genuine Greenhouse/Lever
+posting is its own separate, explicit checkpoint (marked below), not
+bundled into this authorization — that single action is categorically
+different from everything else here (irreversible, visible to a real
+company, the entire reason this phase has had a stricter approval bar than
+every prior phase). Steps that need something only the user can provide
+(real applicant data, Gmail OAuth credentials) are marked as real, hard
+stops, not routed around.
 
-- **Autonomous submission by default, via a real, narrow, configurable
-  gate** — refined from the original "fully autonomous, no per-application
-  review" framing after the prior-art research above (see "Decision"
-  section) surfaced real, converging evidence from OpenHands and Dify.
-  `SUBMIT_CONFIRMATION_POLICY` = `always` / `risky` / `never`, defaulting
-  to `risky` (pause only a genuinely high-risk `submit` — first-ever
-  application to a company, or a low-confidence LLM answer). Set `never`
-  to reproduce the originally-chosen fully-autonomous behavior exactly —
-  this is a configurable default, not a reversal of that decision.
-- **Greenhouse + Lever only, to start** — the two ATS providers this app
-  already resolves companies against (`backend/scraper/resolve.py`), so
-  there's real form structure to build against instead of guessing.
-  External job boards that just link to arbitrary third-party apply pages
-  are out of scope for this phase. If either real ATS turns out to
-  paginate a single application across multiple pages (common for longer
-  forms), Crawl4AI's `session_id` + `wait_for`-before-scanning pattern
-  (persist one browser session across steps, wait for a real render
-  signal before the field-scanner runs again) is worth mirroring — noted
-  here even though Crawl4AI itself has no reusable form-aware code (see
-  "Prior art checked" above), since the multi-page-session *shape* is real
-  and independent of that library.
-- **A real ToS check on Greenhouse's and Lever's automated-submission
-  terms** — not just `robots.txt` — is the mandatory first step of the
-  *real* (non-test-form) build, before any code touches either platform.
-  This is the project's first write action against a third party rather
-  than a read; every prior source only ever got a `robots.txt` check
-  because reading public pages was all it ever did.
-- **Resume ingestion stays as the existing PDF → Markdown flow**
-  (`backend/resume.py`) — no Obsidian vault integration for this phase.
-- **Resume upload gets extended with a small structured applicant
-  profile**, captured once at upload time: current/expected salary,
-  phone, work authorization, relocation, start-date availability. These
-  are exactly the fields an LLM shouldn't guess at from resume text alone
-  — wrong answers here (work authorization especially) can actively hurt
-  an application rather than just look generic.
-- **Match scoring gates auto-apply** — score discovered/scraped jobs
-  against the resume's derived search positions; auto-apply only fires
-  above a real threshold, not on every match. Pipeline structure informed
-  by the prior-art research above: a real gate step (match-score →
-  threshold check → proceed/skip), not an implicit if-statement buried in
-  a bigger function — mirrors Dify's if-else-node-plus-shared-variable-pool
-  pattern (one namespaced context object — `job_id`, `match_score`,
-  `applicant_profile.*`, `llm_answers.*` — threaded through every step) at
-  the *pattern* level, not by adopting Dify itself. Langflow's lightweight
-  string-tag idea (`produces: list[str]` / `consumes: list[str]` on each
-  step) is a cheap way to catch a wired-wrong pipeline at construction
-  time without building a real graph engine — a real graph executor
-  (Langflow's own honest verdict on itself) would be overkill for this
-  phase's fixed, known step sequence.
-- **Form-filler priority**: structured applicant-profile fields answer
-  factual questions first; the existing LLM cascade (local → frontier
-  escalation, same pattern as job/question extraction) only handles
-  genuinely open-ended questions, grounded in resume Markdown + the
-  specific job posting. Every answer logged per-application for later
-  audit. Concrete tool-definition pattern from Open WebUI: each
-  structured-field lookup (`get_phone`, `get_salary_expectation`, etc.) is
-  a plain Python function with type hints and a docstring — the schema the
-  LLM cascade sees is *derived* from that (mirroring
-  `convert_function_to_pydantic_model()`), not hand-duplicated — and kept
-  as a real callable **Tool** the cascade decides to invoke, cleanly
-  separate from any pre/post-processing step (Open WebUI's Tools-vs-
-  Functions split) like PII redaction before logging an answer.
-- **Safety controls**, treated as near-mandatory given autonomous
-  operation, not optional: a daily/per-run application cap (same pattern
-  `MAX_ESCALATIONS_PER_RUN` already uses), a real kill switch to pause all
-  auto-apply activity immediately, a company blocklist/allowlist,
-  duplicate-application prevention across discovery sources, pacing/
-  time-of-day spread instead of bursty submission, plus the resolved
-  `SUBMIT_CONFIRMATION_POLICY` gate above (its own bullet — a `risk` tag
-  on the `submit` action specifically, fail-safe-to-HIGH on any classifier
-  error). OpenHands' dual
-  hard-cap pattern (`max_iteration_per_run` + `max_budget_per_run`) maps
-  directly onto "max applications per run" + "max LLM spend per run," and
-  its separate `StuckDetector` (repetition/loop detection) is a real,
-  cheap addition against a malformed ATS form causing a runaway retry
-  loop — distinct from the application-count cap, which wouldn't catch
-  that failure mode on its own.
-- **Trust-building**: a per-application audit record (what was actually
-  submitted, any LLM-generated answers, a snapshot of the confirmation
-  page) and a dry-run mode (simulate N matches, show what would have been
-  submitted, without a permanent per-application review gate). Concrete
-  structure from OpenHands: an append-only, timestamped, parent/child-
-  linked event log (propose → execute → observe, one real row per action)
-  rather than free-text logging — gives a genuine per-application replay
-  ("what did it actually try, in what order, what came back") instead of
-  just a final outcome summary, and is the same shape this project's own
-  `Run` row already uses for scrape observability (`pages_fetched`,
-  `items_saved`, `errors`) — a natural extension, not a new concept.
-- **Closing the loop** — the gap that started this whole discussion,
-  automating apply without automating anything downstream: surface real
-  interview questions (already scraped, already tied to companies) the
-  moment a job's status flips to "interviewing" (two existing features,
-  currently disconnected); some form of reply detection so `Job.status`
-  updates when a company actually responds, instead of staying manual
-  forever even after applying became automatic; outcome feedback — track
-  which auto-applied jobs got real responses, feed that back into tuning
-  the match-score threshold over time. Real tooling for the reply-
-  detection piece specifically (see "Real tooling for closing the loop's
-  reply-detection piece" above): the Gmail API (not Nylas/Unipile — those
-  solve a multi-tenant problem this single-user tool doesn't have),
-  `simplegmail` as a thin wrapper, `email-reply-parser` to strip quoted
-  thread history, and classification via Hirable's *existing* LLM cascade
-  rather than a new NLTK/TextBlob pipeline — this is a new kind of access
-  (reading email) this app has never needed before, worth its own explicit
-  go-ahead separate from the rest of this bullet, and its own real
-  robots.txt-equivalent check: Gmail's own API terms of service, read for
-  real before any code touches it, same discipline as every other
-  external system this project talks to.
+2. **Real ToS check on Greenhouse's and Lever's automated-submission
+   terms (research, no code).** Not just `robots.txt` — the mandatory
+   first step before any code touches either platform, per this project's
+   own stated discipline for its first write-action against a third
+   party. Read both platforms' actual terms; if either is silent/vague
+   rather than an explicit prohibition, document that honestly and
+   continue (per the user's stated risk tolerance); if either explicitly
+   prohibits automated submission, stop and flag it as a real blocker
+   before any further step touches that platform specifically.
+3. **`SUBMIT_CONFIRMATION_POLICY` + safety-control infrastructure
+   (backend).** The `always`/`risky`/`never` setting (default `risky`),
+   a `risk` tag on the discrete `submit` action from step 1's filler
+   (fail-safe-to-HIGH on any classifier error), a daily/per-run
+   application cap (`MAX_ESCALATIONS_PER_RUN`'s pattern), a real kill
+   switch, a company blocklist/allowlist, duplicate-application
+   prevention, pacing/time-of-day spread, OpenHands' dual hard-cap
+   pattern (`max_iteration_per_run` + `max_budget_per_run`), and a
+   `StuckDetector`-style repetition check. Pure infrastructure — no real
+   ATS interaction yet, fully buildable and testable against step 1's
+   local test form.
+4. **Append-only audit event log (backend).** Mirrors this project's own
+   `Run` row pattern, not a new concept: one persisted, timestamped,
+   parent/child-linked event per action (propose → execute → observe),
+   giving a genuine per-application replay rather than a final-outcome
+   summary. Buildable and testable now, independent of any real
+   submission ever happening.
+5. **Structured applicant profile (backend + frontend).** New fields on
+   resume upload: current/expected salary, phone, work authorization,
+   relocation, start-date availability. **Real, hard stop on real data**:
+   this step builds the schema, the endpoint, and the upload-time UI —
+   it does *not* fill in your actual phone number, salary, or work-
+   authorization status, since only you have that. The feature is usable
+   the moment you fill it in yourself; nothing downstream that reads this
+   profile can be meaningfully tested end-to-end with real values until
+   you do.
+6. **Match-score gating pipeline (backend).** A real gate step (score →
+   threshold → proceed/skip) against the resume's derived search
+   positions, structured as one shared, namespaced context object per
+   application attempt (Dify's pattern, not Dify itself) — not an
+   implicit if-statement. A real threshold value gets proposed and is
+   tunable, not fixed in code.
+7. **Form-filler answer-tool system (backend).** Structured-profile
+   lookups (`get_phone`, `get_salary_expectation`, etc.) as plain
+   type-hinted, docstringed Python functions — the schema the LLM cascade
+   sees is derived from that (Open WebUI's pattern), not hand-duplicated
+   — falling back to the existing LLM cascade only for genuinely
+   open-ended questions, grounded in resume Markdown + the job posting.
+   Every answer logged through step 4's event log.
+8. **Real Greenhouse/Lever form-structure investigation, extending step
+   1's filler (backend).** Point `detect_fields` at real, live
+   Greenhouse/Lever job-posting pages (read-only — loading the page and
+   running field detection is no different in kind from every scraping
+   source this project already has) and confirm the hybrid grounding
+   approach from step 1 generalizes to real ATS markup. **Does not
+   submit anything** — this step ends at "the filler can correctly detect
+   and would-be-fill a real application's fields," verified by inspecting
+   the filled-but-unsubmitted state, never by clicking the real submit
+   button.
+9. **Closing the loop, the pieces that don't need new access (backend +
+   frontend).** Interview-question surfacing when a job's status flips to
+   "interviewing" — wiring two already-existing features together, no
+   new access required, buildable now. **Real, hard stop on Gmail
+   reply-detection specifically**: needs Google Cloud OAuth credentials
+   and your explicit consent grant, which only you can set up — flagged
+   here as its own separate go-ahead (see "Real tooling for closing the
+   loop's reply-detection piece" above for the real package choices:
+   Gmail API + `simplegmail`, `email-reply-parser`, this project's
+   existing LLM cascade for classification), not assumed as part of this
+   authorization. Outcome feedback (tuning the match-score threshold from
+   real response data) is blocked on real submissions existing at all —
+   deferred until after the submission gate below is separately crossed.
 
-Next: not started — step 1 (the only currently-approved step) is done.
-Nothing in the Deferred section above is authorized to build without the
-user explicitly re-confirming scope first, per this file's own header.
+## The submission gate (separate from the authorization above)
+
+The first real application submitted to a real company is its own
+checkpoint, not included in "implement this." Once steps 2-8 above are
+done and step 2's ToS findings are clean, this file will be updated with
+exactly what's about to happen (which company, which job, what the
+LLM-answered fields contain) and wait for explicit, in-the-moment
+confirmation before that one action fires — after that first real,
+confirmed submission, whether every subsequent one still requires the same
+confirmation is what `SUBMIT_CONFIRMATION_POLICY` (step 3) actually
+governs.
+
+Next: steps 2-9 above (excluding the two marked hard stops — real
+applicant data, Gmail OAuth setup — and excluding the submission gate,
+which stays a separate checkpoint) are approved. Driven by `/loop` once
+this file is committed on its own, per WORKFLOW.md rule 3.
