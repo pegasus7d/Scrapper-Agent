@@ -332,6 +332,40 @@ rule 2):
    sibling). Smoke: a real scheduled tick actually discovers/resolves
    without any manual button click, confirmed via `last_checked_at`/company
    count changing between two real ticks.
+   **Done, in two commits (backend, frontend), plus a real bug caught
+   mid-smoke-test.** Reused `SchedulesPanel.tsx`, not a sibling — same
+   enable/disable/every_hours bookkeeping regardless of what a schedule
+   dispatches to. New shared `discover_and_save_companies(session,
+   source)` in `discovery.py` so the API route and the new
+   `run_company_discovery_task` Huey task don't duplicate the per-source
+   dispatch (the route handler shrank to one line). `dispatch_due_schedule`
+   branches on `schedule.kind == "companies"`, skipping both the
+   `active_run_exists` guard and the `Run`-row creation a jobs/questions
+   schedule goes through.
+   Real bug caught while smoke-testing, not assumed away: the first
+   check (`last_run_at` changed) looked like confirmation the tick had
+   *finished* — it hadn't. `run_company_discovery_task(schedule.source)`
+   is a decorated Huey task; calling it as a plain function **enqueues**
+   it (exactly like `run_scrape_task` already does elsewhere in this
+   same function), it does not run synchronously — `mark_schedule_run`
+   fires right after enqueueing, not after the work completes. Confirmed
+   real by polling company counts *after* `last_run_at` had already
+   changed and watching genuine progress over the next couple minutes
+   (52 → 67 → 81 → 98 → 118 companies checked) — the resolve pass really
+   was still running in the background the whole time. No code fix
+   needed (this is the same, already-correct async-enqueue pattern
+   `run_scrape_task` uses) — the bug was in the smoke test's own
+   assumption, corrected before concluding, not swept under the rug.
+   Smoke: created a real `kind="companies", source="yc"` schedule
+   through the live API against real data (220 real companies, mixed
+   YC/largest-US-companies) — a real periodic Huey tick (fires every
+   minute on its own) picked it up with zero manual button clicks,
+   `last_run_at` changed for real, and polling confirmed the enqueued
+   task genuinely ran to completion: 118 companies checked, 22 newly
+   resolved to real ATS providers (Bitmovin, Instawork, Human Interest,
+   Lattice, GoCardless, and more). Left the real schedule running in the
+   dev DB afterward — it's the intended, working feature now, not test
+   pollution to clean up.
 8. **Persistent logs (backend).** `RotatingFileHandler` added to
    `configure_logging()`, a real log file path (gitignored, alongside
    `hirable.db`/`huey.db`). Smoke: run the app for real, confirm real log
