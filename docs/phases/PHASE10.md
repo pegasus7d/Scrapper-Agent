@@ -137,22 +137,51 @@ may drift — the *patterns* are what's being borrowed, not literal code.
   Per-tool **valves** (admin-level and per-user, encrypted) separate
   runtime config from the tool's logic.
 
-### Open question this research surfaced, not resolved here
+### Decision: what actually gets adopted from this research
 
-Two independent, mature real-world systems (OpenHands' fail-safe-to-HIGH
-risk-tiered confirmation gate, Dify's first-class `human_input` node type)
-converge on the same idea: even systems built for autonomous operation
-generally keep *some* per-action risk-based pause/confirm mechanism, gated
-narrowly (e.g., only the final "submit" action, not every field fill) rather
-than an all-or-nothing choice between "fully autonomous" and "review every
-application." This doesn't override the user's explicit choice of full
-autonomy — it's flagged here as real, converging evidence worth weighing
-before the real (non-spike) build starts, not decided unilaterally. Worth
-raising again once step 1 is done and this phase's real build is
-re-confirmed: a *narrow*, risk-tiered gate (e.g., auto-fill everything, but
-require one confirmation only for genuinely first-time/high-uncertainty
-submissions) may be a real middle ground neither "fully autonomous" nor
-"review every application" captured in the original framing.
+Reviewed with the user directly, resolved per idea rather than left as an
+open question — adopt / adopt-as-configurable-default / skip, and why:
+
+**Adopted outright** (cheap, clearly worth it, already reflected in this
+file): browser-use's hybrid grounding + `ActionResult` + explicit `done`
+contract (step 1's design, below); OpenHands' dual hard caps, stuck-
+detection, and append-only typed audit event log (a natural extension of
+this project's own `Run` row pattern, not a new concept); OpenHands'
+discrete typed action space (step 1's design, below); Open WebUI's type-
+hint+docstring→schema pattern for the applicant-profile answer tools, kept
+cleanly separate from any logging/redaction middleware (Tools-vs-Functions
+split); Dify's shared-context-object pattern for the pipeline (one
+namespaced row per application attempt every step reads/writes — again,
+confirms a shape this project's pipeline already uses elsewhere, not new
+work).
+
+**Skipped, with reasons, not silently dropped**: Crawl4AI (genuinely
+doesn't apply — no form-aware extraction); Langflow's actual graph/DAG
+engine (real "overkill" verdict from its own research — a fixed, known
+6-8 step sequence doesn't need a runtime graph executor); the lightweight
+string-tag step-compatibility idea *also* downgraded from a real
+requirement to a nice-to-have — for a sequence this fixed, tests catch a
+mis-wired pipeline more cheaply than a runtime tag-checker would; Dify's
+`workflow_as_tool` (not needed until the pipeline is genuinely complex
+enough to want sub-workflows-as-tools, not this phase); Open WebUI's
+"valves" concept (that's solving a multi-user admin/per-user config
+problem — Hirable is single-user, and `config.py` already plays that role
+here).
+
+**Adopted as a configurable default, not a silent override of the user's
+full-autonomy choice**: OpenHands' fail-safe-to-HIGH risk gate and Dify's
+`human_input` primitive both independently point at *some* risk-based
+pause mechanism even in autonomous systems. Real resolution: a
+`SUBMIT_CONFIRMATION_POLICY` setting with three real values —
+`always` / `risky` / `never` — defaulting to **`risky`** (auto-fill
+everything; pause only the final `submit` action, and only when it's
+genuinely high-risk: first-ever application to this company, or an
+LLM-answered question below a confidence threshold). `never` reproduces
+exactly the fully-autonomous behavior already chosen; `risky` is the
+recommended default, not a forced override — set `never` at any time to
+match the original decision exactly. Risk classification itself must fail
+safe to "treat as risky" on any classifier error, mirroring OpenHands'
+own fail-safe-to-HIGH design, never fail open into a silent auto-submit.
 
 ## Build order
 
@@ -197,8 +226,15 @@ submissions) may be a real middle ground neither "fully autonomous" nor
 The rest of this phase, as discussed and decided in conversation, kept
 here so the scope isn't lost between sessions:
 
-- **Fully autonomous submission** (not auto-fill-then-human-clicks) —
-  explicitly chosen by the user, aware of the higher risk.
+- **Autonomous submission by default, via a real, narrow, configurable
+  gate** — refined from the original "fully autonomous, no per-application
+  review" framing after the prior-art research above (see "Decision"
+  section) surfaced real, converging evidence from OpenHands and Dify.
+  `SUBMIT_CONFIRMATION_POLICY` = `always` / `risky` / `never`, defaulting
+  to `risky` (pause only a genuinely high-risk `submit` — first-ever
+  application to a company, or a low-confidence LLM answer). Set `never`
+  to reproduce the originally-chosen fully-autonomous behavior exactly —
+  this is a configurable default, not a reversal of that decision.
 - **Greenhouse + Lever only, to start** — the two ATS providers this app
   already resolves companies against (`backend/scraper/resolve.py`), so
   there's real form structure to build against instead of guessing.
@@ -252,18 +288,15 @@ here so the scope isn't lost between sessions:
   as a real callable **Tool** the cascade decides to invoke, cleanly
   separate from any pre/post-processing step (Open WebUI's Tools-vs-
   Functions split) like PII redaction before logging an answer.
-- **Safety controls**, treated as near-mandatory given full autonomy, not
-  optional: a daily/per-run application cap (same pattern
+- **Safety controls**, treated as near-mandatory given autonomous
+  operation, not optional: a daily/per-run application cap (same pattern
   `MAX_ESCALATIONS_PER_RUN` already uses), a real kill switch to pause all
   auto-apply activity immediately, a company blocklist/allowlist,
   duplicate-application prevention across discovery sources, pacing/
-  time-of-day spread instead of bursty submission. Real, concrete pattern
-  to adopt from OpenHands, the most directly relevant prior art here: a
-  `SecurityRisk`-style tag (at minimum LOW/HIGH) on the discrete actions
-  step 1 already established, so a rate cap or kill switch can target the
-  `submit` action specifically rather than the whole pipeline; risk
-  classification (if any exists beyond a fixed per-action tag) must **fail
-  safe to HIGH** on any classifier error, never fail open. OpenHands' dual
+  time-of-day spread instead of bursty submission, plus the resolved
+  `SUBMIT_CONFIRMATION_POLICY` gate above (its own bullet — a `risk` tag
+  on the `submit` action specifically, fail-safe-to-HIGH on any classifier
+  error). OpenHands' dual
   hard-cap pattern (`max_iteration_per_run` + `max_budget_per_run`) maps
   directly onto "max applications per run" + "max LLM spend per run," and
   its separate `StuckDetector` (repetition/loop detection) is a real,
