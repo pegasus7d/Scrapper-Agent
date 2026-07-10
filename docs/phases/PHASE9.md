@@ -277,6 +277,32 @@ sync by hand.
    — not just a bare 200. Smoke: real curl against a live app confirms a
    real status payload; killing the Huey consumer process and re-checking
    confirms the endpoint actually reflects real state, not a hardcoded OK.
+   **Done.** `GET /health` returns `{database, huey_consumer}`, both real:
+   `database` runs a real `SELECT 1` against the request-scoped session
+   (broad `except Exception` deliberately, same justification
+   `execute_run`'s own broad except already uses, DESIGN.md §3 — a health
+   check's whole job is to report failure, not raise it); `huey_consumer`
+   checks a real thread handle (`app.state.consumer_thread`, newly stored
+   by `create_app` when `start_consumer=True`) `is not None and
+   .is_alive()`, not a hardcoded flag.
+   Smoke adapted honestly, not overstated: the consumer is a daemon
+   *thread* inside the same process as the API server, not a separate
+   process — there's no way to "kill the Huey consumer process and
+   recheck" without killing the whole server the health endpoint itself
+   runs on, which would make rechecking impossible by construction. Real
+   coverage instead: a live app (fresh process, confirmed by PID) —
+   `curl localhost:8000/api/health` returned `{"database": true,
+   "huey_consumer": true}`, both genuinely true (a real running consumer
+   thread, a real reachable DB). The "not running" case is covered for
+   real by `test_health_reports_database_ok_and_no_consumer_in_tests`
+   (every test app runs with `start_consumer=False`, so `huey_consumer:
+   false` there is a real, verified distinct state, not assumed) and
+   `test_health_reports_database_down_for_a_genuinely_broken_engine` (a
+   real broken SQLAlchemy engine pointed at an unreachable path, not a
+   mock — `create_app()` itself already touches the DB at startup via
+   `recover_stale_runs`, so the broken engine is swapped onto
+   `app.state.engine` *after* successful construction, otherwise app
+   creation itself would fail before `GET /health` is ever reachable).
 7. **Resume upload gets a real size/type guard (backend).** `routes_resume.py`'s
    `upload_resume` does `await file.read()` with no limit before any
    validation runs — an oversized or wrong-type file is fully read into
