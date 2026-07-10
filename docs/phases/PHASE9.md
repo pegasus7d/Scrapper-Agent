@@ -339,6 +339,30 @@ sync by hand.
    against the real, current row counts (1920+ companies, however many
    real jobs/questions are on file) and confirm it still completes
    correctly under whichever bound this step lands on.
+   **Done.** Went with real streaming, not a hard cap — a cap would have
+   actively broken the "export everything" promise the moment real usage
+   crossed it, and this app already had a proven, working pattern for
+   exactly this class of problem: `GET /runs/stream`'s SSE endpoint
+   already solved "keep a DB session alive for a generator-driven
+   response" by opening its own short-lived session inside the generator
+   rather than depending on FastAPI's request-scoped `SessionDep` (which
+   closes as soon as the route handler *returns* — immediately after
+   constructing a `StreamingResponse`, well before its body is actually
+   sent). `repo.export_jobs`/`export_questions` became lazy (`iter(...)`,
+   not `.all()`); `api/export.py` gained `stream_jobs_csv`/
+   `stream_jobs_json`/`stream_questions_csv`/`stream_questions_json`,
+   each opening its own session and yielding roughly one row at a time,
+   mirroring `stream.py`'s `run_updates`/`_run_list_payload` split. The
+   pure CSV-row serialization (`jobs_to_csv_lines`/`questions_to_csv_lines`)
+   stayed DB-independent and directly testable, same discipline
+   `test_export.py` already had — only the DB-touching wrapper changed.
+   Smoke: real live app, fresh process, against the real, current row
+   counts. `GET /jobs/export` returned exactly 175 real jobs (JSON) /
+   176 real CSV lines (175 + header) — both matching the live DB exactly,
+   not truncated or duplicated. `GET /questions/export` returned exactly
+   109 real questions. A real company filter (`?company=Checkr`) still
+   correctly narrowed to 57 real matching rows through the new streaming
+   path — filtering wasn't accidentally broken by the refactor.
 
 9. **Russell 1000 as a seventh company discovery source (backend).** Real
    gap found by checking, not guessed: the existing `largest_us_companies`
