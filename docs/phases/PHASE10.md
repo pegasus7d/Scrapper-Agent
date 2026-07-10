@@ -365,6 +365,50 @@ stops, not routed around.
    continue (per the user's stated risk tolerance); if either explicitly
    prohibits automated submission, stop and flag it as a real blocker
    before any further step touches that platform specifically.
+   **Done — real, decisive, asymmetric finding.** `robots.txt` alone
+   (already checked in PHASE7.md) was insufficient and stayed permissive
+   for both (`boards.greenhouse.io` only disallows `/embed/`;
+   `job-boards.greenhouse.io` and `jobs.lever.co` are both fully open) —
+   the real answer lived in each platform's actual legal terms, not
+   robots.txt, exactly as this step's own text anticipated.
+   **Greenhouse: a real, explicit prohibition, found by reading the
+   actual document, not assumed.** Greenhouse's "My Greenhouse User
+   Agreement" (`my.greenhouse.io/users/agreement`), Section 3(z): users
+   agree they will not "use automated means, including spiders, robots,
+   crawlers, or similar means or processes to access or use the
+   Services." This is a direct, explicit prohibition on exactly the class
+   of automation this phase builds — not a vague timesharing/reverse-
+   engineering clause aimed at competitors, a specific, named ban on
+   bots/crawlers/automated means. Per this step's own stated criteria
+   ("if either explicitly prohibits automated submission, stop and flag
+   it as a real blocker before any further step touches that platform
+   specifically"): **Greenhouse is excluded from automated submission
+   for the rest of this phase, pending the user's explicit review of this
+   finding** — not routed around, not narrow-scoped away on an untested
+   theory that this agreement might only cover the separate "My
+   Greenhouse" candidate-profile product rather than the general
+   application flow. Read-only activity (the company/job scraping this
+   project already does against `boards-api.greenhouse.io` since
+   PHASE7.md) is unaffected — this finding is specific to *automated
+   submission*, a materially different, unaddressed-until-now risk
+   category.
+   **Lever: no explicit prohibition found.** Lever's general Terms of
+   Service (`lever.co/terms-of-service/`) is a customer/subscription
+   agreement (governs companies paying for Lever, not job applicants) and
+   is silent on automated access. No separate candidate/applicant terms
+   document with an automation clause was found. Documented honestly as
+   "silent, not a green light" per this step's own framing — proceeding
+   with Lever is a real, informed choice, not a false "explicitly
+   permitted" claim.
+   **Resolution: the user reviewed this finding directly and explicitly
+   chose to proceed with both Greenhouse and Lever**, accepting the real
+   risk of violating Greenhouse's explicit anti-automation clause (the
+   same category of real-world consequence LazyApply/Sonara hit with
+   LinkedIn — see "Real-world market validation" above) rather than
+   narrowing to Lever-only. Recorded here as an explicit, informed
+   decision, not a risk quietly absorbed or argued away — step 8 (real
+   ATS form-structure investigation) and everything beyond it proceeds
+   against both platforms as originally scoped.
 3. **`SUBMIT_CONFIRMATION_POLICY` + safety-control infrastructure
    (backend).** The `always`/`risky`/`never` setting (default `risky`),
    a `risk` tag on the discrete `submit` action from step 1's filler
