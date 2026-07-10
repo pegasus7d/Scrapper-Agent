@@ -7,6 +7,7 @@ is optional by design — without it the app runs free/local-only.
 
 import logging
 import os
+from logging.handlers import RotatingFileHandler
 
 from dotenv import load_dotenv
 
@@ -38,6 +39,14 @@ YC_COMPANIES_URL = "https://www.ycombinator.com/companies"
 LARGEST_US_COMPANIES_URL = (
     "https://en.wikipedia.org/wiki/List_of_largest_companies_in_the_United_States_by_revenue"
 )
+# Persistent logs (PHASE8.md step 8) — real gap once scheduled company
+# automation (step 7) runs unattended: stderr alone leaves no record when
+# nobody's watching a terminal. A home-lab, single-user tool, not a
+# service under real log-volume pressure — 5 MB/file x 3 backups (~20 MB
+# total) is a real bound, not unbounded growth, without needing to tune it.
+LOG_FILE = "hirable.log"
+LOG_MAX_BYTES = 5 * 1024 * 1024
+LOG_BACKUP_COUNT = 3
 
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 
@@ -48,5 +57,16 @@ def anthropic_api_key() -> str | None:
 
 
 def configure_logging() -> None:
-    """Configure stderr logging for the whole app; safe to call more than once."""
+    """Configure stderr + a rotating log file for the whole app; safe to
+    call more than once — logging.basicConfig() is itself a no-op once the
+    root logger already has handlers, and the same check below guards the
+    file handler this function adds on top of it."""
+    root = logging.getLogger()
+    if root.handlers:
+        return
     logging.basicConfig(format=_LOG_FORMAT, level=logging.INFO)
+    file_handler = RotatingFileHandler(
+        LOG_FILE, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT
+    )
+    file_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+    root.addHandler(file_handler)

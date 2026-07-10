@@ -1,5 +1,8 @@
 """Tests for project configuration."""
 
+import logging
+from pathlib import Path
+
 import pytest
 
 from backend import config
@@ -27,6 +30,42 @@ def test_anthropic_api_key_returns_value_when_set(monkeypatch: pytest.MonkeyPatc
     assert config.anthropic_api_key() == "sk-test"
 
 
-def test_configure_logging_can_be_called_twice() -> None:
+@pytest.fixture
+def clean_root_logger(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> logging.Logger:
+    """The root logger's handler list is real global state shared across
+    the whole pytest process — configure_logging()'s own "safe to call
+    more than once" guard means once anything has called it, later calls
+    become no-ops. Save/restore it so this test proves real behavior
+    regardless of test order, and point LOG_FILE at a real tmp path so
+    the suite never writes a log file into the actual project directory.
+
+    The clearing itself can't happen here: pytest's own logging plugin
+    re-installs a fresh LogCaptureHandler on the root logger at the start
+    of each test's *call* phase, which runs after fixture setup — so a
+    clear() done in this fixture body is wiped out before the test even
+    starts. Each test clears handlers itself, right before calling
+    configure_logging(), so nothing re-populates the list in between."""
+    root = logging.getLogger()
+    saved_handlers = list(root.handlers)
+    monkeypatch.setattr(config, "LOG_FILE", str(tmp_path / "hirable.log"))
+    yield root
+    root.handlers.clear()
+    root.handlers.extend(saved_handlers)
+
+
+def test_configure_logging_can_be_called_twice(clean_root_logger: logging.Logger) -> None:
+    clean_root_logger.handlers.clear()
     config.configure_logging()
     config.configure_logging()
+    assert len(clean_root_logger.handlers) == 2  # stderr + rotating file, not 4
+
+
+def test_configure_logging_creates_a_real_log_file(
+    clean_root_logger: logging.Logger, tmp_path: Path
+) -> None:
+    clean_root_logger.handlers.clear()
+    config.configure_logging()
+    logging.getLogger("test").info("a real log line")
+    log_file = tmp_path / "hirable.log"
+    assert log_file.exists()
+    assert "a real log line" in log_file.read_text()
