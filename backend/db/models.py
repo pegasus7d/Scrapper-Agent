@@ -111,6 +111,66 @@ class Company(Base):
     source: Mapped[str] = mapped_column(default="yc")
     discovered_at: Mapped[datetime]
     last_checked_at: Mapped[datetime | None] = mapped_column(default=None)
+    # Auto-apply blocklist (PHASE10.md step 3) — a real, per-company opt
+    # out, checked before any application attempt starts.
+    auto_apply_blocked: Mapped[bool] = mapped_column(default=False)
+
+
+# Auto-apply (PHASE10.md steps 3-4). Application is the per-attempt
+# observability record, mirroring Run's own role for scrape runs.
+# ApplicationEvent is the append-only, typed audit trail — OpenHands'
+# propose -> execute -> observe Event pattern (this phase's own prior-art
+# research), not free-text logging.
+APPLICATION_STATUSES = ("pending", "awaiting_confirmation", "submitted", "rejected", "failed")
+
+
+class Application(Base):
+    """One real application attempt."""
+
+    __tablename__ = "applications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), default=None)
+    status: Mapped[str] = mapped_column(default="pending")  # one of APPLICATION_STATUSES
+    # "low" never pauses; "high" pauses under SUBMIT_CONFIRMATION_POLICY=
+    # "risky" (config.py) — classification fails safe to "high" on any
+    # ambiguity, never silently "low" (mirrors OpenHands' fail-safe-to-HIGH
+    # SecurityRisk design).
+    risk_level: Mapped[str] = mapped_column(default="low")  # "low" | "high"
+    started_at: Mapped[datetime]
+    finished_at: Mapped[datetime | None] = mapped_column(default=None)
+    error: Mapped[str | None] = mapped_column(default=None)
+
+
+class ApplicationEvent(Base):
+    """One real action and its outcome, append-only — never overwritten
+    or deleted. `parent_event_id` links a retry/follow-up action back to
+    the one it responds to, the same real per-application replay shape
+    OpenHands' own event tree uses."""
+
+    __tablename__ = "application_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    application_id: Mapped[int] = mapped_column(ForeignKey("applications.id"))
+    parent_event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("application_events.id"), default=None
+    )
+    action: Mapped[str]  # e.g. "detect_fields", "fill_field:full_name", "submit"
+    success: Mapped[bool]
+    detail: Mapped[str | None] = mapped_column(default=None)
+    created_at: Mapped[datetime]
+
+
+class AutoApplySettings(Base):
+    """A real, single-row (id=1) settings table — the kill switch needs to
+    be toggleable state, not a config.py constant that would require a
+    restart to flip."""
+
+    __tablename__ = "autoapply_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kill_switch_enabled: Mapped[bool] = mapped_column(default=False)
 
 
 class Schedule(Base):
