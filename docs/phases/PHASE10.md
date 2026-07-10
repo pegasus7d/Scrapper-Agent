@@ -420,6 +420,45 @@ stops, not routed around.
    `StuckDetector`-style repetition check. Pure infrastructure — no real
    ATS interaction yet, fully buildable and testable against step 1's
    local test form.
+   **Done.** `Application`, `ApplicationEvent`, and `AutoApplySettings`
+   models added (`backend/db/models.py`), plus `Company.auto_apply_blocked`
+   — a real Alembic migration (`8e4ef21125de`) applied cleanly against the
+   real, populated dev DB (2979 existing companies correctly defaulted to
+   `auto_apply_blocked=0` via `server_default`), with both upgrade and
+   downgrade verified for real, not just generated and trusted. One real
+   snag: an earlier, interrupted upgrade attempt (from before this
+   migration had its `server_default` fix) had already created the three
+   new tables against the real DB and then failed on `add_column`, leaving
+   orphaned empty tables with `alembic_version` not advanced — confirmed
+   their schema matched exactly (read-only `PRAGMA table_info`) and taught
+   the migration to skip `create_table` when a table already exists,
+   rather than dropping and recreating real DB state.
+   `backend/autoapply/safety.py` implements the actual controls:
+   `kill_switch_enabled`/`set_kill_switch` (a real, toggleable DB row, not
+   a `config.py` constant, so it doesn't need a restart to flip),
+   `classify_risk` (fails safe to `"high"` on a first-time company or
+   low/missing LLM confidence — never silently `"low"`),
+   `requires_confirmation` (resolves `SUBMIT_CONFIRMATION_POLICY`),
+   `is_company_blocked`, `has_existing_application` (the dedup check),
+   `applications_started_today`/`check_daily_cap`
+   (`MAX_APPLICATIONS_PER_DAY`, the `max_iteration_per_run` analog),
+   `seconds_since_last_application`/`check_pacing`
+   (`MIN_SECONDS_BETWEEN_APPLICATIONS = 300`, a real 5-minute floor between
+   application starts — the pacing/time-of-day-spread requirement), and a
+   `StuckDetector` dataclass. `max_budget_per_run` is deliberately *not* a
+   new constant: the existing `MAX_ESCALATIONS_PER_RUN` (already enforced
+   in `backend/scraper/extractor.py`'s `Extractor`) will serve as the
+   LLM-spend cap once step 7's answer-tools route through that same class
+   — reusing an existing cap instead of adding a second, parallel one.
+   24 real unit tests (`tests/test_autoapply_safety.py`, in-memory SQLite,
+   no network/LLM) plus a real smoke test run twice against the actual
+   dev DB (once before the pacing addition, once after) — kill switch
+   toggled and confirmed to persist, `applications_started_today`/
+   `seconds_since_last_application` read real (empty) state correctly,
+   `classify_risk` confirmed to fail safe to `"high"` on a real company
+   row, and the DB verified left in the correct off/empty state afterward
+   each time. `pytest` (383 passed) / `mypy` / `ruff check` / `ruff
+   format --check` all green.
 4. **Append-only audit event log (backend).** Mirrors this project's own
    `Run` row pattern, not a new concept: one persisted, timestamped,
    parent/child-linked event per action (propose → execute → observe),
