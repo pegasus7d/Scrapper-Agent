@@ -269,6 +269,29 @@ rule 2):
    7 step 1's real stamp-vs-upgrade pattern). Smoke: one real discovery
    run, confirm meaningfully more than 40 real companies land, each with a
    real batch value.
+   **Done, in two commits (transport, discovery+model+UI).** Stopping
+   condition: a fixed `scroll_count=5` (confirmed real via Scrapling's own
+   `page_action` API, not raw Playwright — 40 → 120 companies), not
+   height-unchanged detection — simpler, and the real number this site
+   surfaces per scroll-cycle is stable enough not to need adaptive
+   stopping for a first version. `ScraplingTransport` gained an optional
+   `scroll_count` constructor param (default 0, every other current
+   caller unaffected) rather than a new transport class. Real markup
+   quirk found while extracting `batch`: the pill's own visible `.text`
+   is empty (confirmed directly) — the real batch lives in the pill
+   link's `href` (`?batch=Summer%202013`), parsed as a query param
+   instead. `discover_yc_companies` now returns `DiscoveredCompany(name,
+   batch)` instead of bare names; `Company.batch` is null for the 40
+   companies discovered before this step landed (correct and honest, not
+   backfilled) and set for every new one.
+   Smoke: one real discovery run through the live API — `{"discovered":
+   80, "total": 120}`, exactly matching this step's own confirmed 40 →
+   120 research finding. 80 of the resulting 120 companies have a real
+   batch value (the newly-discovered ones; the original 40 correctly
+   stayed null), spanning real, distinct YC batches (Summer 2015, Winter
+   2016, and more) — not a single hardcoded value. Confirmed in a real
+   browser too: filtering to "Mux" showed a real "YC Winter 2016" badge
+   on both the row and its drawer, zero console errors.
 6. **Fortune 500 / largest-US-companies discovery (backend).** New
    discovery function against the verified Wikipedia table (plain
    `HttpxTransport`, no browser needed), parsing the real `wikitable`
