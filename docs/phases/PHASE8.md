@@ -522,9 +522,32 @@ rule 2):
    attribution — expected, pre-existing dedup behavior, not new to this
    step. Confirmed genuinely distinguishable by `source`. Confirmed
    idempotent: an immediate second discovery run found 0 new companies.
-   **Bessemer Venture Partners still pending** — real page structure not
-   yet confirmed; that's the last unit of work for this step, same
-   discipline as the four VCs above.
+   **Bessemer Venture Partners done (4/4) — step 9 complete.** In two
+   commits. Real `robots.txt` confirmed: a real disallow list, but exactly
+   as anticipated, none of it touches `/companies`. The simplest of the
+   four VC shapes: plain server-rendered HTML, no scroll/click/pagination/
+   delay needed at all (confirmed directly — no markers found, no
+   crawl-delay requested), 517 real companies in one page load via
+   `h3.name a.name`.
+   Smoke: real live app (fresh process, confirmed by PID), real POST to
+   `/companies/discover?source=bvp` — 480 new real companies discovered
+   and saved, 1920 total after. The other 37 (Zapier and more) correctly
+   kept their original source attribution — confirmed directly that
+   `Zapier` already existed under `source: "yc"` (batch "Summer 2012")
+   from an earlier discovery run. Confirmed genuinely distinguishable by
+   `source`. Confirmed idempotent: an immediate second run found 0 new
+   companies.
+   **Step 9 summary**: four real VC portfolio sources landed
+   (`"a16z"`, `"sequoia"`, `"foundersfund"`, `"bvp"`), each with a
+   genuinely different real page shape confirmed by direct inspection
+   before writing any parser (WORKFLOW.md rule 2) — an inline JS array, a
+   tab-open-plus-click-through-pagination table, and two plain
+   server-rendered pages of differing simplicity. One real transport
+   capability was generalized along the way (`ScraplingTransport`'s
+   `tab_selector`/`load_more_selector`), and one real, non-obvious AJAX
+   race-condition bug was caught and fixed mid-smoke-test (Sequoia) rather
+   than papered over. 1920 total companies on file across six discovery
+   sources by the end of this step (up from 220 at the start of step 7).
 10. **`FEATURES.md` (docs).** A user-facing summary of what the app can
     actually do today, written last and only after steps 1-9 are real —
     describing a feature before it exists is exactly the kind of thing
