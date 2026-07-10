@@ -7,6 +7,7 @@ import { VIEWS, type View } from './lib/views'
 import { Companies } from './views/Companies'
 import { Dashboard } from './views/Dashboard'
 import { Jobs } from './views/Jobs'
+import { Profile } from './views/Profile'
 import { Questions } from './views/Questions'
 import { Resume } from './views/Resume'
 
@@ -59,6 +60,7 @@ export default function App() {
         {view === 'questions' && <Questions />}
         {view === 'resume' && <Resume />}
         {view === 'companies' && <Companies />}
+        {view === 'profile' && <Profile />}
       </main>
     </div>
   )

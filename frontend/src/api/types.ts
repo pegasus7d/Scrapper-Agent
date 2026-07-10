@@ -84,6 +84,17 @@ export interface LocalModel {
   size_bytes: number
 }
 
+// PHASE10.md step 5 — every field starts unset (null) until the user fills
+// it in themselves via the Profile view; nothing invents real data here.
+export interface ApplicantProfile {
+  phone: string | null
+  current_salary: string | null
+  expected_salary: string | null
+  work_authorization: string | null
+  relocation: boolean | null
+  start_date_availability: string | null
+}
+
 // Real (name, label) pairs for every company discovery source (PHASE9.md
 // step 2) — fetched from GET /companies/sources instead of a hand-mirrored
 // frontend constant, which drifted out of sync once already.
