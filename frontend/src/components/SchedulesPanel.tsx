@@ -4,12 +4,23 @@ import { toast } from 'sonner'
 import { apiPost } from '../api/client'
 import type { RunKind, Schedule } from '../api/types'
 import { useApi } from '../hooks/useApi'
-import { SOURCES } from '../lib/sources'
+import { COMPANY_DISCOVERY_SOURCES, SOURCES } from '../lib/sources'
 import { formatTime } from '../lib/format'
 import { Button } from './ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 
 const HOURS_OPTIONS = [1, 6, 12, 24, 24 * 7]
+
+// A "companies" schedule (PHASE8.md step 7) isn't a RunKind — it dispatches
+// to a discovery task, never a scrape Run — but reuses the same
+// enabled/every_hours/last_run_at bookkeeping every other schedule does, so
+// it belongs in the same panel, not a separate one.
+type ScheduleKind = RunKind | 'companies'
+
+const SOURCES_BY_SCHEDULE_KIND: Record<ScheduleKind, readonly string[]> = {
+  ...SOURCES,
+  companies: COMPANY_DISCOVERY_SOURCES,
+}
 
 function ScheduleRow({ schedule, onToggled }: { schedule: Schedule; onToggled: () => void }) {
   async function toggle() {
@@ -43,14 +54,14 @@ function ScheduleRow({ schedule, onToggled }: { schedule: Schedule; onToggled: (
 // just an inline create row plus the toggle list.
 export function SchedulesPanel() {
   const schedules = useApi<Schedule[]>('/schedules')
-  const [kind, setKind] = useState<RunKind>('jobs')
+  const [kind, setKind] = useState<ScheduleKind>('jobs')
   const [source, setSource] = useState(SOURCES.jobs[0] ?? '')
   const [everyHours, setEveryHours] = useState(24)
   const [busy, setBusy] = useState(false)
 
-  function selectKind(next: RunKind) {
+  function selectKind(next: ScheduleKind) {
     setKind(next)
-    setSource(SOURCES[next][0] ?? '')
+    setSource(SOURCES_BY_SCHEDULE_KIND[next][0] ?? '')
   }
 
   async function create() {
@@ -71,13 +82,14 @@ export function SchedulesPanel() {
       <h2 className="text-sm font-semibold text-foreground">Scheduled scrapes</h2>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Select value={kind} onValueChange={(v) => selectKind(v as RunKind)}>
+        <Select value={kind} onValueChange={(v) => selectKind(v as ScheduleKind)}>
           <SelectTrigger className="w-28">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="jobs">jobs</SelectItem>
             <SelectItem value="questions">questions</SelectItem>
+            <SelectItem value="companies">companies</SelectItem>
           </SelectContent>
         </Select>
         <Select value={source} onValueChange={(v) => setSource(v ?? '')}>
@@ -85,7 +97,7 @@ export function SchedulesPanel() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {SOURCES[kind].map((s) => (
+            {SOURCES_BY_SCHEDULE_KIND[kind].map((s) => (
               <SelectItem key={s} value={s}>
                 {s}
               </SelectItem>
