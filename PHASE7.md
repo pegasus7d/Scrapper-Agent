@@ -396,6 +396,47 @@ down here (WORKFLOW.md rule 2):
    `SOURCES` dict entry per company — the registry stays dynamic, driven by
    the `Company` table. Smoke: one real scrape against a real resolved
    company, confirm real postings land the same way any other source's do.
+   **Done.** New `backend/scraper/sources/companies.py`:
+   `GreenhouseCompanySource`/`LeverCompanySource`, both real `Source`
+   implementations parameterized by `(slug, company_name)`. Real response
+   shapes confirmed against the live APIs before writing any parsing code:
+   Greenhouse's `?content=true` job description field is *double*
+   HTML-escaped inside the JSON string itself (`&lt;div&gt;` as literal
+   text, not a real `<div>` tag) — `html.unescape()` has to run before
+   `clean_html()`'s own tag-stripping regex, or it never finds a literal
+   `<` to match; Lever ships a clean plain-text field (`descriptionPlain`)
+   directly, no escaping problem there. Both APIs return every posting on
+   one response (confirmed real: Airbnb's Greenhouse board alone is 209
+   jobs, one call) — `next_links()` is always `[]`.
+   `sources/__init__.py`'s `register_company_source(company)` builds the
+   right `Source` from the company's own `slug`/`ats_provider` and mutates
+   the existing module-level `SOURCES` dict under a `company:{slug}` key —
+   the literal meaning of "the registry stays dynamic": `pipeline.py`
+   needed zero changes, since `build_fetcher`/`run_scrape` already resolve
+   sources by string key through this same dict. New `POST
+   /api/companies/{id}/scrape` (404 unknown company, 422 not yet resolved,
+   409 a run's already active) registers the source and enqueues a run the
+   same way `POST /runs` does.
+   Smoke: two real scrapes through the live API against real resolved
+   companies from step 6's real output — Checkr (Greenhouse, id 35) and The
+   Athletic (Lever, id 33). Checkr: `POST /api/companies/35/scrape` started
+   a real run against `https://boards-api.greenhouse.io/v1/boards/checkr/
+   jobs?content=true` (58 real postings on that board); polled and
+   confirmed 4 real, cleanly-extracted jobs landed before cancelling
+   (`POST /runs/{id}/cancel`, an already-tested real feature — a 58-job
+   local-LLM run would take too long to babysit synchronously end-to-end,
+   and 4 real, well-formed items is enough to prove the mechanism) —
+   e.g. "Chief of Staff", San Francisco, `posting_url:
+   https://job-boards.greenhouse.io/checkr/jobs/7913718`, `source:
+   "company:checkr"`, `extraction_tier: "local"`, indistinguishable in
+   shape from any other source's saved jobs. The Athletic: same pattern
+   against `https://api.lever.co/v0/postings/theathletic?mode=json` (13
+   real postings) — 4 real jobs landed before cancelling, e.g. "Senior
+   Editor", requirements list genuinely extracted from Lever's
+   `descriptionPlain` field, `source: "company:theathletic"`. Both runs
+   ended in a clean `"cancelled"` status via the existing cancel path, not
+   an error — confirming cancellation works identically for a dynamically
+   registered company source as it does for any static one.
 8. **Surface companies in the UI (frontend).** Browse/search discovered
    companies, trigger a scrape against one directly — likely the natural
    home for the resume-driven search thread's output (steps 3/4): known
