@@ -40,6 +40,7 @@ from backend.db import repo, search
 from backend.db.models import JOB_STATUSES
 from backend.llm.client import list_local_models
 from backend.llm.embeddings import embed_text
+from backend.scraper.discovery import DISCOVERY_SOURCES
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
 from backend.scraper.tasks import enqueue_batch, run_scrape_task
 
@@ -267,7 +268,10 @@ def list_schedules(session: SessionDep) -> list[ScheduleOut]:
 
 @router.post("/schedules", status_code=201)
 def create_schedule(body: ScheduleRequest, session: SessionDep) -> ScheduleOut:
-    if body.source not in _SOURCES_BY_KIND[body.kind]:
+    if body.kind == "companies":
+        if body.source not in DISCOVERY_SOURCES:
+            raise HTTPException(422, f"unknown discovery source: {body.source}")
+    elif body.source not in _SOURCES_BY_KIND[body.kind]:
         raise HTTPException(422, f"unknown source for {body.kind}: {body.source}")
     schedule = repo.create_schedule(session, body.kind, body.source, body.every_hours)
     return ScheduleOut.model_validate(schedule)

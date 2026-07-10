@@ -14,7 +14,9 @@ from huey.consumer import Consumer
 from sqlalchemy.orm import Session
 
 from backend.db import repo
+from backend.scraper.discovery import discover_and_save_companies
 from backend.scraper.pipeline import build_embedder, build_extractor, build_fetcher, execute_run
+from backend.scraper.resolve import resolve_unresolved_companies
 
 huey = SqliteHuey("hirable", filename="huey.db")
 
@@ -69,23 +71,48 @@ def enqueue_batch(kind: str, sources: list[str], model: str) -> None:
     huey.enqueue(pipeline)
 
 
+@huey.task()  # type: ignore[untyped-decorator]  # huey ships no stubs
+def run_company_discovery_task(source: str) -> None:
+    """Discover + resolve for one company source (PHASE8.md step 7) — no
+    `Run` row: that shape (pages_fetched, items_saved, extraction_tier
+    stats) is built around the LLM-extraction pipeline, and a discovery
+    pass is a genuinely different kind of work. Discovery and resolution
+    both happen in the same tick — this is the scheduled equivalent of a
+    user clicking "Discover" then "Resolve" in the UI, not two separate
+    schedules."""
+    engine = repo.make_engine()
+    with Session(engine) as session:
+        discover_and_save_companies(session, source)
+        resolve_unresolved_companies(session)
+
+
 @huey.periodic_task(crontab(minute="*"))  # type: ignore[untyped-decorator]  # huey ships no stubs
 def dispatch_due_schedule(now: datetime | None = None) -> None:
     """Runs once a minute on the consumer's own scheduler — replaces the old
-    scheduler.py poll loop's job, but dispatches through Huey (creates the
-    run row, then enqueues run_scrape_task) instead of executing inline.
-    Same best-effort concurrency guard as POST /runs (active_run_exists
-    before creating a run) — good enough for a single-user local tool.
-    `now` defaults to the real current time; tests inject a fixed one."""
+    scheduler.py poll loop's job, but dispatches through Huey instead of
+    executing inline. `now` defaults to the real current time; tests inject
+    a fixed one.
+
+    A "companies" schedule dispatches to run_company_discovery_task, not
+    the Run-row pipeline (PHASE8.md step 7) — and is deliberately not
+    gated behind active_run_exists the way a jobs/questions schedule is:
+    company discovery/resolution hits different domains
+    (ycombinator.com, Wikipedia, Greenhouse/Lever) than whatever
+    job/question source might be actively scraping, and is far cheaper
+    than an LLM-extraction run, so there's no real reason to block it."""
     engine = repo.make_engine()
     with Session(engine) as session:
-        if repo.active_run_exists(session):
-            return
         now = now or datetime.now(UTC)
         due = repo.due_schedules(session, now)
         if not due:
             return
         schedule = due[0]  # others wait for the next minute's tick
+        if schedule.kind == "companies":
+            run_company_discovery_task(schedule.source)
+            repo.mark_schedule_run(session, schedule, now)
+            return
+        if repo.active_run_exists(session):
+            return
         run = repo.create_run(session, schedule.kind, schedule.source)
         run_scrape_task(run.id)
         repo.mark_schedule_run(session, schedule, now)

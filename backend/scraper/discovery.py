@@ -41,8 +41,10 @@ from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
 from scrapling import Selector
+from sqlalchemy.orm import Session
 
 from backend import config
+from backend.db import repo
 from backend.scraper.fetcher import PageFetcher
 from backend.scraper.transport import HttpxTransport, ScraplingTransport
 
@@ -54,6 +56,11 @@ _BATCH_LINK_SELECTOR = 'a[href*="?batch="]'
 _SCROLL_COUNT = 5  # confirmed real: 40 -> 120 companies after 5 scroll+wait cycles
 
 _WIKITABLE_SELECTOR = "table.wikitable"
+
+# The real, valid values for POST /companies/discover's source param and
+# Schedule.source when Schedule.kind == "companies" (PHASE8.md step 7) —
+# shared here rather than duplicated in routes_companies.py/routes.py.
+DISCOVERY_SOURCES = ("yc", "largest_us_companies")
 
 
 @dataclass
@@ -138,3 +145,23 @@ def discover_largest_us_companies(fetcher: PageFetcher) -> list[str]:
             names.append(name)
     logger.info("largest-US-companies discovery: %d company names found", len(names))
     return names
+
+
+def discover_and_save_companies(session: Session, source: str) -> int:
+    """Run one discovery pass for `source` and save any new companies —
+    shared by the API route (`POST /companies/discover`) and the scheduled
+    Huey task (PHASE8.md step 7) so the two don't duplicate the per-source
+    dispatch. Trusts `source` is already one of DISCOVERY_SOURCES —
+    validated once at the call site (the API route's 422, or schedule
+    creation's own validation), not re-checked here."""
+    if source == "yc":
+        yc_companies = discover_yc_companies(build_yc_fetcher())
+        return sum(
+            1
+            for c in yc_companies
+            if repo.save_company(session, c.name, source="yc", batch=c.batch)
+        )
+    names = discover_largest_us_companies(build_largest_us_companies_fetcher())
+    return sum(
+        1 for name in names if repo.save_company(session, name, source="largest_us_companies")
+    )

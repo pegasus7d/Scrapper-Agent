@@ -11,20 +11,13 @@ from backend.api.dto import CompanyList, CompanyOut, DiscoveryResult, Resolution
 from backend.db import repo
 from backend.db.models import Company
 from backend.scraper import sources
-from backend.scraper.discovery import (
-    build_largest_us_companies_fetcher,
-    build_yc_fetcher,
-    discover_largest_us_companies,
-    discover_yc_companies,
-)
+from backend.scraper.discovery import DISCOVERY_SOURCES, discover_and_save_companies
 from backend.scraper.resolve import resolve_unresolved_companies
 from backend.scraper.tasks import run_scrape_task
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-_DISCOVERY_SOURCES = ("yc", "largest_us_companies")
 
 
 @router.get("/companies")
@@ -50,20 +43,9 @@ def discover_companies(session: SessionDep, source: str = "yc") -> DiscoveryResu
     table) — storing any real companies not already on file. Defaults to
     "yc" for backward compatibility with the original single-source
     endpoint."""
-    if source not in _DISCOVERY_SOURCES:
+    if source not in DISCOVERY_SOURCES:
         raise HTTPException(422, f"unknown discovery source: {source}")
-    if source == "yc":
-        yc_companies = discover_yc_companies(build_yc_fetcher())
-        discovered = sum(
-            1
-            for c in yc_companies
-            if repo.save_company(session, c.name, source="yc", batch=c.batch)
-        )
-    else:
-        names = discover_largest_us_companies(build_largest_us_companies_fetcher())
-        discovered = sum(
-            1 for name in names if repo.save_company(session, name, source="largest_us_companies")
-        )
+    discovered = discover_and_save_companies(session, source)
     _, total = repo.list_companies(session)
     return DiscoveryResult(discovered=discovered, total=total)
 

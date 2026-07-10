@@ -373,6 +373,21 @@ def test_create_schedule_rejects_out_of_range_interval(client: TestClient) -> No
     assert response.status_code == 422
 
 
+def test_create_companies_schedule_accepts_a_real_discovery_source(client: TestClient) -> None:
+    response = client.post(
+        "/api/schedules", json={"kind": "companies", "source": "yc", "every_hours": 24}
+    )
+    assert response.status_code == 201
+    assert response.json()["kind"] == "companies"
+
+
+def test_create_companies_schedule_rejects_an_unknown_source(client: TestClient) -> None:
+    response = client.post(
+        "/api/schedules", json={"kind": "companies", "source": "bogus", "every_hours": 24}
+    )
+    assert response.status_code == 422
+
+
 def test_toggle_schedule_flips_enabled_and_404s_when_missing(client: TestClient) -> None:
     created = client.post(
         "/api/schedules", json={"kind": "jobs", "source": "hn", "every_hours": 6}

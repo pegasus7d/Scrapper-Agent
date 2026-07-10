@@ -178,3 +178,65 @@ def test_dispatch_due_schedule_only_one_of_several_due_starts(
     tasks.dispatch_due_schedule.call_local(now=NOW)
 
     assert len(calls) == 1
+
+
+def test_run_company_discovery_task_discovers_and_resolves(
+    engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tasks.repo, "make_engine", lambda: engine)
+    discover_calls: list[str] = []
+    resolve_calls: list[object] = []
+    monkeypatch.setattr(
+        tasks,
+        "discover_and_save_companies",
+        lambda session, source: discover_calls.append(source) or 0,
+    )
+    monkeypatch.setattr(
+        tasks, "resolve_unresolved_companies", lambda session: resolve_calls.append(session)
+    )
+
+    tasks.run_company_discovery_task.call_local("yc")
+
+    assert discover_calls == ["yc"]
+    assert len(resolve_calls) == 1
+
+
+def _fake_company_discovery_task(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    calls: list[str] = []
+    monkeypatch.setattr(tasks, "run_company_discovery_task", lambda source: calls.append(source))
+    return calls
+
+
+def test_dispatch_due_schedule_companies_kind_calls_discovery_task(
+    engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tasks.repo, "make_engine", lambda: engine)
+    run_calls = _fake_run_scrape_task(monkeypatch)
+    discovery_calls = _fake_company_discovery_task(monkeypatch)
+    with Session(engine) as session:
+        repo.create_schedule(session, kind="companies", source="yc", every_hours=24)
+
+    tasks.dispatch_due_schedule.call_local(now=NOW)
+
+    assert discovery_calls == ["yc"]
+    assert run_calls == []
+    with Session(engine) as session:
+        schedule = repo.list_schedules(session)[0]
+        assert schedule.last_run_at == NOW.replace(tzinfo=None)
+
+
+def test_dispatch_due_schedule_companies_kind_ignores_active_run(
+    engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A companies schedule is deliberately not blocked by an active scrape
+    run (PHASE8.md step 7) — different domains, far cheaper than an
+    LLM-extraction run."""
+    monkeypatch.setattr(tasks.repo, "make_engine", lambda: engine)
+    discovery_calls = _fake_company_discovery_task(monkeypatch)
+    with Session(engine) as session:
+        repo.create_schedule(session, kind="companies", source="yc", every_hours=24)
+        repo.create_run(session, kind="jobs", source="hn")  # already running
+
+    tasks.dispatch_due_schedule.call_local(now=NOW)
+
+    assert discovery_calls == ["yc"]

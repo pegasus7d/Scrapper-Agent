@@ -3,10 +3,15 @@
 from typing import Any
 
 import pytest
+from sqlalchemy.orm import Session
 
+from backend.db import repo
+from backend.scraper import discovery as discovery_module
 from backend.scraper.discovery import (
+    DiscoveredCompany,
     build_largest_us_companies_fetcher,
     build_yc_fetcher,
+    discover_and_save_companies,
     discover_largest_us_companies,
     discover_yc_companies,
 )
@@ -140,3 +145,52 @@ def test_discover_largest_us_companies_raises_when_no_wikitable_found() -> None:
 def test_build_largest_us_companies_fetcher_uses_plain_httpx() -> None:
     fetcher = build_largest_us_companies_fetcher()
     assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
+
+
+@pytest.fixture
+def session() -> Session:
+    engine = repo.make_engine("sqlite:///:memory:")
+    return Session(engine)
+
+
+def test_discover_and_save_companies_yc_saves_name_and_batch(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        discovery_module,
+        "discover_yc_companies",
+        lambda fetcher: [DiscoveredCompany(name="DoorDash", batch="Summer 2013")],
+    )
+    saved = discover_and_save_companies(session, "yc")
+    assert saved == 1
+    items, _ = repo.list_companies(session)
+    assert items[0].name == "DoorDash"
+    assert items[0].source == "yc"
+    assert items[0].batch == "Summer 2013"
+
+
+def test_discover_and_save_companies_largest_us_companies_no_batch(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        discovery_module, "discover_largest_us_companies", lambda fetcher: ["Walmart"]
+    )
+    saved = discover_and_save_companies(session, "largest_us_companies")
+    assert saved == 1
+    items, _ = repo.list_companies(session)
+    assert items[0].name == "Walmart"
+    assert items[0].source == "largest_us_companies"
+    assert items[0].batch is None
+
+
+def test_discover_and_save_companies_is_idempotent(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        discovery_module,
+        "discover_yc_companies",
+        lambda fetcher: [DiscoveredCompany(name="DoorDash", batch=None)],
+    )
+    discover_and_save_companies(session, "yc")
+    second = discover_and_save_companies(session, "yc")
+    assert second == 0

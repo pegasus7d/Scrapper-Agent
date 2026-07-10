@@ -12,6 +12,7 @@ from backend.api import routes_companies
 from backend.api.main import create_app
 from backend.db import migrate, repo, vectors
 from backend.db.models import Run
+from backend.scraper import discovery as discovery_module
 from backend.scraper.discovery import DiscoveredCompany
 from backend.scraper.resolve import ResolutionSummary
 
@@ -51,7 +52,7 @@ def test_discover_companies_saves_real_names_and_batch(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        routes_companies,
+        discovery_module,
         "discover_yc_companies",
         lambda fetcher: [
             DiscoveredCompany(name="DoorDash", batch="Summer 2013"),
@@ -73,7 +74,7 @@ def test_discover_companies_is_idempotent(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        routes_companies,
+        discovery_module,
         "discover_yc_companies",
         lambda fetcher: [DiscoveredCompany(name="DoorDash", batch=None)],
     )
@@ -86,7 +87,7 @@ def test_discover_companies_largest_us_companies_source(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        routes_companies, "discover_largest_us_companies", lambda fetcher: ["Walmart", "Amazon"]
+        discovery_module, "discover_largest_us_companies", lambda fetcher: ["Walmart", "Amazon"]
     )
     response = client.post("/api/companies/discover", params={"source": "largest_us_companies"})
     assert response.status_code == 200

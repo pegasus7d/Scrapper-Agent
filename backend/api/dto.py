@@ -124,7 +124,7 @@ class StatsOut(BaseModel):
 
 
 class ScheduleRequest(BaseModel):
-    kind: Literal["jobs", "questions"]
+    kind: Literal["jobs", "questions", "companies"]
     source: str
     every_hours: int = Field(ge=1, le=24 * 7)
 

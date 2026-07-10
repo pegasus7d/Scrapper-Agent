@@ -117,7 +117,9 @@ class Schedule(Base):
     __tablename__ = "schedules"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    kind: Mapped[str]  # "jobs" | "questions"
+    # "jobs" | "questions" | "companies" (PHASE8.md step 7 — a companies
+    # schedule dispatches to a discovery task, never a Run row).
+    kind: Mapped[str]
     source: Mapped[str]
     every_hours: Mapped[int]
     enabled: Mapped[bool] = mapped_column(default=True)
