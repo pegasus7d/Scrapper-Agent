@@ -604,6 +604,48 @@ stops, not routed around.
    and would-be-fill a real application's fields," verified by inspecting
    the filled-but-unsubmitted state, never by clicking the real submit
    button.
+   **Done — real findings on both platforms, one real bug found and
+   fixed.** Added `detect_and_fill()` to `filler.py`: the same detect →
+   fill/upload sequence `fill_and_submit` uses, but with no code path that
+   can reach `submit()` at all — structurally incapable of a real
+   submission, not just a choice not to call it this run. Covered by 1 new
+   local test (against step 1's own test-form server, not a real ATS —
+   the permanent suite never makes real third-party network calls).
+   Real, one-time smoke test (never added to the permanent suite; script
+   discarded after running) against two real, live postings from the dev
+   DB: `job-boards.greenhouse.io/checkr/jobs/7962033` and
+   `jobs.lever.co/theathletic/…/apply`. **Lever worked immediately**: 26
+   real fields detected on the real `/apply` page (a distinct URL from the
+   job-description page — not, as first assumed, the same page), many
+   correctly `confirmed_by_ax_tree=True`, `detect_and_fill` correctly
+   filled exactly the 3 fields given real values for (`name`, `email`,
+   `phone`) and left the other 23 untouched, zero failures.
+   **Greenhouse needed a real fix.** First attempt found 0 fields even
+   after clicking the real "Apply" button — the actual root cause,
+   confirmed by inspecting the live DOM directly: Greenhouse's embedded
+   application form has **no `name=` attribute on any field at all** (a
+   React form submitted via JS, not a native HTML POST) — `detect_fields`
+   was silently skipping every field via its `if not name: continue`
+   guard. `id` is real, stable, and present there instead
+   (`first_name`, `last_name`, `email`, `phone`, `resume`, …). Fixed by
+   adding an `id` fallback and a new `DetectedField.selector` field
+   computed once at detect time (`[name="…"]` or `[id="…"]`, whichever
+   identifier was actually present) instead of re-deriving — and wrongly
+   re-assuming — `[name="…"]` at fill time. Re-ran against the same real
+   Greenhouse posting after the fix: 17 real fields found, `detect_and_fill`
+   correctly filled the 4 fields given values (`first_name`, `last_name`,
+   `email`, `phone`), zero failures, verified by reading the real filled
+   DOM values back afterward (`first_name` → `"Test"`,
+   `email` → `"test-applicant@example.com"`). A smaller, secondary
+   honest finding: Greenhouse's fields mostly came back
+   `confirmed_by_ax_tree=False` (unlike Lever's) — the DOM-resolved labels
+   were still real and correct, just not independently confirmed by that
+   specific page's accessibility-tree snapshot; not a blocker, a real
+   difference in how the two platforms expose labels to assistive tech.
+   **No submission occurred on either real platform** — confirmed by the
+   page URL being unchanged after every fill and by never calling
+   `submit()` anywhere in this step's code path. `pytest` (414 passed) /
+   `mypy` / `ruff check` / `ruff format --check` all green.
 9. **Closing the loop, the pieces that don't need new access (backend +
    frontend).** Interview-question surfacing when a job's status flips to
    "interviewing" — wiring two already-existing features together, no
