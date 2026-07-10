@@ -443,6 +443,47 @@ down here (WORKFLOW.md rule 2):
    target roles narrow which companies are worth scraping first. Decide
    the exact UI shape once step 7 is real. `npm run build` gate; real look
    in a browser.
+   **Done — decided: its own dedicated view** (`Companies`, new sidebar
+   entry), same "new surface, not bolted onto an existing one" call step 4
+   made for the resume UI, for the same reason: discovered companies are a
+   different dimension from both jobs/questions and from the "New scrape"
+   modal's fixed source picker. Lists every discovered company (name, a
+   resolved/unresolved `ats_provider` badge, discovered/checked
+   timestamps), a client-side name filter (no backend pagination needed
+   yet — 40 real companies is a small enough list), "Discover companies"
+   / "Resolve companies" buttons wired to steps 5/6's endpoints with a
+   real toast on the actual result, and a per-company "Scrape" button
+   (disabled until `ats_provider` is set) wired to step 7's endpoint.
+   Not connected to the resume-driven search thread (steps 3/4) yet —
+   that's a real, deliberately deferred integration (narrowing companies
+   by derived positions), not an oversight; this step's own scope was
+   "surface the companies," and reusing `apiPost`'s existing `ApiError`
+   (whose `.message` already carries the backend's real detail string,
+   e.g. "a run is already active") for `toast.error(...)` reuses Dashboard
+   .tsx's own established error-surfacing pattern rather than inventing a
+   new one for company-scrape 409s specifically.
+   Smoke: real headless-Chromium run (Playwright) against the actual
+   live app — all 40 real companies from steps 5/6 rendered with correct
+   badges (resolved: "greenhouse"/"lever"; unresolved: "unresolved," e.g.
+   Deel, Sendwave, Heap); typing "Airbnb" into the filter correctly
+   narrowed the list to exactly one row; clicking "Scrape" on Airbnb
+   (resolved, greenhouse) started a real run and showed a real toast
+   ("Started run #26 for Airbnb"), cancelled cleanly afterward via the
+   existing `/runs/{id}/cancel` endpoint rather than left running; the
+   "Scrape" button on an unresolved company (Deel) was correctly disabled
+   in the DOM, not just visually. Zero console errors across the whole
+   interaction (checked directly via Playwright's own console/pageerror
+   listeners, not just eyeballed).
 
-Next: in progress — driven by `/loop`, one step at a time. Step 1 done
-(folded the originally-planned step 2 into it); step 2 above is next.
+Phase 7 complete (steps 1-8). Every step closed with a real smoke test
+against real data: real migrations against a real (copied) dev DB, the
+user's own real resume PDF, real YC companies discovered via a genuinely
+JS-rendered fetch, real Greenhouse/Lever slug hits and misses, real job
+postings scraped from two live company boards, and a real browser session
+exercising the finished UI. Two real, undisguised mistakes surfaced and
+were documented rather than hidden: `ScraplingTransport` never actually
+rendered JavaScript despite claiming to since phase 4 (step 5), and a
+"scratch DB" smoke test silently ran against the real `scraper.db` instead
+because `config.DATABASE_URL` has no environment-variable override (step
+5's correction note) — assessed as harmless in both cases, fixed or
+documented rather than swept under the rug.

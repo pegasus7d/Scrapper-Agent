@@ -378,13 +378,18 @@ docs instead of code:
   README rewrite, real bottleneck pass (no code change needed — nothing
   measured slow at current scale).
 - **[[PHASE7.md]]** — real migrations, resume-driven search, company career
-  pages (current): replaces the hand-rolled schema-patch
-  function from phase 6 step 3 with real Alembic migrations; resume PDF
-  upload → Markdown → LLM-derived search positions; a new company-career-page
-  source direction (Greenhouse/Lever, resuming a thread phase 5 deferred) —
-  discover companies for real (`ycombinator.com/companies` via
-  `ScraplingTransport`), resolve each to a Greenhouse/Lever slug, then turn
-  resolved companies into real dynamic sources, not a hand-curated list.
+  pages (done): replaces the hand-rolled schema-patch function from phase 6
+  step 3 with real Alembic migrations (stamp-vs-upgrade detection, a
+  connection shared via `config.attributes`); resume PDF upload → Markdown
+  → LLM-derived search positions → real hybrid search against scraped jobs;
+  a new company-career-page source direction (Greenhouse/Lever, resuming a
+  thread phase 5 deferred) — discovers real companies from
+  `ycombinator.com/companies` (fixed `ScraplingTransport` along the way: it
+  never actually rendered JS until this phase, now uses Camoufox via
+  `DynamicFetcher`), resolves each to a real Greenhouse/Lever slug (~55%
+  real hit rate), then turns resolved companies into real dynamic
+  `Source`s at scrape time (`sources.SOURCES` mutated per company, not a
+  hand-curated dict entry) — surfaced end-to-end in a new Companies view.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
