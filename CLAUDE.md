@@ -1,6 +1,8 @@
-# Scraper Agent — Project Instructions
+# Hirable — Project Instructions
 
-This project builds an AI agent that scrapes job postings and interview questions
+This project builds an AI agent (formerly "Scraper Agent" — renamed phase 8,
+now covers more than scraping: resume matching, company intelligence, and
+application pipeline tracking) that scrapes job postings and interview questions
 from public sources. Full idea/architecture is in [[IDEA.md]] — read it first for
 context before making design decisions. The technical contract (DB models, module
 layout, API surface, cascade algorithm, test plan) is in [[DESIGN.md]] — code must
@@ -92,7 +94,7 @@ for anyone to review and understand. No slop.
   is hard to review in one sitting, it should have been two commits.
 - Commit messages: short imperative summary of the one change, e.g.
   `Add extraction cascade with escalation cap`. One line is usually enough.
-- Never commit `.env`, `scraper.db`, or generated artifacts — they are gitignored.
+- Never commit `.env`, `hirable.db`, or generated artifacts — they are gitignored.
 - Work directly on `main` — no feature branches while this is a solo project with
   small commits.
 - **No new dependencies without a stated reason.** Adding a package to
@@ -116,13 +118,14 @@ exact prompt, swapping the phase file and its final step number for the phase
 being built:
 
 ```
-/loop Work on the project at /Users/debayanbiswas/scraper-agent. Each iteration: read CLAUDE.md, DESIGN.md, and PHASE{N}.md, look at git log to see what is already done, then implement ONLY the smallest next unit from PHASE{N}.md's build order. Validate with pytest, mypy, ruff check, ruff format --check, and npm run build for frontend changes; fix until green; then make one small commit. At each step boundary, run the real smoke test described in CLAUDE.md before moving to the next step. Follow every rule in CLAUDE.md strictly. Stop the loop when PHASE{N}.md step M is complete and all checks pass.
+/loop Work on the project at /Users/debayanbiswas/hirable. Each iteration: read CLAUDE.md, DESIGN.md, and PHASE{N}.md, look at git log to see what is already done, then implement ONLY the smallest next unit from PHASE{N}.md's build order. Validate with pytest, mypy, ruff check, ruff format --check, and npm run build for frontend changes; fix until green; then make one small commit. At each step boundary, run the real smoke test described in CLAUDE.md before moving to the next step. Follow every rule in CLAUDE.md strictly. Stop the loop when PHASE{N}.md step M is complete and all checks pass.
 ```
 
 Used so far: phase 1 ([[PHASE1.md]], stop at step 6 — the MVP), phase 2
 ([[PHASE2.md]], stop at step 8), phase 3 ([[PHASE3.md]], stop at step 4), phase 4
 ([[PHASE4.md]], stop at step 4), phase 5 ([[PHASE5.md]], stop at step 7), phase 6
 ([[PHASE6.md]], stop at step 9 — done), phase 7 ([[PHASE7.md]], stop at
-step 8 — done). When a new phase's build order
+step 8 — done), phase 8 ([[PHASE8.md]], stop at step 10 — not started).
+When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.

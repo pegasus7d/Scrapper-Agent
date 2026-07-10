@@ -1,4 +1,4 @@
-# Scraper Agent — Low-Level Design
+# Hirable — Low-Level Design
 
 Read [[IDEA.md]] first for the product idea. This document is the technical contract:
 DB models, module layout, API surface, UI plan, and testing strategy. Code that
@@ -22,7 +22,7 @@ deviates from this design should update this file in the same change.
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0 (typed ORM), Pydantic v2.
 - **Frontend:** React + Vite + Tailwind. Light theme, minimal, stylish. Talks to the
   backend over JSON only — no server-rendered pages.
-- **DB:** SQLite file (`scraper.db`). Single-writer is fine — scrape runs are
+- **DB:** SQLite file (`hirable.db`). Single-writer is fine — scrape runs are
   sequential by design.
 
 ### Prerequisites & secrets
@@ -317,9 +317,11 @@ queue growth. Never `print()`.
 
 ## Schema management
 
-`Base.metadata.create_all()` at app startup — no Alembic for the MVP. If a table
-changes after real data exists, add Alembic then (and note it here). Until then,
-deleting `scraper.db` is the migration story.
+Real Alembic migrations (`migrations/`, [[PHASE7.md]] step 1) — `make_engine()`
+brings the schema to head automatically on every startup (stamp-vs-upgrade
+detection), replacing the MVP-era `Base.metadata.create_all()` approach (no
+migrations, `create_all()` only creates missing tables, never alters existing
+ones — broke for real once phase 6 needed a column added to `runs`).
 
 ## 7. Testing strategy — every flow has unit tests
 
@@ -390,6 +392,28 @@ docs instead of code:
   real hit rate), then turns resolved companies into real dynamic
   `Source`s at scrape time (`sources.SOURCES` mutated per company, not a
   hand-curated dict entry) — surfaced end-to-end in a new Companies view.
+- **[[PHASE8.md]]** — interactive UI, pipeline tracking, and full company
+  discovery (not started): Companies gets real filter/pagination parity
+  with Jobs/Questions (`ats_provider`/`source`/`q`, not a client-side-only
+  name match) plus a unified detail page joining its own scraped jobs and
+  interview questions in one place; a real application-pipeline `status`
+  field on `Job` (applied/interviewing/offer/rejected), replacing the
+  binary `starred` bookmark as the tool's only pipeline primitive;
+  Dashboard's stat cards become clickable, matching the interaction
+  pattern Jobs/Questions already use; richer live-run feedback built on
+  the existing SSE stream (no animation library, per frontend/CLAUDE.md);
+  real full YC coverage via a driven scroll session instead of the first
+  40 cards, plus each company's batch; a second discovery source (largest
+  US companies by revenue, a real public Wikipedia table — the closest
+  scrape-friendly proxy for "Fortune 500," which paywalls its own full
+  list); discovery and resolution wired into the existing schedule/Huey
+  infrastructure so they run unattended (no `Run` row for a discovery
+  tick — that shape is built around the LLM-extraction pipeline);
+  persistent rotating log files; a16z/Sequoia/Founders Fund/BVP portfolio
+  pages as four more discovery sources (`robots.txt` verified real, all
+  four open); a closing `FEATURES.md` written only once the above is
+  real. Every other VC beyond those four deliberately deferred — not yet
+  verified per-site (WORKFLOW.md rule 2).
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
