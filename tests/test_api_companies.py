@@ -48,6 +48,15 @@ def test_list_companies_starts_empty(client: TestClient) -> None:
     assert response.json() == {"items": [], "total": 0}
 
 
+def test_list_discovery_sources_returns_real_name_label_pairs(client: TestClient) -> None:
+    response = client.get("/api/companies/sources")
+    assert response.status_code == 200
+    body = response.json()
+    names = [s["name"] for s in body]
+    assert names == list(discovery_module.DISCOVERY_SOURCES)
+    assert {"name": "yc", "label": "YC"} in body
+
+
 def test_discover_companies_saves_real_names_and_batch(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

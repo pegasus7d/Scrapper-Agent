@@ -216,6 +216,11 @@ def _discover_bvp(fetcher: PageFetcher) -> list[DiscoveredCompany]:
 class DiscoverySource:
     build_fetcher: Callable[[], PageFetcher]
     discover: Callable[[PageFetcher], list[DiscoveredCompany]]
+    # Human-readable display label (PHASE9.md step 2) — the backend's own
+    # concern now, not a hand-mirrored dict in the frontend that can drift
+    # out of sync with real, observed cost (a source shipped once without
+    # its frontend label, caught only while writing FEATURES.md).
+    label: str
 
 
 # The real registry (PHASE9.md step 1) — adding a source means adding one
@@ -223,20 +228,31 @@ class DiscoverySource:
 # Order matches the original DISCOVERY_SOURCES tuple so nothing that reads
 # "first source" (e.g. the frontend's default selection) changes behavior.
 _REGISTRY: dict[str, DiscoverySource] = {
-    "yc": DiscoverySource(build_yc_fetcher, _discover_yc),
+    "yc": DiscoverySource(build_yc_fetcher, _discover_yc, label="YC"),
     "largest_us_companies": DiscoverySource(
-        build_largest_us_companies_fetcher, _discover_largest_us_companies
+        build_largest_us_companies_fetcher,
+        _discover_largest_us_companies,
+        label="Largest US companies",
     ),
-    "a16z": DiscoverySource(build_a16z_fetcher, _discover_a16z),
-    "sequoia": DiscoverySource(build_sequoia_fetcher, _discover_sequoia),
-    "foundersfund": DiscoverySource(build_foundersfund_fetcher, _discover_foundersfund),
-    "bvp": DiscoverySource(build_bvp_fetcher, _discover_bvp),
+    "a16z": DiscoverySource(build_a16z_fetcher, _discover_a16z, label="a16z"),
+    "sequoia": DiscoverySource(build_sequoia_fetcher, _discover_sequoia, label="Sequoia"),
+    "foundersfund": DiscoverySource(
+        build_foundersfund_fetcher, _discover_foundersfund, label="Founders Fund"
+    ),
+    "bvp": DiscoverySource(build_bvp_fetcher, _discover_bvp, label="BVP"),
 }
 
 # The real, valid values for POST /companies/discover's source param and
 # Schedule.source when Schedule.kind == "companies" (PHASE8.md step 7) —
 # derived from the registry above, not hand-maintained (PHASE9.md step 1).
 DISCOVERY_SOURCES = tuple(_REGISTRY.keys())
+
+
+def discovery_source_labels() -> list[tuple[str, str]]:
+    """Real (name, label) pairs for every discovery source, in registry
+    order — the single source of truth GET /companies/sources (PHASE9.md
+    step 2) serves, so the frontend never hand-mirrors this list again."""
+    return [(name, entry.label) for name, entry in _REGISTRY.items()]
 
 
 def discover_and_save_companies(session: Session, source: str) -> int:

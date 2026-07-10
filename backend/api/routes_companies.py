@@ -7,11 +7,22 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from backend.api.deps import LimitParam, OffsetParam, SessionDep
-from backend.api.dto import CompanyList, CompanyOut, DiscoveryResult, ResolutionResult, RunCreated
+from backend.api.dto import (
+    CompanyList,
+    CompanyOut,
+    DiscoveryResult,
+    DiscoverySourceOut,
+    ResolutionResult,
+    RunCreated,
+)
 from backend.db import repo
 from backend.db.models import Company
 from backend.scraper import sources
-from backend.scraper.discovery import DISCOVERY_SOURCES, discover_and_save_companies
+from backend.scraper.discovery import (
+    DISCOVERY_SOURCES,
+    discover_and_save_companies,
+    discovery_source_labels,
+)
 from backend.scraper.resolve import resolve_unresolved_companies
 from backend.scraper.tasks import run_scrape_task
 
@@ -33,6 +44,15 @@ def list_companies(
         session, ats_provider=ats_provider, source=source, q=q, limit=limit, offset=offset
     )
     return CompanyList(items=[CompanyOut.model_validate(c) for c in companies], total=total)
+
+
+@router.get("/companies/sources")
+def list_discovery_sources() -> list[DiscoverySourceOut]:
+    """Real (name, label) pairs for every discovery source (PHASE9.md step
+    2) — the frontend fetches this once instead of hand-mirroring
+    `DISCOVERY_SOURCES` and a separate label dict, same pattern GET /models
+    already uses for Ollama's model list."""
+    return [DiscoverySourceOut(name=name, label=label) for name, label in discovery_source_labels()]
 
 
 @router.post("/companies/discover")

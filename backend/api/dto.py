@@ -170,6 +170,11 @@ class CompanyList(BaseModel):
     total: int
 
 
+class DiscoverySourceOut(BaseModel):
+    name: str
+    label: str
+
+
 class DiscoveryResult(BaseModel):
     discovered: int  # newly-inserted companies this run
     total: int  # all companies now on file
