@@ -142,6 +142,42 @@ def submit(page: Page) -> ActionResult:
         return ActionResult(success=False, error=str(error))
 
 
+@dataclass
+class DetectAndFillResult:
+    fields: list[DetectedField]
+    filled: list[str]  # names of fields successfully filled/uploaded
+    failed: list[str]  # names of fields that failed
+
+
+def detect_and_fill(
+    page: Page,
+    url: str,
+    text_values: dict[str, str],
+    file_values: dict[str, str],
+) -> DetectAndFillResult:
+    """Same detect -> fill/upload orchestration as fill_and_submit, but
+    stops before the submit step entirely — structurally cannot cause a
+    real submission, not just "chose not to this time". Used against
+    real, live ATS pages (PHASE10.md step 8), where the only allowed
+    verification is "detected and would-be-filled", never an actual
+    click of a real submit button."""
+    page.goto(url)
+    fields = detect_fields(page)
+    filled: list[str] = []
+    failed: list[str] = []
+    for field in fields:
+        if field.input_type == "file":
+            if field.name not in file_values:
+                continue
+            result = upload_file(page, field, file_values[field.name])
+        else:
+            if field.name not in text_values:
+                continue
+            result = fill_field(page, field, text_values[field.name])
+        (filled if result.success else failed).append(field.name)
+    return DetectAndFillResult(fields=fields, filled=filled, failed=failed)
+
+
 def fill_and_submit(
     page: Page,
     url: str,

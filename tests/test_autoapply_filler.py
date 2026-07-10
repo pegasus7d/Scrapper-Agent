@@ -121,3 +121,26 @@ def test_fill_and_submit_reports_failure_for_an_unreachable_url(page: Page) -> N
     result = filler.fill_and_submit(page, "http://127.0.0.1:1", {"full_name": "X"}, {})
     assert result.success is False
     assert "failed to load form" in result.reason
+
+
+def test_detect_and_fill_fills_but_never_submits(page: Page, resume_file: Path) -> None:
+    """PHASE10.md step 8's real constraint made structural: detect_and_fill
+    fills real fields but has no code path that can click submit — the
+    page must still show the unsubmitted form afterward, not the
+    confirmation page fill_and_submit reaches."""
+    text_values = {
+        "full_name": "Ada Lovelace",
+        "email": "ada@example.com",
+        "phone": "555-0100",
+        "role": "backend",
+        "cover_note": "Real test fill, never submitted.",
+    }
+    result = filler.detect_and_fill(page, _URL, text_values, {"resume": str(resume_file)})
+
+    assert set(result.filled) == {"full_name", "email", "phone", "role", "cover_note", "resume"}
+    assert result.failed == []
+    # The real page state: still the unsubmitted form, values genuinely
+    # present in the real DOM — not the confirmation page.
+    assert page.locator("#confirmation").count() == 0
+    assert page.locator('[name="full_name"]').input_value() == "Ada Lovelace"
+    assert page.locator('[name="email"]').input_value() == "ada@example.com"
