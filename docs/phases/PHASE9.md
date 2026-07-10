@@ -199,6 +199,28 @@ sync by hand.
    must stay source-specific before collapsing anything. Smoke: line count
    and test count reduction confirmed real (not just moved around), full
    suite still green.
+   **Done.** Confirmed the real risk was real, not hypothetical: the "parse
+   and dedupe" triples (YC's batch pill, Wikipedia's wikitable, a16z's JS
+   array, Sequoia's click-pagination, Founders Fund's/BVP's plain HTML) all
+   test genuinely different real markup and stayed fully explicit, one
+   fixture each — collapsing those would have been exactly the false
+   economy this step's own text warned against. Two places turned out to
+   be genuinely, byte-for-byte identical across sources and got
+   parametrized for real: "empty page returns no companies" (sequoia,
+   foundersfund, bvp — a16z's `raises_when_array_not_found` is a real
+   exception to that shape, correctly kept separate) and
+   `discover_and_save_companies`'s dispatch/save path for every
+   non-batch source (5 near-duplicate tests → 1 parametrized test, since
+   that logic only exercises the registry from step 1, never a source's
+   real parsing).
+   Smoke: line count reduction confirmed real, not just moved around —
+   396 → 364 lines. Test *count* stayed the same on purpose (pytest
+   expands each parametrize case into its own reported test, e.g.
+   `test_discover_and_save_companies_no_batch_sources[bvp-...]`) — the real
+   metric here is maintenance cost (lines of near-duplicate code), not the
+   number pytest prints, and that dropped genuinely. Full suite: 28/28 in
+   `test_discovery.py`, 336/336 overall, still green.
+   **Phase 9's original scope (steps 1-4) complete.**
 
 5. **Real SQLite backup mechanism (backend).** `hirable.db` is correctly
    gitignored but has no backup story at all — no scheduled copy, no
