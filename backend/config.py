@@ -95,6 +95,26 @@ LOG_FILE = "hirable.log"
 LOG_MAX_BYTES = 5 * 1024 * 1024
 LOG_BACKUP_COUNT = 3
 
+# Auto-apply safety controls (PHASE10.md step 3) — infrastructure only, no
+# real ATS interaction yet; a real submission stays gated behind its own
+# separate checkpoint per PHASE10.md's "submission gate" section, regardless
+# of how these controls are configured. Reuses MAX_ESCALATIONS_PER_RUN above
+# as the LLM-spend cap (OpenHands' max_budget_per_run pattern) once step 7's
+# answer-tools route through the existing Extractor class — no separate
+# dollar-tracking constant, avoiding a second, parallel cost-control
+# mechanism next to one that already exists.
+#
+# "always" pauses every application for confirmation; "never" pauses none;
+# "risky" (the default) pauses only applications classify_risk() marks
+# "high" — real prior art from both sides: OpenHands' ConfirmationPolicy is
+# pluggable per this same shape, and LazyApply/Sonara's ~23%-within-90-days
+# LinkedIn restriction rate (this phase's own market research) is the real
+# cost of shipping "never" as a default.
+SUBMIT_CONFIRMATION_POLICY = "risky"  # "always" | "risky" | "never"
+AUTOAPPLY_LLM_CONFIDENCE_THRESHOLD = 0.7
+MAX_APPLICATIONS_PER_DAY = 10
+MAX_CONSECUTIVE_APPLICATION_FAILURES = 3
+
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 
 
