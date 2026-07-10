@@ -44,6 +44,20 @@ this path. The simplest of the four shapes: plain server-rendered HTML,
 517 real companies in one page load, no scroll/click/pagination/delay
 needed (confirmed directly — no markers found, no crawl-delay requested).
 Each name lives inside `h3.name a.name` as a direct text node.
+
+A fifth VC source (PHASE9.md step 10): Accel's companies page
+(`config.ACCEL_PORTFOLIO_URL`). Real `robots.txt` confirmed wide open
+(only `/admin/`/`/api/` disallowed). A genuinely different real shape from
+the other four: plain `httpx` returns a truly empty body (a heavy
+client-rendered app, confirmed directly — not a UA-blocking issue, checked
+with a real browser UA first) — real JS rendering is required, same as YC.
+No company-name text node at all; the real, reliable signal is each
+portfolio card's link `aria-label`, shaped `"View {Name} company
+details"` — parsed by stripping the fixed prefix/suffix, not a CSS text
+selector. 194 real companies confirmed on the page's initial render, no
+scroll attempted yet — same "ship partial real coverage now, expand later"
+precedent YC itself set (its own first 40-card commit, full scroll
+coverage added in a later phase step).
 """
 
 import json
@@ -69,6 +83,10 @@ _SEQUOIA_LOAD_MORE_SELECTOR = ".facetwp-load-more"
 _FOUNDERSFUND_NAME_SELECTOR = "h2.tile-heading span"
 
 _BVP_NAME_SELECTOR = "h3.name a.name"
+
+_ACCEL_LINK_SELECTOR = 'a[aria-label$=" company details"]'
+_ACCEL_LABEL_PREFIX = "View "
+_ACCEL_LABEL_SUFFIX = " company details"
 
 
 def build_a16z_fetcher() -> PageFetcher:
@@ -178,4 +196,36 @@ def discover_bvp_companies(fetcher: PageFetcher) -> list[str]:
             seen.add(name)
             names.append(name)
     logger.info("bvp discovery: %d company names found", len(names))
+    return names
+
+
+def build_accel_fetcher() -> PageFetcher:
+    """Wire a PageFetcher for the Accel companies page — real JS rendering
+    required (confirmed directly: plain httpx returns a genuinely empty
+    body), unlike every other VC source in this module except Sequoia."""
+    return PageFetcher(transport=ScraplingTransport())
+
+
+def discover_accel_companies(fetcher: PageFetcher) -> list[str]:
+    """Fetch the Accel companies page and return real, deduplicated company
+    names — no batch concept for this source. Real gap acknowledged, not
+    hidden: this is the initial render only, no scroll/pagination
+    interaction attempted yet, so it may not be Accel's full portfolio
+    (confirmed real precedent for shipping partial coverage now: YC's own
+    first version did the same before a later phase step added scroll)."""
+    page = fetcher.fetch(config.ACCEL_PORTFOLIO_URL)
+    selector = Selector(content=page.raw)
+    names: list[str] = []
+    seen: set[str] = set()
+    for link in selector.css(_ACCEL_LINK_SELECTOR):
+        if not isinstance(link, Selector):
+            continue
+        label = link.attrib.get("aria-label")
+        if not label or not label.startswith(_ACCEL_LABEL_PREFIX):
+            continue
+        name = label[len(_ACCEL_LABEL_PREFIX) : -len(_ACCEL_LABEL_SUFFIX)].strip()
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    logger.info("accel discovery: %d company names found", len(names))
     return names

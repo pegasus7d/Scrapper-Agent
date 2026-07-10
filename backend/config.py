@@ -78,6 +78,14 @@ FOUNDERSFUND_DELAY_S = 10.0
 # Bessemer Venture Partners portfolio (PHASE8.md step 9) — real robots.txt
 # confirmed: a real disallow list, but none of it touches this path.
 BVP_COMPANIES_URL = "https://www.bvp.com/companies"
+# Accel portfolio (PHASE9.md step 10) — real robots.txt confirmed wide open
+# (only /admin/ and /api/ disallowed). A heavy client-rendered app (plain
+# httpx returns a genuinely empty body) — real JS rendering required,
+# confirmed directly. 194 real companies confirmed on the initial render,
+# no scroll attempted yet — same "ship partial real coverage now, expand
+# later" precedent YC itself set (PHASE7.md step 5's first 40 cards, full
+# scroll coverage added later in PHASE8.md step 5).
+ACCEL_PORTFOLIO_URL = "https://www.accel.com/companies"
 # Persistent logs (PHASE8.md step 8) — real gap once scheduled company
 # automation (step 7) runs unattended: stderr alone leaves no record when
 # nobody's watching a terminal. A home-lab, single-user tool, not a

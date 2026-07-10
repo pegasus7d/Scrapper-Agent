@@ -11,6 +11,7 @@ from backend.scraper import discovery as discovery_module
 from backend.scraper.discovery import (
     DiscoveredCompany,
     build_a16z_fetcher,
+    build_accel_fetcher,
     build_bvp_fetcher,
     build_foundersfund_fetcher,
     build_largest_us_companies_fetcher,
@@ -18,6 +19,7 @@ from backend.scraper.discovery import (
     build_sequoia_fetcher,
     build_yc_fetcher,
     discover_a16z_companies,
+    discover_accel_companies,
     discover_and_save_companies,
     discover_bvp_companies,
     discover_foundersfund_companies,
@@ -322,6 +324,36 @@ def test_build_bvp_fetcher_uses_plain_httpx() -> None:
     assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
 
 
+# Mirrors the real Accel markup shape confirmed by direct inspection
+# (PHASE9.md step 10): a JS-rendered page (plain httpx returns a genuinely
+# empty body) with no company-name text node at all — the real, reliable
+# signal is each card link's aria-label, shaped "View {Name} company
+# details", confirmed directly against the real rendered page.
+_ACCEL_HTML = """
+<html><body>
+<a aria-label="View Deliveroo company details" href="/companies/deliveroo">card</a>
+<a aria-label="View Slack company details" href="/companies/slack">card</a>
+<a aria-label="View Deliveroo company details" href="/companies/deliveroo">card</a>
+<a aria-label="not a company link" href="/other">nope</a>
+</body></html>
+"""
+
+
+def test_discover_accel_companies_returns_deduplicated_names() -> None:
+    names = discover_accel_companies(make_fetcher(_ACCEL_HTML))
+    assert names == ["Deliveroo", "Slack"]
+
+
+def test_discover_accel_companies_skips_unrelated_aria_labels() -> None:
+    names = discover_accel_companies(make_fetcher(_ACCEL_HTML))
+    assert "not a company link" not in names
+
+
+def test_build_accel_fetcher_uses_scrapling() -> None:
+    fetcher = build_accel_fetcher()
+    assert isinstance(fetcher._transport, ScraplingTransport)  # type: ignore[attr-defined]
+
+
 # Real per-source parsing (the fixtures above) stays fully explicit
 # (PHASE9.md step 4 — collapsing those would blur real differences like
 # YC's batch extraction or Sequoia's click-pagination fetcher config), but
@@ -330,7 +362,12 @@ def test_build_bvp_fetcher_uses_plain_httpx() -> None:
 # `raises_when_array_not_found` is the one real exception, kept separate).
 @pytest.mark.parametrize(
     "discover_fn",
-    [discover_sequoia_companies, discover_foundersfund_companies, discover_bvp_companies],
+    [
+        discover_sequoia_companies,
+        discover_foundersfund_companies,
+        discover_bvp_companies,
+        discover_accel_companies,
+    ],
 )
 def test_discover_returns_empty_for_no_matches(
     discover_fn: Callable[[PageFetcher], list[str]],
@@ -375,6 +412,7 @@ def test_discover_and_save_companies_yc_saves_name_and_batch(
         ("foundersfund", "discover_foundersfund_companies", "Anduril"),
         ("bvp", "discover_bvp_companies", "Abridge"),
         ("russell1000", "discover_russell_1000_companies", "Netflix"),
+        ("accel", "discover_accel_companies", "Deliveroo"),
     ],
 )
 def test_discover_and_save_companies_no_batch_sources(

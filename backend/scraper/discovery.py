@@ -63,10 +63,12 @@ from backend.scraper.discovery_lists import (
 )
 from backend.scraper.discovery_vc import (
     build_a16z_fetcher,
+    build_accel_fetcher,
     build_bvp_fetcher,
     build_foundersfund_fetcher,
     build_sequoia_fetcher,
     discover_a16z_companies,
+    discover_accel_companies,
     discover_bvp_companies,
     discover_foundersfund_companies,
     discover_sequoia_companies,
@@ -176,6 +178,10 @@ def _discover_russell_1000(fetcher: PageFetcher) -> list[DiscoveredCompany]:
     return _no_batch(discover_russell_1000_companies(fetcher))
 
 
+def _discover_accel(fetcher: PageFetcher) -> list[DiscoveredCompany]:
+    return _no_batch(discover_accel_companies(fetcher))
+
+
 @dataclass
 class DiscoverySource:
     build_fetcher: Callable[[], PageFetcher]
@@ -207,6 +213,7 @@ _REGISTRY: dict[str, DiscoverySource] = {
     "russell1000": DiscoverySource(
         build_russell_1000_fetcher, _discover_russell_1000, label="Russell 1000"
     ),
+    "accel": DiscoverySource(build_accel_fetcher, _discover_accel, label="Accel"),
 }
 
 # The real, valid values for POST /companies/discover's source param and
