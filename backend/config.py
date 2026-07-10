@@ -39,6 +39,12 @@ YC_COMPANIES_URL = "https://www.ycombinator.com/companies"
 LARGEST_US_COMPANIES_URL = (
     "https://en.wikipedia.org/wiki/List_of_largest_companies_in_the_United_States_by_revenue"
 )
+# a16z portfolio (PHASE8.md step 9) — no robots.txt at all (404), treated as
+# no restrictions (same interpretation fetcher.py's _fetch_robots_lines
+# already codifies). The full 849-company portfolio ships inline in a
+# `window.a16z_portfolio_companies` JS array on this one page — confirmed
+# real, no pagination/scroll/JS-rendering needed unlike YC.
+A16Z_PORTFOLIO_URL = "https://a16z.com/portfolio/"
 # Persistent logs (PHASE8.md step 8) — real gap once scheduled company
 # automation (step 7) runs unattended: stderr alone leaves no record when
 # nobody's watching a terminal. A home-lab, single-user tool, not a

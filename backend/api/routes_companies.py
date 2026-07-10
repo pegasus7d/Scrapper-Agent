@@ -38,9 +38,10 @@ def list_companies(
 @router.post("/companies/discover")
 def discover_companies(session: SessionDep, source: str = "yc") -> DiscoveryResult:
     """Run one real discovery pass against the chosen source — "yc" (a real
-    scrolled session, PHASE8.md step 5 — not just the first 40 cards) or
+    scrolled session, PHASE8.md step 5 — not just the first 40 cards),
     "largest_us_companies" (PHASE8.md step 6, Wikipedia's revenue-ranked
-    table) — storing any real companies not already on file. Defaults to
+    table), or "a16z" (PHASE8.md step 9, its full portfolio inline on one
+    page) — storing any real companies not already on file. Defaults to
     "yc" for backward compatibility with the original single-source
     endpoint."""
     if source not in DISCOVERY_SOURCES:

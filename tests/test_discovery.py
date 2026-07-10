@@ -9,8 +9,10 @@ from backend.db import repo
 from backend.scraper import discovery as discovery_module
 from backend.scraper.discovery import (
     DiscoveredCompany,
+    build_a16z_fetcher,
     build_largest_us_companies_fetcher,
     build_yc_fetcher,
+    discover_a16z_companies,
     discover_and_save_companies,
     discover_largest_us_companies,
     discover_yc_companies,
@@ -147,6 +149,38 @@ def test_build_largest_us_companies_fetcher_uses_plain_httpx() -> None:
     assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
 
 
+# Mirrors the real a16z markup shape confirmed by direct inspection
+# (PHASE8.md step 9): the full portfolio ships inline as a JS global,
+# `window.a16z_portfolio_companies = [...]`, in a <script> tag — each
+# element a JSON object whose "title" field (not "name") holds the real
+# company name.
+_A16Z_HTML = """
+<html><body>
+<script>window.a16z_portfolio_companies = [
+{"id": "1", "title": "SpaceX", "web": "https://spacex.com"},
+{"id": "2", "title": "[untitled]", "web": "https://untitled.stream"},
+{"id": "3", "title": "SpaceX", "web": "https://spacex.com"},
+{"id": "4", "title": ""}
+];</script>
+</body></html>
+"""
+
+
+def test_discover_a16z_companies_returns_deduplicated_names() -> None:
+    names = discover_a16z_companies(make_fetcher(_A16Z_HTML))
+    assert names == ["SpaceX", "[untitled]"]
+
+
+def test_discover_a16z_companies_raises_when_array_not_found() -> None:
+    with pytest.raises(ValueError, match="a16z_portfolio_companies"):
+        discover_a16z_companies(make_fetcher("<html><body>nothing here</body></html>"))
+
+
+def test_build_a16z_fetcher_uses_plain_httpx() -> None:
+    fetcher = build_a16z_fetcher()
+    assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
+
+
 @pytest.fixture
 def session() -> Session:
     engine = repo.make_engine("sqlite:///:memory:")
@@ -180,6 +214,18 @@ def test_discover_and_save_companies_largest_us_companies_no_batch(
     items, _ = repo.list_companies(session)
     assert items[0].name == "Walmart"
     assert items[0].source == "largest_us_companies"
+    assert items[0].batch is None
+
+
+def test_discover_and_save_companies_a16z_no_batch(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(discovery_module, "discover_a16z_companies", lambda fetcher: ["SpaceX"])
+    saved = discover_and_save_companies(session, "a16z")
+    assert saved == 1
+    items, _ = repo.list_companies(session)
+    assert items[0].name == "SpaceX"
+    assert items[0].source == "a16z"
     assert items[0].batch is None
 
 

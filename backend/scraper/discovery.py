@@ -34,9 +34,23 @@ Each row's second `<td>`'s child `<a>` link holds the real company name —
 same `.text`-on-a-parent-returns-empty quirk as YC's batch pill (confirmed
 directly against all 100 real rows), so the link's own text is read
 instead of the cell's.
+
+A third discovery source (PHASE8.md step 9): a16z's portfolio page
+(`config.A16Z_PORTFOLIO_URL`). No `robots.txt` at all (404) — same
+"no restrictions" interpretation as everywhere else in this project. Unlike
+YC, no scrolling/JS-rendering is needed: the *entire* real portfolio (849
+companies, confirmed directly) ships inline as a JS global,
+`window.a16z_portfolio_companies = [...]`, in a `<script>` tag on the plain
+server-rendered page — a real, if site-specific, shortcut discovered by
+fetching the page and grepping for markers before assuming a YC-style
+scroll-driven approach was needed. Each array element is a JSON object with
+a `title` field holding the real company name (not `name` — confirmed by
+inspection).
 """
 
+import json
 import logging
+import re
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
@@ -57,10 +71,14 @@ _SCROLL_COUNT = 5  # confirmed real: 40 -> 120 companies after 5 scroll+wait cyc
 
 _WIKITABLE_SELECTOR = "table.wikitable"
 
+_A16Z_PORTFOLIO_PATTERN = re.compile(
+    r"window\.a16z_portfolio_companies\s*=\s*(\[.*?\]);", re.DOTALL
+)
+
 # The real, valid values for POST /companies/discover's source param and
 # Schedule.source when Schedule.kind == "companies" (PHASE8.md step 7) —
 # shared here rather than duplicated in routes_companies.py/routes.py.
-DISCOVERY_SOURCES = ("yc", "largest_us_companies")
+DISCOVERY_SOURCES = ("yc", "largest_us_companies", "a16z")
 
 
 @dataclass
@@ -147,6 +165,35 @@ def discover_largest_us_companies(fetcher: PageFetcher) -> list[str]:
     return names
 
 
+def build_a16z_fetcher() -> PageFetcher:
+    """Wire a PageFetcher for the a16z portfolio page — plain HttpxTransport,
+    same as Wikipedia: the full list ships inline in the server-rendered
+    HTML, no browser needed."""
+    return PageFetcher(transport=HttpxTransport())
+
+
+def discover_a16z_companies(fetcher: PageFetcher) -> list[str]:
+    """Fetch the a16z portfolio page and return real, deduplicated company
+    names — no batch concept for this source."""
+    page = fetcher.fetch(config.A16Z_PORTFOLIO_URL)
+    match = _A16Z_PORTFOLIO_PATTERN.search(page.raw)
+    if not match:
+        raise ValueError("a16z_portfolio_companies JS array not found on the portfolio page")
+    companies = json.loads(match.group(1))
+    names: list[str] = []
+    seen: set[str] = set()
+    for company in companies:
+        title = company.get("title")
+        if not isinstance(title, str):
+            continue
+        name = title.strip()
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    logger.info("a16z discovery: %d company names found", len(names))
+    return names
+
+
 def discover_and_save_companies(session: Session, source: str) -> int:
     """Run one discovery pass for `source` and save any new companies —
     shared by the API route (`POST /companies/discover`) and the scheduled
@@ -161,6 +208,9 @@ def discover_and_save_companies(session: Session, source: str) -> int:
             for c in yc_companies
             if repo.save_company(session, c.name, source="yc", batch=c.batch)
         )
+    if source == "a16z":
+        a16z_names = discover_a16z_companies(build_a16z_fetcher())
+        return sum(1 for name in a16z_names if repo.save_company(session, name, source="a16z"))
     names = discover_largest_us_companies(build_largest_us_companies_fetcher())
     return sum(
         1 for name in names if repo.save_company(session, name, source="largest_us_companies")
