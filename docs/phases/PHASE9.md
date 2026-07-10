@@ -77,6 +77,40 @@ sync by hand.
    discovery pass against a real source (e.g. `POST
    /companies/discover?source=a16z`) to confirm the real network path still
    works identically after the refactor.
+   **Done.** Built as a dataclass registry (`DiscoverySource` holding
+   `build_fetcher`/`discover` callables), not a `Protocol`+classes rewrite
+   like `sources/__init__.py`'s — the existing code here is free functions,
+   not classes, so a lighter dict-of-callables fit better without forcing
+   an unrelated class rewrite. `DISCOVERY_SOURCES` is now
+   `tuple(_REGISTRY.keys())`, derived, not hand-maintained.
+   `discover_and_save_companies` collapsed from a 6-branch `if/elif` chain
+   to one `entry.discover(entry.build_fetcher())` call plus one shared
+   `save_company` loop. Every `discover_X_companies` function keeps its own
+   real return type unchanged (`list[DiscoveredCompany]` for YC,
+   `list[str]` for the other five) — small per-source adapter functions
+   normalize into the registry's uniform shape instead.
+   Real bug caught by the existing test suite immediately, not shipped: the
+   `yc` entry initially referenced `discover_yc_companies` directly (no
+   adapter needed for its return type) — that captures the function object
+   at registry-construction time, which silently bypasses
+   `monkeypatch.setattr` (patches the module attribute, not an
+   already-bound dict value) and made a real, unintended network call to
+   `ycombinator.com` during what was supposed to be a fully faked test run.
+   Fixed by wrapping `yc` in the same thin call-time-lookup adapter every
+   other source already needed, closing the one inconsistency that caused
+   it.
+   Smoke: `pytest tests/test_discovery.py` — 28/28 pass, no real network
+   calls (confirmed by the absence of any `Fetched (200)` log line, unlike
+   the failing run before the fix). Real live app, fresh process (killed
+   by PID after finding yet another stale `uvicorn` from earlier in this
+   same session — the same trap documented repeatedly in PHASE8.md,
+   still worth checking every time): real `POST
+   /companies/discover?source=bvp` (0 new, 1920 total, already fully
+   discovered) and `source=yc` (0 new, real ~13s network round-trip to
+   ycombinator.com, batch data on existing rows — e.g. "Summer 2015" —
+   confirmed intact) both completed correctly through the new registry
+   dispatch path, covering both a batch-carrying source and a non-batch
+   one.
 2. **Stop hand-mirroring the source list into the frontend (backend +
    frontend).** `COMPANY_DISCOVERY_SOURCES` in `frontend/lib/sources.ts` and
    `SOURCE_LABELS` in `frontend/components/CompanyDrawer.tsx` are both
