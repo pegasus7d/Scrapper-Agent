@@ -63,10 +63,11 @@ def discover_companies(session: SessionDep, source: str = "yc") -> DiscoveryResu
     table), "a16z" (PHASE8.md step 9, its full portfolio inline on one
     page), "sequoia" (PHASE8.md step 9, a real tab-open + "Load More"
     click sequence), "foundersfund" (PHASE8.md step 9, plain
-    server-rendered HTML, no JS needed), or "bvp" (PHASE8.md step 9, also
-    plain server-rendered HTML) — storing any real companies not already
-    on file. Defaults to "yc" for backward compatibility with the
-    original single-source endpoint."""
+    server-rendered HTML, no JS needed), "bvp" (PHASE8.md step 9, also
+    plain server-rendered HTML), or "russell1000" (PHASE9.md step 9, a
+    stable `id="constituents"` table, 1002 real companies) — storing any
+    real companies not already on file. Defaults to "yc" for backward
+    compatibility with the original single-source endpoint."""
     if source not in DISCOVERY_SOURCES:
         raise HTTPException(422, f"unknown discovery source: {source}")
     discovered = discover_and_save_companies(session, source)

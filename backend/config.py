@@ -55,6 +55,12 @@ YC_COMPANIES_URL = "https://www.ycombinator.com/companies"
 LARGEST_US_COMPANIES_URL = (
     "https://en.wikipedia.org/wiki/List_of_largest_companies_in_the_United_States_by_revenue"
 )
+# Russell 1000 constituents (PHASE9.md step 9) — a real, broader "Fortune
+# 1000"-equivalent source added after LARGEST_US_COMPANIES_URL above turned
+# out to only cover the top ~100 companies by revenue, missing companies
+# like Netflix entirely. Same en.wikipedia.org/robots.txt policy already
+# verified (PHASE8.md step 6) covers any /wiki/ article path.
+RUSSELL_1000_URL = "https://en.wikipedia.org/wiki/Russell_1000_Index"
 # a16z portfolio (PHASE8.md step 9) — no robots.txt at all (404), treated as
 # no restrictions (same interpretation fetcher.py's _fetch_robots_lines
 # already codifies). The full 849-company portfolio ships inline in a

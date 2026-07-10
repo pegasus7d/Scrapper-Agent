@@ -23,25 +23,14 @@ YC batch (e.g. "Summer 2013") — extracted from the query param, not the
 pill's visible text, since a plain `.text` read returns empty on this
 particular nested structure (confirmed directly; the href is reliable).
 
-A second discovery source (PHASE8.md step 6): Wikipedia's own real
-revenue-ranked companies table (`config.LARGEST_US_COMPANIES_URL`) — plain
-server-rendered HTML, `HttpxTransport` (default), no browser needed unlike
-YC. Confirmed real before writing this: the page has three `table.wikitable`
-elements (revenue/employees/profits rankings); the first is the
-revenue-ranked one this function wants — a real, if slightly fragile,
-positional assumption, same trade-off as YC's hashed-class-name matching.
-Each row's second `<td>`'s child `<a>` link holds the real company name —
-same `.text`-on-a-parent-returns-empty quirk as YC's batch pill (confirmed
-directly against all 100 real rows), so the link's own text is read
-instead of the cell's.
-
-Four more discovery sources — a16z, Sequoia, Founders Fund, and Bessemer
-(PHASE8.md step 9, VC portfolio pages) — live in `discovery_vc.py`, not
-here: this file was already at the 300-line hard cap (CLAUDE.md) once YC
-and Wikipedia were both in it, and the VC sources are a natural, separate
-responsibility (four more real page shapes, none of which this module
-needs to know about beyond the shared `DiscoveredCompany`/
-`discover_and_save_companies` dispatch below).
+Two more discovery sources — Wikipedia's revenue-ranked table (PHASE8.md
+step 6) and Russell 1000 constituents (PHASE9.md step 9) — live in
+`discovery_lists.py`, not here: this file was already at the 300-line hard
+cap once Russell 1000 landed alongside YC and the registry/orchestration
+code. Four further sources — a16z, Sequoia, Founders Fund, and Bessemer
+(PHASE8.md step 9, VC portfolio pages) — live in `discovery_vc.py` for the
+same reason. Neither sibling module needs to know about the other beyond
+the shared `DiscoveredCompany`/`discover_and_save_companies` dispatch below.
 
 Registry, not an `if/elif` chain (PHASE9.md step 1): mirrors
 `sources/__init__.py`'s existing `SOURCES: dict[str, Source]` pattern for
@@ -66,6 +55,12 @@ from sqlalchemy.orm import Session
 
 from backend import config
 from backend.db import repo
+from backend.scraper.discovery_lists import (
+    build_largest_us_companies_fetcher,
+    build_russell_1000_fetcher,
+    discover_largest_us_companies,
+    discover_russell_1000_companies,
+)
 from backend.scraper.discovery_vc import (
     build_a16z_fetcher,
     build_bvp_fetcher,
@@ -77,7 +72,7 @@ from backend.scraper.discovery_vc import (
     discover_sequoia_companies,
 )
 from backend.scraper.fetcher import PageFetcher
-from backend.scraper.transport import HttpxTransport, ScraplingTransport
+from backend.scraper.transport import ScraplingTransport
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +80,6 @@ _COMPANY_LINK_SELECTOR = 'a[href^="/companies/"]'
 _COMPANY_NAME_SELECTOR = 'span[class*="coName"]'
 _BATCH_LINK_SELECTOR = 'a[href*="?batch="]'
 _SCROLL_COUNT = 5  # confirmed real: 40 -> 120 companies after 5 scroll+wait cycles
-
-_WIKITABLE_SELECTOR = "table.wikitable"
 
 
 @dataclass
@@ -140,39 +133,6 @@ def discover_yc_companies(fetcher: PageFetcher) -> list[DiscoveredCompany]:
     return companies
 
 
-def build_largest_us_companies_fetcher() -> PageFetcher:
-    """Wire a PageFetcher for the Wikipedia revenue-ranked table — plain
-    HttpxTransport (the page is server-rendered, no JS needed unlike YC)."""
-    return PageFetcher(transport=HttpxTransport())
-
-
-def discover_largest_us_companies(fetcher: PageFetcher) -> list[str]:
-    """Fetch Wikipedia's largest-US-companies-by-revenue table and return
-    real, deduplicated company names — no batch concept for this source."""
-    page = fetcher.fetch(config.LARGEST_US_COMPANIES_URL)
-    selector = Selector(content=page.raw)
-    table = selector.css_first(_WIKITABLE_SELECTOR)
-    if not isinstance(table, Selector):
-        raise ValueError("no wikitable found on the largest-US-companies page")
-    names: list[str] = []
-    seen: set[str] = set()
-    for row in table.css("tr"):
-        if not isinstance(row, Selector):
-            continue
-        cells = [c for c in row.css("td") if isinstance(c, Selector)]
-        if len(cells) < 2:
-            continue  # the header row has <th>, not <td> — naturally skipped
-        name_link = cells[1].css_first("a")
-        if not isinstance(name_link, Selector) or not name_link.text:
-            continue
-        name = name_link.text.strip()
-        if name and name not in seen:
-            seen.add(name)
-            names.append(name)
-    logger.info("largest-US-companies discovery: %d company names found", len(names))
-    return names
-
-
 def _no_batch(names: list[str]) -> list[DiscoveredCompany]:
     """Adapter for every source without a batch concept — normalizes a
     plain `list[str]` into the registry's uniform `list[DiscoveredCompany]`
@@ -212,6 +172,10 @@ def _discover_bvp(fetcher: PageFetcher) -> list[DiscoveredCompany]:
     return _no_batch(discover_bvp_companies(fetcher))
 
 
+def _discover_russell_1000(fetcher: PageFetcher) -> list[DiscoveredCompany]:
+    return _no_batch(discover_russell_1000_companies(fetcher))
+
+
 @dataclass
 class DiscoverySource:
     build_fetcher: Callable[[], PageFetcher]
@@ -240,6 +204,9 @@ _REGISTRY: dict[str, DiscoverySource] = {
         build_foundersfund_fetcher, _discover_foundersfund, label="Founders Fund"
     ),
     "bvp": DiscoverySource(build_bvp_fetcher, _discover_bvp, label="BVP"),
+    "russell1000": DiscoverySource(
+        build_russell_1000_fetcher, _discover_russell_1000, label="Russell 1000"
+    ),
 }
 
 # The real, valid values for POST /companies/discover's source param and

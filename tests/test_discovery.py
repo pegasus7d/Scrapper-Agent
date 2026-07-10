@@ -14,6 +14,7 @@ from backend.scraper.discovery import (
     build_bvp_fetcher,
     build_foundersfund_fetcher,
     build_largest_us_companies_fetcher,
+    build_russell_1000_fetcher,
     build_sequoia_fetcher,
     build_yc_fetcher,
     discover_a16z_companies,
@@ -21,6 +22,7 @@ from backend.scraper.discovery import (
     discover_bvp_companies,
     discover_foundersfund_companies,
     discover_largest_us_companies,
+    discover_russell_1000_companies,
     discover_sequoia_companies,
     discover_yc_companies,
 )
@@ -153,6 +155,45 @@ def test_discover_largest_us_companies_raises_when_no_wikitable_found() -> None:
 
 def test_build_largest_us_companies_fetcher_uses_plain_httpx() -> None:
     fetcher = build_largest_us_companies_fetcher()
+    assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
+
+
+# Mirrors the real Russell 1000 markup shape confirmed by direct inspection
+# (PHASE9.md step 9): a real, stable `table#constituents` (not a fragile
+# first-wikitable position, unlike largest_us_companies above) whose data
+# rows hold the company name in the first `<td>`'s child `<a>` link — same
+# `.text`-on-a-parent-returns-empty quirk as every other Wikipedia table
+# here, confirmed directly against the real page.
+_RUSSELL_1000_HTML = """
+<html><body>
+<table id="constituents">
+<tr><th>Company</th><th>Symbol</th></tr>
+<tr><td><a href="/wiki/3M" title="3M">3M</a></td><td>MMM</td></tr>
+<tr><td><a href="/wiki/Netflix" title="Netflix">Netflix</a></td><td>NFLX</td></tr>
+<tr><td>No link company</td><td>XXX</td></tr>
+<tr><td><a href="/wiki/3M" title="3M">3M</a></td><td>MMM</td></tr>
+</table>
+</body></html>
+"""
+
+
+def test_discover_russell_1000_companies_uses_the_constituents_table() -> None:
+    names = discover_russell_1000_companies(make_fetcher(_RUSSELL_1000_HTML))
+    assert names == ["3M", "Netflix"]
+
+
+def test_discover_russell_1000_companies_skips_rows_without_a_link() -> None:
+    names = discover_russell_1000_companies(make_fetcher(_RUSSELL_1000_HTML))
+    assert "No link company" not in names
+
+
+def test_discover_russell_1000_companies_raises_when_no_table_found() -> None:
+    with pytest.raises(ValueError, match="no constituents table"):
+        discover_russell_1000_companies(make_fetcher("<html><body>nothing here</body></html>"))
+
+
+def test_build_russell_1000_fetcher_uses_plain_httpx() -> None:
+    fetcher = build_russell_1000_fetcher()
     assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
 
 
@@ -333,6 +374,7 @@ def test_discover_and_save_companies_yc_saves_name_and_batch(
         ("sequoia", "discover_sequoia_companies", "Cisco"),
         ("foundersfund", "discover_foundersfund_companies", "Anduril"),
         ("bvp", "discover_bvp_companies", "Abridge"),
+        ("russell1000", "discover_russell_1000_companies", "Netflix"),
     ],
 )
 def test_discover_and_save_companies_no_batch_sources(
