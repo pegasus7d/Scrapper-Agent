@@ -149,6 +149,26 @@ class ScheduleOut(BaseModel):
     last_run_at: datetime | None
 
 
+class ApplicantProfileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    phone: str | None
+    current_salary: str | None
+    expected_salary: str | None
+    work_authorization: str | None
+    relocation: bool | None
+    start_date_availability: str | None
+
+
+class ApplicantProfileIn(BaseModel):
+    phone: str | None = None
+    current_salary: str | None = None
+    expected_salary: str | None = None
+    work_authorization: str | None = None
+    relocation: bool | None = None
+    start_date_availability: str | None = None
+
+
 class ResumeMarkdown(BaseModel):
     markdown: str
 

@@ -173,6 +173,23 @@ class AutoApplySettings(Base):
     kill_switch_enabled: Mapped[bool] = mapped_column(default=False)
 
 
+class ApplicantProfile(Base):
+    """A real, single-row (id=1) structured profile (PHASE10.md step 5) —
+    the form-filler answer-tool system (step 7) reads from this, never
+    invents values on the user's behalf. Every field starts unset (None);
+    only the user filling in the frontend form gives it real content."""
+
+    __tablename__ = "applicant_profile"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    phone: Mapped[str | None] = mapped_column(default=None)
+    current_salary: Mapped[str | None] = mapped_column(default=None)
+    expected_salary: Mapped[str | None] = mapped_column(default=None)
+    work_authorization: Mapped[str | None] = mapped_column(default=None)
+    relocation: Mapped[bool | None] = mapped_column(default=None)
+    start_date_availability: Mapped[str | None] = mapped_column(default=None)
+
+
 class Schedule(Base):
     """A recurring scrape: run this kind/source every N hours (PHASE2.md step 6)."""
 
