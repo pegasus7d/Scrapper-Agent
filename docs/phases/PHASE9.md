@@ -26,6 +26,13 @@ independently shippable; none require a design discussion the way the
 deferred auto-apply feature (see the standing `FEATURES.md` backlog and
 this session's own conversation history) does.
 
+Steps 9-10 widen company discovery breadth (requested directly: the
+existing `largest_us_companies` source turned out to only cover the top
+~100 companies by revenue, missing companies like Netflix entirely — real,
+verified gap, not assumed). Deliberately built on top of step 1's registry
+rather than before it, so this phase's own refactor isn't immediately
+undermined by the next two sources it adds.
+
 ## Why this matters (the actual evidence, not a hunch)
 
 Adding one more company discovery source today touches **8 separate
@@ -150,15 +157,62 @@ sync by hand.
    real jobs/questions are on file) and confirm it still completes
    correctly under whichever bound this step lands on.
 
+9. **Russell 1000 as a seventh company discovery source (backend).** Real
+   gap found by checking, not guessed: the existing `largest_us_companies`
+   source (Wikipedia's revenue-ranked table) only covers the **top ~100
+   companies by revenue** (confirmed: 101 real rows) — nowhere near even
+   Fortune 500, let alone 1000, and revenue-ranking systematically excludes
+   companies like Netflix that carry huge market value on comparatively
+   lower revenue. Checked multiple real candidates before picking one, not
+   assumed: Wikipedia's own `Fortune_500` article is history/methodology
+   prose, not the real list (Fortune itself paywalls it); a market-cap list
+   didn't have Netflix; `List_of_S%26P_500_companies` does (503 real
+   companies) but Wikipedia's **`Russell_1000_Index`** article is broader
+   still — confirmed real, complete, and the right scale for what was
+   actually asked for ("Fortune 1000"-equivalent coverage): 1002 real
+   company names, Netflix included, effectively a superset of the S&P 500
+   list, so this one source replaces shipping two heavily-overlapping
+   "large US public company" lists. One real markup quirk found and fixed
+   before writing this down: the constituent table's first `<td>` (the
+   `Company` column) returns empty `.text` when read directly — same
+   parent-vs-child-link quirk YC's batch pill and the original
+   `largest_us_companies` table both already have — the name is in that
+   cell's child `<a>` link instead, confirmed directly against the real
+   page. `robots.txt` already covers this — same `en.wikipedia.org/robots.txt`
+   policy verified in PHASE8.md step 6 (only `/w/` action paths disallowed,
+   not `/wiki/` articles) applies to any Wikipedia article path, not just
+   the one originally checked. Should reuse the registry from step 1 rather
+   than landing before it — build this source as a proper registry entry,
+   not one more `if` branch the refactor is trying to eliminate. Smoke:
+   real discovery run against the live app, confirm Netflix (and a
+   spot-check of a few other real Russell 1000 names) land with
+   `source="russell1000"`, distinguishable from the existing
+   `largest_us_companies` rows.
+10. **More VC portfolio sources (backend).** PHASE8.md's own "Deliberately
+    deferred, not forgotten" section already flagged this: every VC beyond
+    the four verified there (a16z, Sequoia, Founders Fund, BVP) needs the
+    same real `robots.txt`/page-structure check before being named, not
+    assumed from "it's a famous VC, it's probably fine." Real candidates to
+    check during this step (not pre-verified, per WORKFLOW.md rule 2):
+    Y Combinator-adjacent accelerators (Techstars, 500 Global) and a few
+    more large VC firms (e.g. Accel, Index Ventures, Kleiner Perkins) —
+    exact list to be confirmed against real `robots.txt` results, not
+    decided here. Same discipline as PHASE8.md step 9: one VC at a time,
+    real page structure confirmed before any parser is written, added
+    incrementally in their own commits.
+
 ## Deliberately out of scope
 
-**No new discovery sources, no new user-facing features.** This phase
-exists to make the *next* source (or the next unrelated feature — see the
-standing `FEATURES.md` backlog, and the auto-apply scope this session
-discussed but deliberately deferred) cheaper and safer to build, not to add
-one itself. Job/question sources (`sources/__init__.py`) are explicitly
-*not* touched in steps 1-4 — that registry is already the pattern being
-copied, not a thing under repair.
+**Auto-apply and every other feature on the `FEATURES.md` backlog** — this
+phase's source-hunting (steps 9-10) is deliberately scoped to *company
+discovery* breadth, the same kind of source PHASE8.md's step 9 already
+built, using the exact registry this phase's own step 1 sets up. It is not
+a general invitation to add unrelated new features into a phase that's
+mostly refactor — those stay their own, separately-scoped phases (see this
+session's own conversation history on auto-apply, deliberately deferred).
+Job/question sources (`sources/__init__.py`) are explicitly *not* touched
+in steps 1-4 — that registry is already the pattern being copied, not a
+thing under repair.
 
 Next: not started — driven by `/loop` once this file is committed on its
 own, per WORKFLOW.md rule 3.

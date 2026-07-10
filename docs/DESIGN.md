@@ -430,7 +430,11 @@ docs instead of code:
   companies and months of scraped data on file, no `/health` endpoint
   despite the app now running unattended scheduled work, an unbounded
   resume-upload read before any validation, and fully unbounded export
-  endpoints.
+  endpoints. Steps 9-10 widen company discovery breadth on top of the new
+  registry: Russell 1000 as a seventh source (the existing
+  `largest_us_companies` source only covered the top ~100 companies by
+  revenue — real, verified gap, missed companies like Netflix entirely),
+  plus more VC portfolio sources beyond the four PHASE8.md already landed.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
