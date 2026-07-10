@@ -87,7 +87,7 @@ for anyone to review and understand. No slop.
   type gate).
 - **Smoke test at step boundaries.** Unit tests mock all I/O, so they can never prove
   the real integration works. Before a build-order step (`PHASE{N}.md`, current phase
-  is [[docs/phases/PHASE7.md]]) is called done, run the new piece once for real (real Ollama, real
+  is [[docs/phases/PHASE8.md]]) is called done, run the new piece once for real (real Ollama, real
   fetch of one page) and say what happened. Failures found here that unit tests
   missed → add the missing unit test.
 
