@@ -432,6 +432,40 @@ sync by hand.
     decided here. Same discipline as PHASE8.md step 9: one VC at a time,
     real page structure confirmed before any parser is written, added
     incrementally in their own commits.
+    **Done, in one commit — Accel added; Techstars, 500 Global, Index
+    Ventures, and Kleiner Perkins genuinely checked but not added.** All
+    five candidates had wide-open `robots.txt` (confirmed real for each),
+    but real page-structure investigation split them: Techstars fetches
+    portfolio data via a client-side API call, not embedded in any initial
+    HTML (`__NEXT_DATA__` present but only CMS navigation, no company
+    list) — would need real API reverse-engineering, not attempted here.
+    500 Global's `/portfolio` page has only 3 real company names repeated
+    in a small features carousel, not a full portfolio grid. Index
+    Ventures' `/companies` page only has 3-4 company names in marketing
+    prose (`"Visionaries like ... Dylan at Figma"`), not a real listing.
+    Kleiner Perkins' real portfolio URL couldn't be found (`/portfolio` and
+    `/companies` both real `404`s) within this step's time. Accel was the
+    one genuine win: plain `httpx` returns a truly empty body (confirmed
+    with a real browser UA first, ruling out simple UA-blocking) — real JS
+    rendering needed, same as YC/Sequoia. No company-name text node
+    anywhere; the real, reliable signal turned out to be each portfolio
+    card's `aria-label` (`"View {Name} company details"`), confirmed
+    directly against the rendered page (194 real distinct companies).
+    Real gap acknowledged, not hidden: only the initial render was parsed,
+    no scroll/pagination attempted — Accel's real portfolio is almost
+    certainly larger than 194. Shipped anyway, following the same
+    real precedent YC itself set (its own first version stopped at 40
+    cards; full scroll coverage was a later, separate phase step) — a
+    smaller real number now is better than no source, and full coverage
+    can be added incrementally later without changing today's real,
+    working parser.
+    Smoke: real live app, fresh process. `GET /companies/sources` returned
+    all 8 real sources including Accel. Real POST
+    `/companies/discover?source=accel` (162 new real companies, 2979
+    total, ~23s — real browser rendering, not instant like the plain-HTTP
+    sources). Confirmed Deliveroo genuinely present with `source="accel"`.
+    Confirmed idempotent (second run: 0 new).
+    **PHASE9.md complete — all 10 steps done.**
 
 ## Deliberately out of scope
 
