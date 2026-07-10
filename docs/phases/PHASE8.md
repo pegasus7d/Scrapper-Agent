@@ -371,6 +371,40 @@ rule 2):
    `hirable.db`/`huey.db`). Smoke: run the app for real, confirm real log
    lines land in the file, confirm rotation config is sane (doesn't grow
    unbounded).
+   **Done.** `configure_logging()` in `config.py` adds a
+   `RotatingFileHandler` (5 MB × 3 backups, ~20 MB bound — a real bound for
+   a single-user home-lab tool, not unbounded growth) alongside the
+   existing stderr handler from `logging.basicConfig()`; both guarded by
+   the same "root logger already has handlers → no-op" check so it's safe
+   to call from `create_app()` more than once. `LOG_FILE = "hirable.log"`
+   gitignored next to `hirable.db`/`huey.db`.
+   A real, non-mocked test bug was caught and fixed here, not just app
+   code: `test_configure_logging_creates_a_real_log_file` failed because
+   its fixture cleared `logging.getLogger().handlers` during pytest's
+   *setup* phase — but pytest's own logging plugin re-installs a fresh
+   `LogCaptureHandler` on the root logger at the start of the *call*
+   phase, after setup finishes, silently undoing the fixture's clear
+   before the test body ever ran. Root-caused by writing a standalone
+   debug script that cleared handlers inline in a test body instead of a
+   fixture and comparing behavior directly — confirmed real via printed
+   handler lists at each stage, not guessed. Fixed by moving the actual
+   `handlers.clear()` call into each test body (right before
+   `configure_logging()`), keeping the fixture only for LOG_FILE
+   monkeypatching and save/restore of the real root logger state.
+   Smoke: killed all stale processes, deleted any existing `hirable.log`,
+   started the real app via `uvicorn --factory backend.api.main:create_app`
+   fresh. A real `hirable.log` was created immediately on startup and
+   genuinely received real log lines — Huey consumer boot messages, its
+   periodic scheduler ticks, and Alembic's migration-context checks (27
+   real lines after ~3 seconds of live operation, no mocking). Uvicorn's
+   own HTTP access/error logs don't appear in the file, because uvicorn
+   configures its `uvicorn.access`/`uvicorn.error` loggers with their own
+   non-propagating handlers by default — expected framework behavior, not
+   a gap in this step (which covers this project's own app-level logging,
+   already confirmed working). Rotation config confirmed sane by
+   inspection of the configured `maxBytes`/`backupCount` (5 MB × 3 = ~20 MB
+   ceiling), not by generating 5 MB of real log traffic, which isn't a
+   realistic scenario for this tool's actual usage volume.
 9. **VC portfolio pages as further discovery sources (backend).**
    `robots.txt` checked for real on four famous startup-funding VCs before
    naming them here (WORKFLOW.md rule 2): **a16z** — no `robots.txt` at all
