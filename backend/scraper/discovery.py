@@ -42,9 +42,22 @@ and Wikipedia were both in it, and the VC sources are a natural, separate
 responsibility (four more real page shapes, none of which this module
 needs to know about beyond the shared `DiscoveredCompany`/
 `discover_and_save_companies` dispatch below).
+
+Registry, not an `if/elif` chain (PHASE9.md step 1): mirrors
+`sources/__init__.py`'s existing `SOURCES: dict[str, Source]` pattern for
+job/question sources, which this module never adopted when it grew from
+one source to six across PHASE7-8 — real, observed cost documented in
+PHASE9.md ("Why this matters"). Each source's real `discover_X_companies`
+function keeps its own real return type (`list[DiscoveredCompany]` for YC,
+`list[str]` for everything else — no batch concept there) exactly as it
+already was; a small per-source adapter normalizes the return shape into
+`list[DiscoveredCompany]` only at registry-construction time, so no
+existing parsing logic or function signature changes, just how they're
+wired together.
 """
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
@@ -74,11 +87,6 @@ _BATCH_LINK_SELECTOR = 'a[href*="?batch="]'
 _SCROLL_COUNT = 5  # confirmed real: 40 -> 120 companies after 5 scroll+wait cycles
 
 _WIKITABLE_SELECTOR = "table.wikitable"
-
-# The real, valid values for POST /companies/discover's source param and
-# Schedule.source when Schedule.kind == "companies" (PHASE8.md step 7) —
-# shared here rather than duplicated in routes_companies.py/routes.py.
-DISCOVERY_SOURCES = ("yc", "largest_us_companies", "a16z", "sequoia", "foundersfund", "bvp")
 
 
 @dataclass
@@ -165,6 +173,72 @@ def discover_largest_us_companies(fetcher: PageFetcher) -> list[str]:
     return names
 
 
+def _no_batch(names: list[str]) -> list[DiscoveredCompany]:
+    """Adapter for every source without a batch concept — normalizes a
+    plain `list[str]` into the registry's uniform `list[DiscoveredCompany]`
+    shape without changing the real discover_X_companies function itself."""
+    return [DiscoveredCompany(name=name, batch=None) for name in names]
+
+
+def _discover_yc(fetcher: PageFetcher) -> list[DiscoveredCompany]:
+    """A thin wrapper, not a direct reference to discover_yc_companies in
+    the registry below — a real bug, caught by this file's own test suite:
+    a direct reference captures the function object at registry-
+    construction time, which silently bypasses `monkeypatch.setattr`
+    (patches the module attribute, not an already-bound dict value) and
+    made a real network call to ycombinator.com during a test run that was
+    supposed to be fully faked. Every entry in the registry goes through a
+    same-shaped call-time name lookup instead, this one included."""
+    return discover_yc_companies(fetcher)
+
+
+def _discover_largest_us_companies(fetcher: PageFetcher) -> list[DiscoveredCompany]:
+    return _no_batch(discover_largest_us_companies(fetcher))
+
+
+def _discover_a16z(fetcher: PageFetcher) -> list[DiscoveredCompany]:
+    return _no_batch(discover_a16z_companies(fetcher))
+
+
+def _discover_sequoia(fetcher: PageFetcher) -> list[DiscoveredCompany]:
+    return _no_batch(discover_sequoia_companies(fetcher))
+
+
+def _discover_foundersfund(fetcher: PageFetcher) -> list[DiscoveredCompany]:
+    return _no_batch(discover_foundersfund_companies(fetcher))
+
+
+def _discover_bvp(fetcher: PageFetcher) -> list[DiscoveredCompany]:
+    return _no_batch(discover_bvp_companies(fetcher))
+
+
+@dataclass
+class DiscoverySource:
+    build_fetcher: Callable[[], PageFetcher]
+    discover: Callable[[PageFetcher], list[DiscoveredCompany]]
+
+
+# The real registry (PHASE9.md step 1) — adding a source means adding one
+# entry here, not a new `if` branch in discover_and_save_companies below.
+# Order matches the original DISCOVERY_SOURCES tuple so nothing that reads
+# "first source" (e.g. the frontend's default selection) changes behavior.
+_REGISTRY: dict[str, DiscoverySource] = {
+    "yc": DiscoverySource(build_yc_fetcher, _discover_yc),
+    "largest_us_companies": DiscoverySource(
+        build_largest_us_companies_fetcher, _discover_largest_us_companies
+    ),
+    "a16z": DiscoverySource(build_a16z_fetcher, _discover_a16z),
+    "sequoia": DiscoverySource(build_sequoia_fetcher, _discover_sequoia),
+    "foundersfund": DiscoverySource(build_foundersfund_fetcher, _discover_foundersfund),
+    "bvp": DiscoverySource(build_bvp_fetcher, _discover_bvp),
+}
+
+# The real, valid values for POST /companies/discover's source param and
+# Schedule.source when Schedule.kind == "companies" (PHASE8.md step 7) —
+# derived from the registry above, not hand-maintained (PHASE9.md step 1).
+DISCOVERY_SOURCES = tuple(_REGISTRY.keys())
+
+
 def discover_and_save_companies(session: Session, source: str) -> int:
     """Run one discovery pass for `source` and save any new companies —
     shared by the API route (`POST /companies/discover`) and the scheduled
@@ -172,30 +246,8 @@ def discover_and_save_companies(session: Session, source: str) -> int:
     dispatch. Trusts `source` is already one of DISCOVERY_SOURCES —
     validated once at the call site (the API route's 422, or schedule
     creation's own validation), not re-checked here."""
-    if source == "yc":
-        yc_companies = discover_yc_companies(build_yc_fetcher())
-        return sum(
-            1
-            for c in yc_companies
-            if repo.save_company(session, c.name, source="yc", batch=c.batch)
-        )
-    if source == "a16z":
-        a16z_names = discover_a16z_companies(build_a16z_fetcher())
-        return sum(1 for name in a16z_names if repo.save_company(session, name, source="a16z"))
-    if source == "sequoia":
-        sequoia_names = discover_sequoia_companies(build_sequoia_fetcher())
-        return sum(
-            1 for name in sequoia_names if repo.save_company(session, name, source="sequoia")
-        )
-    if source == "foundersfund":
-        ff_names = discover_foundersfund_companies(build_foundersfund_fetcher())
-        return sum(
-            1 for name in ff_names if repo.save_company(session, name, source="foundersfund")
-        )
-    if source == "bvp":
-        bvp_names = discover_bvp_companies(build_bvp_fetcher())
-        return sum(1 for name in bvp_names if repo.save_company(session, name, source="bvp"))
-    names = discover_largest_us_companies(build_largest_us_companies_fetcher())
+    entry = _REGISTRY[source]
+    companies = entry.discover(entry.build_fetcher())
     return sum(
-        1 for name in names if repo.save_company(session, name, source="largest_us_companies")
+        1 for c in companies if repo.save_company(session, c.name, source=source, batch=c.batch)
     )
