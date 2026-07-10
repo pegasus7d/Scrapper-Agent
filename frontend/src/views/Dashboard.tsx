@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { useApi } from '../hooks/useApi'
 import { useRunsLive } from '../hooks/useRunsLive'
 import { formatPercent, formatTime } from '../lib/format'
+import type { View } from '../lib/views'
 
 const STATUS_STYLE: Record<Run['status'], string> = {
   running: 'bg-indigo-50 text-indigo-700',
@@ -23,17 +24,30 @@ const STATUS_STYLE: Record<Run['status'], string> = {
   cancelled: 'bg-muted text-muted-foreground',
 }
 
+// Clickable when there's a real destination view for the number; escalation
+// rate has no natural one (neither Jobs nor Questions has an extraction-tier
+// filter today) — deliberately left non-interactive rather than forced onto
+// a view that wouldn't actually explain the number.
 function StatCard({
   label,
   value,
   formatter,
+  onClick,
 }: {
   label: string
   value: number | null
   formatter?: (n: number) => string
+  onClick?: () => void
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <button
+      type="button"
+      disabled={!onClick}
+      onClick={onClick}
+      className={`rounded-xl border border-border bg-card p-5 text-left ${
+        onClick ? 'cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40' : ''
+      }`}
+    >
       <p className="text-sm text-muted-foreground">{label}</p>
       {value === null ? (
         <Skeleton className="mt-2 h-7 w-16" />
@@ -42,7 +56,7 @@ function StatCard({
           <AnimatedNumber value={value} formatter={formatter} />
         </p>
       )}
-    </div>
+    </button>
   )
 }
 
@@ -99,7 +113,7 @@ interface Queue {
   startedAt: number
 }
 
-export function Dashboard() {
+export function Dashboard({ onNavigate }: { onNavigate: (view: View) => void }) {
   const [showModal, setShowModal] = useState(false)
   const [queue, setQueue] = useState<Queue | null>(null)
   // Runs come from an SSE subscription (PHASE6.md step 6), live the whole
@@ -174,10 +188,27 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Jobs" value={stats.data?.jobs ?? null} />
-        <StatCard label="Questions" value={stats.data?.questions ?? null} />
-        <StatCard label="Companies" value={stats.data?.companies ?? null} />
+      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <StatCard
+          label="Jobs"
+          value={stats.data?.jobs ?? null}
+          onClick={() => onNavigate('jobs')}
+        />
+        <StatCard
+          label="Questions"
+          value={stats.data?.questions ?? null}
+          onClick={() => onNavigate('questions')}
+        />
+        <StatCard
+          label="Companies hiring"
+          value={stats.data?.companies ?? null}
+          onClick={() => onNavigate('jobs')}
+        />
+        <StatCard
+          label="Discovered companies"
+          value={stats.data?.discovered_companies ?? null}
+          onClick={() => onNavigate('companies')}
+        />
         <StatCard
           label="Escalation rate"
           value={stats.data?.escalation_rate ?? null}

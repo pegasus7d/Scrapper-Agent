@@ -66,6 +66,7 @@ export interface Stats {
   jobs: number
   questions: number
   companies: number
+  discovered_companies: number
   escalation_rate: number
 }
 

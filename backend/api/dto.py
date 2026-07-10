@@ -119,6 +119,7 @@ class StatsOut(BaseModel):
     jobs: int
     questions: int
     companies: int
+    discovered_companies: int
     escalation_rate: float
 
 

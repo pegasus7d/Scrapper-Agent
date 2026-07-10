@@ -402,9 +402,23 @@ def test_compute_stats_counts_and_escalation_rate(session: Session, run: Run) ->
     assert stats.escalation_rate == pytest.approx(1 / 6)  # 1 frontier item of 6
 
 
+def test_compute_stats_discovered_companies_is_a_real_separate_count(
+    session: Session, run: Run
+) -> None:
+    # Real, deliberate distinction (PHASE8.md step 3): scraped-job company
+    # names vs. rows in the companies discovery table (PHASE7.md step 5) —
+    # a company can be discovered with zero jobs scraped from it yet.
+    save_jobs(session, run, "A")
+    repo.save_company(session, "Deel")
+    repo.save_company(session, "Airbnb")
+    stats = repo.compute_stats(session)
+    assert stats.companies == 1
+    assert stats.discovered_companies == 2
+
+
 def test_compute_stats_empty_db_is_all_zeros(session: Session) -> None:
     assert repo.compute_stats(session) == repo.Stats(
-        jobs=0, questions=0, companies=0, escalation_rate=0.0
+        jobs=0, questions=0, companies=0, discovered_companies=0, escalation_rate=0.0
     )
 
 

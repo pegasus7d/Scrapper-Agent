@@ -54,7 +54,7 @@ export default function App() {
         </p>
       </aside>
       <main className="flex-1">
-        {view === 'dashboard' && <Dashboard />}
+        {view === 'dashboard' && <Dashboard onNavigate={setView} />}
         {view === 'jobs' && <Jobs />}
         {view === 'questions' && <Questions />}
         {view === 'resume' && <Resume />}

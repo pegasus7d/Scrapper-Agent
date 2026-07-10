@@ -309,6 +309,7 @@ def test_stats_totals(client: TestClient, engine: Engine) -> None:
         "jobs": 3,
         "questions": 1,
         "companies": 4,
+        "discovered_companies": 0,
         "escalation_rate": 0.0,
     }
 

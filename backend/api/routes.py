@@ -236,6 +236,7 @@ def get_stats(session: SessionDep) -> StatsOut:
         jobs=stats.jobs,
         questions=stats.questions,
         companies=stats.companies,
+        discovered_companies=stats.discovered_companies,
         escalation_rate=stats.escalation_rate,
     )
 

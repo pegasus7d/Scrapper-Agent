@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import CompoundSelect, Select, func, select
 from sqlalchemy.orm import Session
 
-from backend.db.models import InterviewQuestion, Job, Run
+from backend.db.models import Company, InterviewQuestion, Job, Run
 
 
 @dataclass
@@ -19,7 +19,11 @@ class Stats:
 
     jobs: int
     questions: int
-    companies: int
+    companies: int  # distinct company names among scraped jobs/questions
+    discovered_companies: int  # rows in the companies table (PHASE7.md step 5) — a
+    # different count on purpose: a company can be discovered without a single
+    # job scraped from it yet, and `companies` above counts scraped jobs/
+    # questions' own `company` text field, not this table at all.
     escalation_rate: float  # fraction of saved items that needed the frontier tier
 
 
@@ -159,12 +163,19 @@ def compute_stats(session: Session) -> Stats:
         select(InterviewQuestion.company).where(InterviewQuestion.company.is_not(None))
     )
     companies = _count(session, companies_union)
+    discovered_companies = _count(session, select(Company))
     frontier = _count(session, select(Job).where(Job.extraction_tier == "frontier")) + _count(
         session, select(InterviewQuestion).where(InterviewQuestion.extraction_tier == "frontier")
     )
     total = jobs + questions
     rate = frontier / total if total else 0.0
-    return Stats(jobs=jobs, questions=questions, companies=companies, escalation_rate=rate)
+    return Stats(
+        jobs=jobs,
+        questions=questions,
+        companies=companies,
+        discovered_companies=discovered_companies,
+        escalation_rate=rate,
+    )
 
 
 def _paginate[T](
