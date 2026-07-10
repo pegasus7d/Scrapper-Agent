@@ -1,16 +1,19 @@
-"""Company discovery endpoints (PHASE7.md step 5) — split from routes.py to
-stay under CLAUDE.md's 300-line file cap.
+"""Company discovery/resolution/scrape endpoints (PHASE7.md steps 5-7) —
+split from routes.py to stay under CLAUDE.md's 300-line file cap.
 """
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from backend.api.deps import SessionDep
-from backend.api.dto import CompanyList, CompanyOut, DiscoveryResult, ResolutionResult
+from backend.api.dto import CompanyList, CompanyOut, DiscoveryResult, ResolutionResult, RunCreated
 from backend.db import repo
+from backend.db.models import Company
+from backend.scraper import sources
 from backend.scraper.discovery import build_yc_fetcher, discover_yc_companies
 from backend.scraper.resolve import resolve_unresolved_companies
+from backend.scraper.tasks import run_scrape_task
 
 logger = logging.getLogger(__name__)
 
@@ -42,3 +45,22 @@ def resolve_companies(session: SessionDep) -> ResolutionResult:
     own smoke test hits this endpoint directly)."""
     summary = resolve_unresolved_companies(session)
     return ResolutionResult(checked=summary.checked, resolved=summary.resolved)
+
+
+@router.post("/companies/{company_id}/scrape", status_code=201)
+def scrape_company(company_id: int, session: SessionDep) -> RunCreated:
+    """Run a real scrape against one resolved company (step 7's own smoke
+    test hits this endpoint directly) — registers its Source dynamically
+    (sources.register_company_source) and enqueues it the same way
+    POST /runs does."""
+    company = session.get(Company, company_id)
+    if company is None:
+        raise HTTPException(404, "company not found")
+    if company.ats_provider is None:
+        raise HTTPException(422, "company has not been resolved to an ATS provider yet")
+    if repo.active_run_exists(session):
+        raise HTTPException(409, "a run is already active")
+    key = sources.register_company_source(company)
+    run = repo.create_run(session, "jobs", key)
+    run_scrape_task(run.id)
+    return RunCreated(run_id=run.id)
