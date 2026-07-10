@@ -1,6 +1,5 @@
 """Tests for the API — TestClient over an in-memory DB; no scraping happens."""
 
-import pymupdf
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
@@ -14,7 +13,6 @@ from backend.db import migrate, repo, vectors
 from backend.db.models import Run
 from backend.llm.client import LocalModel
 from backend.schemas import JobExtract, QuestionExtract
-from backend.scraper.extractor import ExtractionFailed
 
 
 @pytest.fixture
@@ -247,6 +245,31 @@ def test_star_job_toggles_and_404s_when_missing(client: TestClient, engine: Engi
     assert client.post("/api/jobs/999/star", json={"starred": True}).status_code == 404
 
 
+def test_new_job_status_defaults_to_none(client: TestClient, engine: Engine) -> None:
+    seed_items(engine)
+    job = client.get("/api/jobs").json()["items"][0]
+    assert job["status"] == "none"
+    assert job["status_changed_at"] is None
+
+
+def test_status_job_updates_and_404s_when_missing(client: TestClient, engine: Engine) -> None:
+    seed_items(engine)
+    job_id = client.get("/api/jobs").json()["items"][0]["id"]
+    updated = client.post(f"/api/jobs/{job_id}/status", json={"status": "applied"})
+    assert updated.status_code == 200
+    assert updated.json()["status"] == "applied"
+    assert updated.json()["status_changed_at"] is not None
+    assert client.get("/api/jobs", params={"status": "applied"}).json()["total"] == 1
+    assert client.post("/api/jobs/999/status", json={"status": "applied"}).status_code == 404
+
+
+def test_status_job_rejects_an_unknown_status(client: TestClient, engine: Engine) -> None:
+    seed_items(engine)
+    job_id = client.get("/api/jobs").json()["items"][0]["id"]
+    response = client.post(f"/api/jobs/{job_id}/status", json={"status": "ghosted"})
+    assert response.status_code == 422
+
+
 def test_export_jobs_json_and_csv(client: TestClient, engine: Engine) -> None:
     seed_items(engine)
     as_json = client.get("/api/jobs/export").json()
@@ -322,51 +345,6 @@ def test_search_questions_matches_by_keyword(
 def test_search_rejects_empty_query(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_embed_text(monkeypatch)
     assert client.get("/api/search", params={"q": "  ", "kind": "jobs"}).status_code == 422
-
-
-def _minimal_pdf_bytes(text: str) -> bytes:
-    doc = pymupdf.open()
-    doc.new_page().insert_text((72, 72), text)
-    return doc.tobytes()  # type: ignore[no-any-return]
-
-
-def test_upload_resume_returns_real_markdown(client: TestClient) -> None:
-    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with Python experience.")
-    response = client.post(
-        "/api/resume", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}
-    )
-    assert response.status_code == 200
-    assert "Backend Engineer" in response.json()["markdown"]
-
-
-def test_upload_resume_rejects_non_pdf(client: TestClient) -> None:
-    response = client.post(
-        "/api/resume",
-        files={"file": ("resume.pdf", b"not a real pdf", "application/pdf")},
-    )
-    assert response.status_code == 422
-
-
-def test_resume_positions_returns_derived_titles(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        routes, "derive_search_positions", lambda markdown, extractor: ["Backend Engineer"]
-    )
-    response = client.post("/api/resume/positions", json={"markdown": "some resume text"})
-    assert response.status_code == 200
-    assert response.json() == {"positions": ["Backend Engineer"]}
-
-
-def test_resume_positions_maps_extraction_failure_to_502(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def fail(markdown: str, extractor: object) -> list[str]:
-        raise ExtractionFailed("local model failed twice, escalation disabled: bad json")
-
-    monkeypatch.setattr(routes, "derive_search_positions", fail)
-    response = client.post("/api/resume/positions", json={"markdown": "some resume text"})
-    assert response.status_code == 502
 
 
 def test_create_and_list_schedules(client: TestClient) -> None:

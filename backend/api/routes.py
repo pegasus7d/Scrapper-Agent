@@ -6,9 +6,9 @@ them (DESIGN.md §4). List endpoints return {items, total} with ?limit=
 """
 
 import logging
-from typing import Annotated, Literal
+from typing import Literal
 
-from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from sqlalchemy import Engine
 
@@ -22,8 +22,6 @@ from backend.api.dto import (
     ModelOut,
     QuestionList,
     QuestionOut,
-    ResumeMarkdown,
-    ResumePositionsOut,
     RunBatchRequest,
     RunCreated,
     RunList,
@@ -33,20 +31,15 @@ from backend.api.dto import (
     ScheduleRequest,
     StarRequest,
     StatsOut,
+    StatusRequest,
     ToggleRequest,
 )
 from backend.api.export import jobs_to_csv, questions_to_csv
 from backend.api.stream import run_updates
 from backend.db import repo, search
+from backend.db.models import JOB_STATUSES
 from backend.llm.client import list_local_models
 from backend.llm.embeddings import embed_text
-from backend.resume import (
-    ResumeParseError,
-    build_resume_extractor,
-    derive_search_positions,
-    pdf_to_markdown,
-)
-from backend.scraper.extractor import ExtractionFailed
 from backend.scraper.sources import JOB_SOURCES, QUESTION_SOURCES
 from backend.scraper.tasks import enqueue_batch, run_scrape_task
 
@@ -144,11 +137,19 @@ def list_jobs(
     source: str | None = None,
     q: str | None = None,
     starred: bool | None = None,
+    status: str | None = None,
     limit: LimitParam = 20,
     offset: OffsetParam = 0,
 ) -> JobList:
     jobs, total = repo.list_jobs(
-        session, company=company, source=source, q=q, starred=starred, limit=limit, offset=offset
+        session,
+        company=company,
+        source=source,
+        q=q,
+        starred=starred,
+        status=status,
+        limit=limit,
+        offset=offset,
     )
     return JobList(items=[JobOut.model_validate(job) for job in jobs], total=total)
 
@@ -156,6 +157,19 @@ def list_jobs(
 @router.post("/jobs/{job_id}/star")
 def star_job(job_id: int, body: StarRequest, session: SessionDep) -> JobOut:
     job = repo.set_job_starred(session, job_id, body.starred)
+    if job is None:
+        raise HTTPException(404, "job not found")
+    return JobOut.model_validate(job)
+
+
+@router.post("/jobs/{job_id}/status")
+def status_job(job_id: int, body: StatusRequest, session: SessionDep) -> JobOut:
+    """Move a job through the application pipeline (PHASE8.md step 2) —
+    never a client-supplied string passed straight through unchecked, same
+    discipline _resolve_model uses for locally-installed model names."""
+    if body.status not in JOB_STATUSES:
+        raise HTTPException(422, f"unknown status: {body.status}")
+    job = repo.set_job_status(session, job_id, body.status)
     if job is None:
         raise HTTPException(404, "job not found")
     return JobOut.model_validate(job)
@@ -169,8 +183,11 @@ def export_jobs(
     source: str | None = None,
     q: str | None = None,
     starred: bool | None = None,
+    status: str | None = None,
 ) -> Response:
-    jobs = repo.export_jobs(session, company=company, source=source, q=q, starred=starred)
+    jobs = repo.export_jobs(
+        session, company=company, source=source, q=q, starred=starred, status=status
+    )
     if format == "csv":
         return PlainTextResponse(
             jobs_to_csv(jobs), media_type="text/csv", headers=_attachment("jobs.csv")
@@ -240,28 +257,6 @@ def search_items(
     return QuestionList(
         items=[QuestionOut.model_validate(item) for item in questions], total=len(questions)
     )
-
-
-@router.post("/resume")
-async def upload_resume(file: Annotated[UploadFile, File()]) -> ResumeMarkdown:
-    """Convert an uploaded resume PDF to Markdown (PHASE7.md step 2)."""
-    pdf_bytes = await file.read()
-    try:
-        markdown = pdf_to_markdown(pdf_bytes)
-    except ResumeParseError as error:
-        raise HTTPException(422, str(error)) from error
-    return ResumeMarkdown(markdown=markdown)
-
-
-@router.post("/resume/positions")
-def resume_positions(body: ResumeMarkdown) -> ResumePositionsOut:
-    """Derive job-search positions from resume Markdown (PHASE7.md step 3),
-    reusing the same extraction cascade job/question extraction uses."""
-    try:
-        positions = derive_search_positions(body.markdown, build_resume_extractor())
-    except ExtractionFailed as error:
-        raise HTTPException(502, f"couldn't derive positions: {error}") from error
-    return ResumePositionsOut(positions=positions)
 
 
 @router.get("/schedules")

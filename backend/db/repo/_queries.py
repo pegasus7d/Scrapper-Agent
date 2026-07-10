@@ -5,6 +5,7 @@ unpaginated export endpoints (DESIGN.md §4, PHASE2.md step 8).
 """
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy import CompoundSelect, Select, func, select
 from sqlalchemy.orm import Session
@@ -37,6 +38,7 @@ def _job_query(
     source: str | None,
     q: str | None,
     starred: bool | None,
+    status: str | None,
 ) -> Select[tuple[Job]]:
     query = select(Job).order_by(Job.id.desc())
     if company:
@@ -47,6 +49,8 @@ def _job_query(
         query = query.where(Job.title.ilike(f"%{q}%"))
     if starred is not None:
         query = query.where(Job.starred == starred)
+    if status:
+        query = query.where(Job.status == status)
     return query
 
 
@@ -57,11 +61,12 @@ def list_jobs(
     source: str | None = None,
     q: str | None = None,
     starred: bool | None = None,
+    status: str | None = None,
     limit: int,
     offset: int,
 ) -> tuple[list[Job], int]:
     """Return one page of jobs (newest first) matching the filters, plus the total."""
-    query = _job_query(company=company, source=source, q=q, starred=starred)
+    query = _job_query(company=company, source=source, q=q, starred=starred, status=status)
     return _paginate(session, query, limit, offset)
 
 
@@ -72,9 +77,10 @@ def export_jobs(
     source: str | None = None,
     q: str | None = None,
     starred: bool | None = None,
+    status: str | None = None,
 ) -> list[Job]:
     """Every job matching the filters, no pagination — for CSV/JSON export."""
-    query = _job_query(company=company, source=source, q=q, starred=starred)
+    query = _job_query(company=company, source=source, q=q, starred=starred, status=status)
     return list(session.scalars(query).all())
 
 
@@ -84,6 +90,21 @@ def set_job_starred(session: Session, job_id: int, starred: bool) -> Job | None:
     if job is None:
         return None
     job.starred = starred
+    session.commit()
+    return job
+
+
+def set_job_status(session: Session, job_id: int, status: str) -> Job | None:
+    """Move a job to a new pipeline status (PHASE8.md step 2); returns None
+    when it doesn't exist. Records status_changed_at on every real
+    transition, including back to "none" — a job that was applied to and
+    then reset is a real, worth-recording event, not silently indistinguishable
+    from one that was never touched."""
+    job = session.get(Job, job_id)
+    if job is None:
+        return None
+    job.status = status
+    job.status_changed_at = datetime.now(UTC)
     session.commit()
     return job
 

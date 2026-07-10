@@ -22,6 +22,7 @@ from ._queries import (
     list_questions,
     list_runs,
     set_job_starred,
+    set_job_status,
 )
 from ._schedules import (
     create_schedule,
@@ -78,6 +79,7 @@ __all__ = [
     "save_job",
     "save_question",
     "set_job_starred",
+    "set_job_status",
     "set_schedule_enabled",
     "unresolved_companies",
 ]

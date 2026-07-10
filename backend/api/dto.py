@@ -74,10 +74,16 @@ class JobOut(BaseModel):
     extraction_tier: str
     scraped_at: datetime
     starred: bool
+    status: str
+    status_changed_at: datetime | None
 
 
 class StarRequest(BaseModel):
     starred: bool
+
+
+class StatusRequest(BaseModel):
+    status: str
 
 
 class QuestionOut(BaseModel):

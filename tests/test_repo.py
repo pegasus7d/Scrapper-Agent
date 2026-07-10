@@ -340,6 +340,35 @@ def test_export_jobs_returns_all_matches_unpaginated(session: Session, run: Run)
     assert len(repo.export_jobs(session, company="company 0")) == 1
 
 
+def test_new_jobs_default_to_status_none(session: Session, run: Run) -> None:
+    save_jobs(session, run, "A")
+    job = repo.list_jobs(session, limit=1, offset=0)[0][0]
+    assert job.status == "none"
+    assert job.status_changed_at is None
+
+
+def test_set_job_status_records_the_transition_and_reports_missing(
+    session: Session, run: Run
+) -> None:
+    save_jobs(session, run, "A")
+    job_id = repo.list_jobs(session, limit=1, offset=0)[0][0].id
+    updated = repo.set_job_status(session, job_id, "applied")
+    assert updated is not None
+    assert updated.status == "applied"
+    assert updated.status_changed_at is not None
+    assert repo.set_job_status(session, 999, "applied") is None
+
+
+def test_list_jobs_filters_by_status(session: Session, run: Run) -> None:
+    save_jobs(session, run, "A", "B")
+    jobs, _ = repo.list_jobs(session, limit=20, offset=0)
+    repo.set_job_status(session, jobs[0].id, "applied")
+    applied_only, total = repo.list_jobs(session, status="applied", limit=20, offset=0)
+    assert total == 1 and applied_only[0].id == jobs[0].id
+    none_only, total = repo.list_jobs(session, status="none", limit=20, offset=0)
+    assert total == 1 and none_only[0].id == jobs[1].id
+
+
 def test_export_questions_returns_all_matches_unpaginated(session: Session, run: Run) -> None:
     repo.save_question(
         session, QUESTION, source_url="https://r.com/t/1", source="reddit", tier="local", run=run

@@ -12,6 +12,16 @@ class Base(DeclarativeBase):
     pass
 
 
+# Application pipeline tracking (PHASE8.md step 2) — a real status
+# progression, separate from the pre-existing `starred` bookmark (which
+# stays a "flag this, decide later" flag; a starred-but-untouched job and a
+# job someone has actually applied to are real, distinct states worth
+# keeping distinguishable). One column, not a history table: matches every
+# other status-like field already in this schema (`Run.status`,
+# `Run.kind`) rather than introducing a new pattern for one field.
+JOB_STATUSES = ("none", "applied", "interviewing", "offer", "rejected")
+
+
 class Run(Base):
     """One scrape run — the observability record the UI polls."""
 
@@ -54,6 +64,8 @@ class Job(Base):
     scraped_at: Mapped[datetime]
     run_id: Mapped[int] = mapped_column(ForeignKey("runs.id"))
     starred: Mapped[bool] = mapped_column(default=False)  # PHASE2.md step 8
+    status: Mapped[str] = mapped_column(default="none")  # one of JOB_STATUSES
+    status_changed_at: Mapped[datetime | None] = mapped_column(default=None)
 
 
 class InterviewQuestion(Base):
