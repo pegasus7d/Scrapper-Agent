@@ -562,14 +562,46 @@ rule 2):
     says "phases 1-6 complete") gets trimmed to point at it instead of
     maintaining a second, competing feature list that drifts out of sync
     the same way the Status paragraph already has.
+    **Done, in one commit.** `FEATURES.md` written at the repo root,
+    covering every real section listed above (source inventory, extraction
+    cascade, all six company discovery sources, application pipeline
+    tracking, hybrid search, dashboard clickability, persistent logs) —
+    each claim checked against this phase's own step write-ups above
+    rather than re-derived from memory. `README.md`'s stale "Status"
+    paragraph (still said "phases 1-6 complete" with a stale 2-source
+    company list) trimmed to a single line pointing at `FEATURES.md`,
+    plus a stale "current phase is PHASE7.md" cross-reference in
+    `CLAUDE.md` fixed while touching nearby text.
+    One real gap found and fixed while writing this doc, not glossed
+    over: cross-checking step 9's "Companies" UI against the six real
+    backend sources showed the discover buttons and filter dropdown were
+    still hardcoded to the original two (`yc`, `largest_us_companies`) —
+    a16z/Sequoia/Founders Fund/BVP were fully working in the backend and
+    reachable via direct API calls (as every step 9 smoke test above did),
+    but never wired into the actual UI. Fixed before writing `FEATURES.md`
+    (which claims "company discovery... across every source" as a real,
+    present-tense feature): both selects now render from the shared
+    `COMPANY_DISCOVERY_SOURCES` constant instead of two hardcoded
+    `<SelectItem>`s, and the two separate "Discover YC"/"Discover largest
+    US companies" buttons collapsed into one source-select + "Discover
+    {label}" button. Pushed `Companies.tsx` over the 300-line cap —
+    `CompanyDrawer`/`ProviderBadge`/`sourceLabel` split into their own
+    `frontend/src/components/CompanyDrawer.tsx`.
+    Smoke: real headless-Chromium session against the live app — opened
+    the discovery-source select and confirmed all six real labels appear
+    ("YC", "Largest US companies", "a16z", "Sequoia", "Founders Fund",
+    "BVP"), selected BVP, clicked "Discover BVP", and confirmed a real
+    `POST /companies/discover?source=bvp` request fired and a real
+    success toast rendered. Reopened a company drawer after the
+    `CompanyDrawer` extraction and confirmed its real "Scraped jobs"/
+    "Interview questions" sections still render with zero console errors.
+    **Phase 8 complete** — all 10 steps done, every one verified against
+    the real, live app rather than unit tests alone.
 
 ## Deliberately deferred, not forgotten
 
-**Every other VC beyond the four verified above** — the same discipline
-applies to each new one: a real `robots.txt`/structure check before it's
-named as a source, not assumed from "it's a famous VC, it's probably
-fine." Add them incrementally, in their own commits, once step 9 above
-proves the pattern for the first four.
-
-Next: not started — driven by `/loop` once this file is committed on its
-own, per WORKFLOW.md rule 3.
+**Every other VC beyond the four verified in step 9** — the same
+discipline applies to each new one: a real `robots.txt`/structure check
+before it's named as a source, not assumed from "it's a famous VC, it's
+probably fine." Add incrementally, in their own commits, whenever this
+project picks discovery sources back up.
