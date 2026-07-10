@@ -1,7 +1,7 @@
 """Huey wiring: one task, `run_scrape_task`, that both manual (`POST /runs`,
 PHASE5.md step 1) and scheduled (`dispatch_due_schedule`, PHASE5.md step 2)
 runs enqueue. `SqliteHuey` needs zero extra services — a sibling file to
-`scraper.db`, not sharing a connection with SQLAlchemy. Calling
+`hirable.db`, not sharing a connection with SQLAlchemy. Calling
 `run_scrape_task(run_id)` enqueues it; the actual execution happens on the
 `huey.consumer.Consumer` thread started by `create_app` (`api/main.py`), not
 in the calling request/thread.
@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from backend.db import repo
 from backend.scraper.pipeline import build_embedder, build_extractor, build_fetcher, execute_run
 
-huey = SqliteHuey("scraper-agent", filename="huey.db")
+huey = SqliteHuey("hirable", filename="huey.db")
 
 
 @huey.task()  # type: ignore[untyped-decorator]  # huey ships no stubs

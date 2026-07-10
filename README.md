@@ -1,8 +1,11 @@
-# Scraper Agent
+# Hirable
 
-An AI agent that scrapes **job postings** and **interview questions** from public
-sources, extracts them into structured data with a two-tier LLM cascade, and serves
-them through a small web UI.
+An AI agent for job discovery and application support — scrapes **job postings**,
+**interview questions**, and now company career pages, extracts them into
+structured data with a two-tier LLM cascade, and serves them through a small web UI.
+(Formerly "Scraper Agent" — renamed in phase 8 as the project grew past scraping
+into resume-matched search, company intelligence, and application pipeline
+tracking.)
 
 **How it works, in one paragraph:** a Python pipeline fetches pages through a
 `Transport` protocol — plain `httpx` by default, with
@@ -53,7 +56,7 @@ questions, and live scrape-run status.
 ## Setup
 
 ```sh
-git clone <repo-url> && cd scraper-agent
+git clone <repo-url> && cd hirable
 
 # Create and activate a virtual environment (Python 3.12, via uv)
 uv venv --python 3.12 .venv

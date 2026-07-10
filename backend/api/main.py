@@ -31,7 +31,7 @@ def create_app(engine: Engine | None = None, *, start_consumer: bool = True) -> 
     with Session(engine) as session:
         repo.recover_stale_runs(session)
 
-    app = FastAPI(title="Scraper Agent API")
+    app = FastAPI(title="Hirable API")
     app.state.engine = engine
     app.add_middleware(
         CORSMiddleware,

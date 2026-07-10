@@ -2,7 +2,7 @@
 .env
 
 # Data
-scraper.db
+hirable.db
 huey.db
 huey.db-shm
 huey.db-wal

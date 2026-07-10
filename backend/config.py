@@ -24,10 +24,10 @@ FETCH_TIMEOUT_S = 20
 FETCH_RETRIES = 1
 MAX_PAGES_PER_RUN = 30
 REQUEST_DELAY_S = 2.0
-USER_AGENT = "scraper-agent/0.1 (personal research tool; debayanbiswas1111@gmail.com)"
+USER_AGENT = "hirable/0.1 (personal research tool; debayanbiswas1111@gmail.com)"
 API_PORT = 8000
 CORS_ORIGINS = ["http://localhost:5173"]
-DATABASE_URL = "sqlite:///scraper.db"
+DATABASE_URL = "sqlite:///hirable.db"
 # robots.txt confirmed (PHASE7.md step 5): only /companies?* (query-string
 # filtered views) is disallowed — the bare listing page below is not.
 YC_COMPANIES_URL = "https://www.ycombinator.com/companies"

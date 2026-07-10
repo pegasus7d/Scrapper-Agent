@@ -44,7 +44,7 @@ def test_make_engine_stamps_a_pre_alembic_db_without_losing_data(tmp_path: Path)
     # A real pre-Alembic database (PHASE7.md step 1) — full current ORM
     # schema plus the vec0/FTS5 tables, built by the old ad-hoc mechanism
     # (phase 6 steps 3/7/8), but no alembic_version table. This is exactly
-    # the real project's own scraper.db's shape the moment this code lands.
+    # the real project's own hirable.db's shape the moment this code lands.
     # make_engine() must stamp it at head, not re-run CREATE TABLE against
     # tables that already exist (which would error) or lose real data.
     db_path = tmp_path / "old.db"

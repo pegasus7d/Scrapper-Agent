@@ -1,7 +1,7 @@
 [project]
-name = "scraper-agent"
+name = "hirable"
 version = "0.1.0"
-description = "AI agent that scrapes job postings and interview questions into structured data"
+description = "AI agent for job discovery, resume-matched search, company intelligence, and application pipeline tracking"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.128.0",

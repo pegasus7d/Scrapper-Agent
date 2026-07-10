@@ -1,5 +1,10 @@
 # Job & Interview-Question Scraper Agent — Idea Doc
 
+> Renamed **Hirable** in phase 8, once the project grew past scraping into
+> resume-matched search, company intelligence, and application pipeline
+> tracking (see [[DESIGN.md]] §8, [[PHASE8.md]]). This doc is kept as the
+> original idea/rationale snapshot — historical, not renamed retroactively.
+
 ## What this is
 An AI agent that scrapes the web to collect:
 1. **Job postings** (title, company, salary, requirements, links)
