@@ -159,6 +159,35 @@ sync by hand.
    `routes_runs.py`, mirroring the existing company/resume split. Smoke:
    `pytest`/`mypy`/`ruff` gate plus one real `curl` round-trip per moved
    endpoint against a live server to confirm nothing broke in the move.
+   **Done.** Confirmed the guessed boundary was right: runs (`/runs`,
+   `/runs/batch`, `/runs/{id}/cancel`, `/runs/stream`, `/runs/{id}`) and
+   schedules (`/schedules`, `/schedules/{id}/toggle`) moved into a new
+   `routes_runs.py` — they share `_SOURCES_BY_KIND` and discovery-source
+   validation (a schedule's only real job is eventually kicking off a run),
+   so splitting them together avoided a forced re-duplication of that
+   validation logic. `routes.py`: 285 → 178 lines; `routes_runs.py`: 130
+   lines — both comfortably under the cap, real headroom for what's next
+   rather than 285/300 again immediately.
+   Real test breakage caught by the suite, not shipped: `test_api.py`
+   monkeypatched `routes.run_scrape_task`/`routes.enqueue_batch` — both now
+   live in `routes_runs.py`, so `monkeypatch.setattr` was silently patching
+   an attribute that no longer affected the real call site (`routes.py` no
+   longer imports either name). `list_local_models` is used by *both*
+   files now (`routes.py`'s `GET /models`, `routes_runs.py`'s
+   `_resolve_model`) — `_fake_local_models` needed patching on both
+   modules, not just one, for run-creation tests that exercise the model
+   param. Fixed by importing `routes_runs` in the test file and pointing
+   each monkeypatch at wherever the real code now lives.
+   Smoke: `pytest` — 336/336 pass. Real live app, fresh process: `GET
+   /runs`, `GET /schedules`, `GET /models` all returned real data;
+   `POST /runs` (`kind: jobs, source: hn`) returned a real `run_id`, `GET
+   /runs/{id}` showed it genuinely running (`pages_fetched` climbing,
+   `items_duplicate` counting real dedup hits) not just accepted; `POST
+   /runs/{id}/cancel` genuinely stopped it (`status: cancelled`); `GET
+   /runs/stream` (SSE) streamed real run history. Confirmed the untouched
+   endpoints still work too: `GET /jobs`, `/stats`, `/search` (still in
+   `routes.py`) all returned correct real data against the live DB (175
+   jobs, 1920 discovered companies).
 4. **Table-driven discovery tests (backend).** `tests/test_discovery.py` is
    396 lines, 28 test functions, most of them a near-identical triple per
    source (parse-and-dedupe, empty-input, fetcher-config) differing only in
