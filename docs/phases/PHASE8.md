@@ -149,6 +149,31 @@ rule 2):
    landing in one place instead of three disconnected views.
    `pytest`/`mypy`/`ruff` gate for the backend query params, `npm run
    build` gate for the frontend; real look in a browser.
+   **Done, in two commits.** `repo.list_companies(session, ats_provider=,
+   q=, limit=, offset=)` now returns `(items, total)`, the exact shape
+   `repo.list_jobs` already uses — every existing caller (tests,
+   `discover`/`resolve` route handlers) updated to unpack the tuple.
+   Deliberately scoped down from this step's original wording: no
+   `source` filter yet, since `Company.source` doesn't exist until step
+   6 — adding a filter param for a column that isn't there would be dead
+   code. `LimitParam`/`OffsetParam` pulled out of `routes.py` into the
+   shared `deps.py` (already home to `SessionDep`) rather than
+   duplicated in `routes_companies.py`. `Companies.tsx` gained a
+   provider `Select` and `Pagination`, and a new `CompanyDrawer` fetches
+   the company's own jobs/questions on open.
+   Smoke: real headless-Chromium session against the live app's 40 real
+   companies — the name filter narrowed to exactly 1 real match
+   ("Airbnb"), the provider filter narrowed to exactly the 3 real
+   `lever`-resolved companies (Lever, The Athletic, Meesho), opening
+   Airbnb's drawer showed a real scraped job ("Market Manager · France")
+   as a working link, zero console errors. One false alarm caught and
+   run down rather than assumed: the filter looked completely broken on
+   the first pass (`?q=Airbnb` returned all 40 companies unfiltered) —
+   traced to a leftover `uvicorn` process from an earlier smoke test
+   still serving stale code on `:8000`, not a real bug; confirmed via a
+   fresh in-process `TestClient` that the actual code filtered
+   correctly, then killed the stale process and re-ran the full smoke
+   test clean.
 2. **Application pipeline tracking (backend + frontend).** New `status`
    field on `Job` (new Alembic migration, phase 7 step 1's stamp-vs-upgrade
    pattern) — resolve the enum-vs-history-table question from the research
