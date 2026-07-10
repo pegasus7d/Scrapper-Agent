@@ -1,5 +1,6 @@
 """Tests for company discovery — no real network (CLAUDE.md); Transport is faked."""
 
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -211,11 +212,6 @@ def test_discover_sequoia_companies_returns_deduplicated_names() -> None:
     assert names == ["Cisco", "HubSpot"]
 
 
-def test_discover_sequoia_companies_returns_empty_for_no_matches() -> None:
-    names = discover_sequoia_companies(make_fetcher("<html><body>no companies here</body></html>"))
-    assert names == []
-
-
 def test_build_sequoia_fetcher_uses_tab_and_load_more_clicks() -> None:
     fetcher = build_sequoia_fetcher()
     transport = fetcher._transport  # type: ignore[attr-defined]
@@ -246,13 +242,6 @@ _FOUNDERSFUND_HTML = """
 def test_discover_foundersfund_companies_returns_deduplicated_names() -> None:
     names = discover_foundersfund_companies(make_fetcher(_FOUNDERSFUND_HTML))
     assert names == ["Stripe", "Anduril"]
-
-
-def test_discover_foundersfund_companies_returns_empty_for_no_matches() -> None:
-    names = discover_foundersfund_companies(
-        make_fetcher("<html><body>no companies here</body></html>")
-    )
-    assert names == []
 
 
 def test_build_foundersfund_fetcher_uses_plain_httpx_with_crawl_delay() -> None:
@@ -287,14 +276,26 @@ def test_discover_bvp_companies_returns_deduplicated_names() -> None:
     assert names == ["Abridge", "2U"]
 
 
-def test_discover_bvp_companies_returns_empty_for_no_matches() -> None:
-    names = discover_bvp_companies(make_fetcher("<html><body>no companies here</body></html>"))
-    assert names == []
-
-
 def test_build_bvp_fetcher_uses_plain_httpx() -> None:
     fetcher = build_bvp_fetcher()
     assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
+
+
+# Real per-source parsing (the fixtures above) stays fully explicit
+# (PHASE9.md step 4 — collapsing those would blur real differences like
+# YC's batch extraction or Sequoia's click-pagination fetcher config), but
+# "no companies on an empty page" is genuinely identical logic across every
+# source without a raise-on-missing-marker behavior (a16z's
+# `raises_when_array_not_found` is the one real exception, kept separate).
+@pytest.mark.parametrize(
+    "discover_fn",
+    [discover_sequoia_companies, discover_foundersfund_companies, discover_bvp_companies],
+)
+def test_discover_returns_empty_for_no_matches(
+    discover_fn: Callable[[PageFetcher], list[str]],
+) -> None:
+    names = discover_fn(make_fetcher("<html><body>no companies here</body></html>"))
+    assert names == []
 
 
 @pytest.fixture
@@ -319,67 +320,34 @@ def test_discover_and_save_companies_yc_saves_name_and_batch(
     assert items[0].batch == "Summer 2013"
 
 
-def test_discover_and_save_companies_largest_us_companies_no_batch(
-    session: Session, monkeypatch: pytest.MonkeyPatch
+# Real per-source dispatch (registry wiring, PHASE9.md step 1) collapses
+# to identical logic for every source without a batch concept — genuinely
+# safe to parametrize, unlike the parsing tests above, since this only
+# exercises discover_and_save_companies' own save/attribute-source path,
+# never a source's real markup.
+@pytest.mark.parametrize(
+    ("source", "patch_attr", "fake_name"),
+    [
+        ("largest_us_companies", "discover_largest_us_companies", "Walmart"),
+        ("a16z", "discover_a16z_companies", "SpaceX"),
+        ("sequoia", "discover_sequoia_companies", "Cisco"),
+        ("foundersfund", "discover_foundersfund_companies", "Anduril"),
+        ("bvp", "discover_bvp_companies", "Abridge"),
+    ],
+)
+def test_discover_and_save_companies_no_batch_sources(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    patch_attr: str,
+    fake_name: str,
 ) -> None:
-    monkeypatch.setattr(
-        discovery_module, "discover_largest_us_companies", lambda fetcher: ["Walmart"]
-    )
-    saved = discover_and_save_companies(session, "largest_us_companies")
+    monkeypatch.setattr(discovery_module, patch_attr, lambda fetcher: [fake_name])
+    saved = discover_and_save_companies(session, source)
     assert saved == 1
     items, _ = repo.list_companies(session)
-    assert items[0].name == "Walmart"
-    assert items[0].source == "largest_us_companies"
-    assert items[0].batch is None
-
-
-def test_discover_and_save_companies_a16z_no_batch(
-    session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(discovery_module, "discover_a16z_companies", lambda fetcher: ["SpaceX"])
-    saved = discover_and_save_companies(session, "a16z")
-    assert saved == 1
-    items, _ = repo.list_companies(session)
-    assert items[0].name == "SpaceX"
-    assert items[0].source == "a16z"
-    assert items[0].batch is None
-
-
-def test_discover_and_save_companies_sequoia_no_batch(
-    session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(discovery_module, "discover_sequoia_companies", lambda fetcher: ["Cisco"])
-    saved = discover_and_save_companies(session, "sequoia")
-    assert saved == 1
-    items, _ = repo.list_companies(session)
-    assert items[0].name == "Cisco"
-    assert items[0].source == "sequoia"
-    assert items[0].batch is None
-
-
-def test_discover_and_save_companies_foundersfund_no_batch(
-    session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        discovery_module, "discover_foundersfund_companies", lambda fetcher: ["Anduril"]
-    )
-    saved = discover_and_save_companies(session, "foundersfund")
-    assert saved == 1
-    items, _ = repo.list_companies(session)
-    assert items[0].name == "Anduril"
-    assert items[0].source == "foundersfund"
-    assert items[0].batch is None
-
-
-def test_discover_and_save_companies_bvp_no_batch(
-    session: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(discovery_module, "discover_bvp_companies", lambda fetcher: ["Abridge"])
-    saved = discover_and_save_companies(session, "bvp")
-    assert saved == 1
-    items, _ = repo.list_companies(session)
-    assert items[0].name == "Abridge"
-    assert items[0].source == "bvp"
+    assert items[0].name == fake_name
+    assert items[0].source == source
     assert items[0].batch is None
 
 
