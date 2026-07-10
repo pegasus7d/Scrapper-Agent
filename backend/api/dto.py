@@ -164,3 +164,8 @@ class CompanyList(BaseModel):
 class DiscoveryResult(BaseModel):
     discovered: int  # newly-inserted companies this run
     total: int  # all companies now on file
+
+
+class ResolutionResult(BaseModel):
+    checked: int  # unresolved companies probed this run
+    resolved: int  # of those, how many got a real ATS match

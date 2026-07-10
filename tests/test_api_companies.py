@@ -1,14 +1,16 @@
-"""Tests for the company discovery endpoints (PHASE7.md step 5) — TestClient
-over an in-memory DB; no real scraping happens (discovery is mocked)."""
+"""Tests for the company discovery/resolution endpoints (PHASE7.md steps 5-6)
+— TestClient over an in-memory DB; no real network happens (mocked)."""
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from backend.api import routes_companies
 from backend.api.main import create_app
-from backend.db import migrate, vectors
+from backend.db import migrate, repo, vectors
+from backend.scraper.resolve import ResolutionSummary
 
 
 @pytest.fixture
@@ -55,3 +57,20 @@ def test_discover_companies_is_idempotent(
     client.post("/api/companies/discover")
     second = client.post("/api/companies/discover")
     assert second.json() == {"discovered": 0, "total": 1}
+
+
+def test_resolve_companies_returns_the_real_summary(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, engine: Engine
+) -> None:
+    with Session(engine) as session:
+        repo.save_company(session, "Airbnb")
+        repo.save_company(session, "Deel")
+
+    monkeypatch.setattr(
+        routes_companies,
+        "resolve_unresolved_companies",
+        lambda session: ResolutionSummary(checked=2, resolved=1),
+    )
+    response = client.post("/api/companies/resolve")
+    assert response.status_code == 200
+    assert response.json() == {"checked": 2, "resolved": 1}

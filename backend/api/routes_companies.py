@@ -7,9 +7,10 @@ import logging
 from fastapi import APIRouter
 
 from backend.api.deps import SessionDep
-from backend.api.dto import CompanyList, CompanyOut, DiscoveryResult
+from backend.api.dto import CompanyList, CompanyOut, DiscoveryResult, ResolutionResult
 from backend.db import repo
 from backend.scraper.discovery import build_yc_fetcher, discover_yc_companies
+from backend.scraper.resolve import resolve_unresolved_companies
 
 logger = logging.getLogger(__name__)
 
@@ -33,3 +34,11 @@ def discover_companies(session: SessionDep) -> DiscoveryResult:
     discovered = sum(1 for name in names if repo.save_company(session, name))
     total = len(repo.list_companies(session))
     return DiscoveryResult(discovered=discovered, total=total)
+
+
+@router.post("/companies/resolve")
+def resolve_companies(session: SessionDep) -> ResolutionResult:
+    """Probe every unresolved company against Greenhouse/Lever (step 6's
+    own smoke test hits this endpoint directly)."""
+    summary = resolve_unresolved_companies(session)
+    return ResolutionResult(checked=summary.checked, resolved=summary.resolved)

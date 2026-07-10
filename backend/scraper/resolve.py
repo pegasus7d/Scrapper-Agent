@@ -21,6 +21,7 @@ every non-2xx/429/5xx status into one FetchError.
 
 import logging
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -30,6 +31,13 @@ from backend.db import repo
 from backend.scraper.transport import HttpxTransport, TransportError
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ResolutionSummary:
+    checked: int
+    resolved: int
+
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9]")
 
@@ -67,12 +75,13 @@ def resolve_company(name: str, transport: HttpxTransport | None = None) -> tuple
     return None
 
 
-def resolve_unresolved_companies(session: Session) -> int:
-    """Probe every company with no known ATS provider yet; returns the
-    count of real new resolutions. Every probed company gets last_checked_at
-    set regardless of outcome — a real, timestamped record of the attempt."""
+def resolve_unresolved_companies(session: Session) -> ResolutionSummary:
+    """Probe every company with no known ATS provider yet. Every probed
+    company gets last_checked_at set regardless of outcome — a real,
+    timestamped record of the attempt, not just the successful ones."""
+    unresolved = repo.unresolved_companies(session)
     resolved = 0
-    for company in repo.unresolved_companies(session):
+    for company in unresolved:
         match = resolve_company(company.name)
         checked_at = datetime.now(UTC)
         if match is None:
@@ -83,4 +92,4 @@ def resolve_unresolved_companies(session: Session) -> int:
             session, company, slug=slug, ats_provider=provider, checked_at=checked_at
         )
         resolved += 1
-    return resolved
+    return ResolutionSummary(checked=len(unresolved), resolved=resolved)

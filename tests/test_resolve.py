@@ -80,9 +80,10 @@ def test_resolve_unresolved_companies_records_hits_and_misses(
         return ("airbnb", "greenhouse") if name == "Airbnb" else None
 
     monkeypatch.setattr("backend.scraper.resolve.resolve_company", fake_resolve)
-    resolved_count = resolve_unresolved_companies(session)
+    summary = resolve_unresolved_companies(session)
 
-    assert resolved_count == 1
+    assert summary.checked == 2
+    assert summary.resolved == 1
     companies = {c.name: c for c in repo.list_companies(session)}
     assert companies["Airbnb"].ats_provider == "greenhouse"
     assert companies["Deel"].ats_provider is None
