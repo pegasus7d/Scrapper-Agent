@@ -40,6 +40,11 @@ DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
 # LOG_BACKUP_COUNT already uses for log rotation.
 BACKUP_DIR = "backups"
 BACKUP_RETENTION_COUNT = 14
+# Resume upload guard (PHASE9.md step 7) — real resumes are a handful of
+# pages of mostly text, well under 1 MB as a PDF; 5 MB is a generous real
+# bound, same order of magnitude as LOG_MAX_BYTES, not an arbitrary number.
+RESUME_MAX_BYTES = 5 * 1024 * 1024
+RESUME_CONTENT_TYPE = "application/pdf"
 # robots.txt confirmed (PHASE7.md step 5): only /companies?* (query-string
 # filtered views) is disallowed — the bare listing page below is not.
 YC_COMPANIES_URL = "https://www.ycombinator.com/companies"
