@@ -336,8 +336,9 @@ def test_list_jobs_filters_by_starred(session: Session, run: Run) -> None:
 
 def test_export_jobs_returns_all_matches_unpaginated(session: Session, run: Run) -> None:
     save_jobs(session, run, "A", "B", "C")
-    assert len(repo.export_jobs(session)) == 3
-    assert len(repo.export_jobs(session, company="company 0")) == 1
+    # Deliberately lazy (PHASE9.md step 8) — list() to count real results.
+    assert len(list(repo.export_jobs(session))) == 3
+    assert len(list(repo.export_jobs(session, company="company 0"))) == 1
 
 
 def test_new_jobs_default_to_status_none(session: Session, run: Run) -> None:
@@ -373,9 +374,9 @@ def test_export_questions_returns_all_matches_unpaginated(session: Session, run:
     repo.save_question(
         session, QUESTION, source_url="https://r.com/t/1", source="reddit", tier="local", run=run
     )
-    assert len(repo.export_questions(session)) == 1
-    assert len(repo.export_questions(session, round_="onsite")) == 1
-    assert len(repo.export_questions(session, round_="phone")) == 0
+    assert len(list(repo.export_questions(session))) == 1
+    assert len(list(repo.export_questions(session, round_="onsite"))) == 1
+    assert len(list(repo.export_questions(session, round_="phone"))) == 0
 
 
 def test_compute_stats_counts_and_escalation_rate(session: Session, run: Run) -> None:

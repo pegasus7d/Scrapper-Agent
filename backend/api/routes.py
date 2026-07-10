@@ -12,8 +12,8 @@ cap, mirroring the existing routes_companies.py/routes_resume.py splits.
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request, Response
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 
 from backend.api.deps import LimitParam, OffsetParam, SessionDep
@@ -28,7 +28,12 @@ from backend.api.dto import (
     StatsOut,
     StatusRequest,
 )
-from backend.api.export import jobs_to_csv, questions_to_csv
+from backend.api.export import (
+    stream_jobs_csv,
+    stream_jobs_json,
+    stream_questions_csv,
+    stream_questions_json,
+)
 from backend.db import repo, search
 from backend.db.models import JOB_STATUSES
 from backend.llm.client import list_local_models
@@ -118,23 +123,36 @@ def status_job(job_id: int, body: StatusRequest, session: SessionDep) -> JobOut:
 
 @router.get("/jobs/export")
 def export_jobs(
-    session: SessionDep,
+    request: Request,
     format: ExportFormat = "json",
     company: str | None = None,
     source: str | None = None,
     q: str | None = None,
     starred: bool | None = None,
     status: str | None = None,
-) -> Response:
-    jobs = repo.export_jobs(
-        session, company=company, source=source, q=q, starred=starred, status=status
-    )
+) -> StreamingResponse:
+    """Streams rows as they're fetched (PHASE9.md step 8), not a full list
+    materialized in memory first — takes `request` (for `app.state.engine`)
+    instead of `SessionDep`, since a StreamingResponse's body is sent after
+    the route handler function returns, by which point a request-scoped
+    session dependency has already closed; the streaming helper opens its
+    own short-lived session instead (see api/export.py's own docstring)."""
+    engine = request.app.state.engine
     if format == "csv":
-        return PlainTextResponse(
-            jobs_to_csv(jobs), media_type="text/csv", headers=_attachment("jobs.csv")
+        return StreamingResponse(
+            stream_jobs_csv(
+                engine, company=company, source=source, q=q, starred=starred, status=status
+            ),
+            media_type="text/csv",
+            headers=_attachment("jobs.csv"),
         )
-    body = [JobOut.model_validate(job).model_dump(mode="json") for job in jobs]
-    return JSONResponse(body, headers=_attachment("jobs.json"))
+    return StreamingResponse(
+        stream_jobs_json(
+            engine, company=company, source=source, q=q, starred=starred, status=status
+        ),
+        media_type="application/json",
+        headers=_attachment("jobs.json"),
+    )
 
 
 @router.get("/questions")
@@ -155,19 +173,27 @@ def list_questions(
 
 @router.get("/questions/export")
 def export_questions(
-    session: SessionDep,
+    request: Request,
     format: ExportFormat = "json",
     company: str | None = None,
     round: str | None = None,
     q: str | None = None,
-) -> Response:
-    questions = repo.export_questions(session, company=company, round_=round, q=q)
+) -> StreamingResponse:
+    """Streams rows as they're fetched (PHASE9.md step 8) — see
+    export_jobs's own docstring for why this takes `request` instead of
+    `SessionDep`."""
+    engine = request.app.state.engine
     if format == "csv":
-        return PlainTextResponse(
-            questions_to_csv(questions), media_type="text/csv", headers=_attachment("questions.csv")
+        return StreamingResponse(
+            stream_questions_csv(engine, company=company, round_=round, q=q),
+            media_type="text/csv",
+            headers=_attachment("questions.csv"),
         )
-    body = [QuestionOut.model_validate(question).model_dump(mode="json") for question in questions]
-    return JSONResponse(body, headers=_attachment("questions.json"))
+    return StreamingResponse(
+        stream_questions_json(engine, company=company, round_=round, q=q),
+        media_type="application/json",
+        headers=_attachment("questions.json"),
+    )
 
 
 @router.get("/stats")

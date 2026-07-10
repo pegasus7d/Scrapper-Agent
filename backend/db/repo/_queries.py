@@ -4,6 +4,7 @@ Serves the API's list endpoints ({items, total} pagination) and the
 unpaginated export endpoints (DESIGN.md §4, PHASE2.md step 8).
 """
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -82,10 +83,18 @@ def export_jobs(
     q: str | None = None,
     starred: bool | None = None,
     status: str | None = None,
-) -> list[Job]:
-    """Every job matching the filters, no pagination — for CSV/JSON export."""
+) -> Iterator[Job]:
+    """Every job matching the filters, no pagination — for CSV/JSON export.
+
+    Deliberately lazy (PHASE9.md step 8), not `.all()` into a list: the
+    real, unbounded-memory risk lived in materializing every matching row
+    at once before this — the caller (api/export.py's streaming helpers)
+    keeps this session open only as long as it's actually iterating,
+    mirroring stream.py's existing session-per-generator pattern for
+    GET /runs/stream, the only other place in this app that already
+    solved "session must outlive a generator-driven response."""
     query = _job_query(company=company, source=source, q=q, starred=starred, status=status)
-    return list(session.scalars(query).all())
+    return iter(session.scalars(query))
 
 
 def set_job_starred(session: Session, job_id: int, starred: bool) -> Job | None:
@@ -148,9 +157,10 @@ def export_questions(
     company: str | None = None,
     round_: str | None = None,
     q: str | None = None,
-) -> list[InterviewQuestion]:
-    """Every question matching the filters, no pagination — for CSV/JSON export."""
-    return list(session.scalars(_question_query(company=company, round_=round_, q=q)).all())
+) -> Iterator[InterviewQuestion]:
+    """Every question matching the filters, no pagination — for CSV/JSON
+    export. Deliberately lazy, same reasoning as export_jobs above."""
+    return iter(session.scalars(_question_query(company=company, round_=round_, q=q)))
 
 
 def compute_stats(session: Session) -> Stats:
