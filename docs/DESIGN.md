@@ -393,7 +393,7 @@ docs instead of code:
   `Source`s at scrape time (`sources.SOURCES` mutated per company, not a
   hand-curated dict entry) — surfaced end-to-end in a new Companies view.
 - **[[docs/phases/PHASE8.md]]** — interactive UI, pipeline tracking, and full company
-  discovery (not started): Companies gets real filter/pagination parity
+  discovery (done): Companies gets real filter/pagination parity
   with Jobs/Questions (`ats_provider`/`source`/`q`, not a client-side-only
   name match) plus a unified detail page joining its own scraped jobs and
   interview questions in one place; a real application-pipeline `status`
@@ -414,6 +414,17 @@ docs instead of code:
   four open); a closing `FEATURES.md` written only once the above is
   real. Every other VC beyond those four deliberately deferred — not yet
   verified per-site (WORKFLOW.md rule 2).
+- **[[docs/phases/PHASE9.md]]** — extensibility refactor (not started): company
+  discovery sources (`discovery.py`/`discovery_vc.py`) never adopted the
+  `Source`-registry pattern `sources/__init__.py` already established for
+  job/question sources — phase 8's five new sources instead grew an
+  `if/elif` dispatch chain, requiring 8 files touched per new source (real,
+  observed drift already happened once — a source shipped in the backend
+  before it was wired into the frontend). Migrates discovery sources onto a
+  real registry, stops hand-mirroring the source list into the frontend,
+  splits `routes.py` proactively before it re-crosses the 300-line cap, and
+  reduces `test_discovery.py`'s per-source test duplication. Pure refactor —
+  no new sources, no new user-facing features.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
