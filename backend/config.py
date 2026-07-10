@@ -45,6 +45,9 @@ LARGEST_US_COMPANIES_URL = (
 # `window.a16z_portfolio_companies` JS array on this one page — confirmed
 # real, no pagination/scroll/JS-rendering needed unlike YC.
 A16Z_PORTFOLIO_URL = "https://a16z.com/portfolio/"
+# Sequoia Capital portfolio (PHASE8.md step 9) — real robots.txt confirmed
+# (redirects to sequoiacap.com/robots.txt, empty Disallow:, wide open).
+SEQUOIA_COMPANIES_URL = "https://sequoiacap.com/our-companies/"
 # Persistent logs (PHASE8.md step 8) — real gap once scheduled company
 # automation (step 7) runs unattended: stderr alone leaves no record when
 # nobody's watching a terminal. A home-lab, single-user tool, not a

@@ -20,6 +20,7 @@ actually renders. This is the first genuine browser-binary dependency
 this project has needed; every other source still defaults to `httpx`.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -69,16 +70,60 @@ class ScraplingTransport:
     scroll+wait cycles). 0 (default) does no scrolling, unchanged behavior
     for every other current caller; a source that needs more sets it
     explicitly rather than this transport scrolling everywhere by default.
+
+    `tab_selector`/`load_more_selector` (PHASE8.md step 9): a different real
+    shape, confirmed for `sequoiacap.com/our-companies` — the full,
+    accessible company table lives inside a Bootstrap tab-pane that isn't
+    shown by default (`tab_selector` clicks it open once) and is itself
+    paginated behind a "Load More" button, not a scroll (`load_more_selector`
+    clicks it repeatedly). Confirmed real: 52 companies (A-C only) before any
+    clicking, 412 (A-Z) after clicking "Load More" until it stops responding
+    — the button is removed from the DOM once the last page loads, so a
+    click timeout there is the real, expected termination condition, not a
+    failure to swallow silently elsewhere.
     """
 
-    def __init__(self, scroll_count: int = 0) -> None:
+    def __init__(
+        self,
+        scroll_count: int = 0,
+        tab_selector: str | None = None,
+        load_more_selector: str | None = None,
+        load_more_max_clicks: int = 20,
+    ) -> None:
         self._scroll_count = scroll_count
+        self._tab_selector = tab_selector
+        self._load_more_selector = load_more_selector
+        self._load_more_max_clicks = load_more_max_clicks
 
     def _scroll(self, page: Page) -> Page:
         for _ in range(self._scroll_count):
             page.mouse.wheel(0, 3000)
             page.wait_for_timeout(_SCROLL_WAIT_MS)
         return page
+
+    def _click_load_more(self, page: Page) -> Page:
+        if self._tab_selector:
+            tab = page.query_selector(self._tab_selector)
+            if tab:
+                tab.click()
+                page.wait_for_timeout(_SCROLL_WAIT_MS)
+        for _ in range(self._load_more_max_clicks):
+            button = page.query_selector(self._load_more_selector)  # type: ignore[arg-type]
+            if not button:
+                break
+            try:
+                button.click(timeout=5000)
+            except PlaywrightError:
+                break  # real, expected: button is removed once the last page loads
+            page.wait_for_timeout(_SCROLL_WAIT_MS)
+        return page
+
+    def _page_action(self) -> Callable[[Page], Page] | None:
+        if self._load_more_selector:
+            return self._click_load_more
+        if self._scroll_count:
+            return self._scroll
+        return None
 
     def get(self, url: str, *, timeout: int, headers: dict[str, str]) -> TransportResponse:
         try:
@@ -87,7 +132,7 @@ class ScraplingTransport:
                 timeout=timeout * 1000,  # DynamicFetcher's timeout is milliseconds, not seconds
                 extra_headers=headers,
                 network_idle=True,
-                page_action=self._scroll if self._scroll_count else None,
+                page_action=self._page_action(),
             )
         except PlaywrightError as error:
             raise TransportError(str(error)) from error

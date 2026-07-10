@@ -46,6 +46,19 @@ fetching the page and grepping for markers before assuming a YC-style
 scroll-driven approach was needed. Each array element is a JSON object with
 a `title` field holding the real company name (not `name` — confirmed by
 inspection).
+
+A fourth discovery source (PHASE8.md step 9): Sequoia Capital's portfolio
+page (`config.SEQUOIA_COMPANIES_URL`). Real `robots.txt` confirmed wide
+open. A genuinely different real shape from the other three: the full,
+accessible company table (`table#company_listing`) lives inside a
+Bootstrap tab-pane hidden by default (`#all-tab` reveals it) and is itself
+paginated behind a real "Load More" button, not a scroll — confirmed
+directly (52 companies, A-C only, before any interaction; 412, A-Z, after
+`ScraplingTransport`'s new `load_more_selector` clicks it repeatedly until
+the button is removed from the DOM, the real termination signal once the
+last page has loaded). Each data row's `th[scope="row"]` holds the company
+name as a direct text node — no nested-element `.text`-returns-empty quirk
+this time (confirmed directly), unlike YC's batch pill or Wikipedia's link.
 """
 
 import json
@@ -75,10 +88,14 @@ _A16Z_PORTFOLIO_PATTERN = re.compile(
     r"window\.a16z_portfolio_companies\s*=\s*(\[.*?\]);", re.DOTALL
 )
 
+_SEQUOIA_TABLE_SELECTOR = "table#company_listing th[scope='row']"
+_SEQUOIA_TAB_SELECTOR = "#all-tab"
+_SEQUOIA_LOAD_MORE_SELECTOR = ".facetwp-load-more"
+
 # The real, valid values for POST /companies/discover's source param and
 # Schedule.source when Schedule.kind == "companies" (PHASE8.md step 7) —
 # shared here rather than duplicated in routes_companies.py/routes.py.
-DISCOVERY_SOURCES = ("yc", "largest_us_companies", "a16z")
+DISCOVERY_SOURCES = ("yc", "largest_us_companies", "a16z", "sequoia")
 
 
 @dataclass
@@ -194,6 +211,38 @@ def discover_a16z_companies(fetcher: PageFetcher) -> list[str]:
     return names
 
 
+def build_sequoia_fetcher() -> PageFetcher:
+    """Wire a PageFetcher for the Sequoia portfolio page — real JS rendering
+    plus a click sequence (tab open, then repeated "Load More" clicks) to
+    reach the full, real company table, confirmed empirically (PHASE8.md
+    step 9)."""
+    return PageFetcher(
+        transport=ScraplingTransport(
+            tab_selector=_SEQUOIA_TAB_SELECTOR,
+            load_more_selector=_SEQUOIA_LOAD_MORE_SELECTOR,
+        )
+    )
+
+
+def discover_sequoia_companies(fetcher: PageFetcher) -> list[str]:
+    """Fetch the Sequoia portfolio page (tab opened, fully paginated) and
+    return real, deduplicated company names — no batch concept for this
+    source."""
+    page = fetcher.fetch(config.SEQUOIA_COMPANIES_URL)
+    selector = Selector(content=page.raw)
+    names: list[str] = []
+    seen: set[str] = set()
+    for cell in selector.css(_SEQUOIA_TABLE_SELECTOR):
+        if not isinstance(cell, Selector) or not cell.text:
+            continue
+        name = cell.text.strip()
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    logger.info("sequoia discovery: %d company names found", len(names))
+    return names
+
+
 def discover_and_save_companies(session: Session, source: str) -> int:
     """Run one discovery pass for `source` and save any new companies —
     shared by the API route (`POST /companies/discover`) and the scheduled
@@ -211,6 +260,11 @@ def discover_and_save_companies(session: Session, source: str) -> int:
     if source == "a16z":
         a16z_names = discover_a16z_companies(build_a16z_fetcher())
         return sum(1 for name in a16z_names if repo.save_company(session, name, source="a16z"))
+    if source == "sequoia":
+        sequoia_names = discover_sequoia_companies(build_sequoia_fetcher())
+        return sum(
+            1 for name in sequoia_names if repo.save_company(session, name, source="sequoia")
+        )
     names = discover_largest_us_companies(build_largest_us_companies_fetcher())
     return sum(
         1 for name in names if repo.save_company(session, name, source="largest_us_companies")

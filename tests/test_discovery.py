@@ -11,10 +11,12 @@ from backend.scraper.discovery import (
     DiscoveredCompany,
     build_a16z_fetcher,
     build_largest_us_companies_fetcher,
+    build_sequoia_fetcher,
     build_yc_fetcher,
     discover_a16z_companies,
     discover_and_save_companies,
     discover_largest_us_companies,
+    discover_sequoia_companies,
     discover_yc_companies,
 )
 from backend.scraper.fetcher import PageFetcher
@@ -181,6 +183,43 @@ def test_build_a16z_fetcher_uses_plain_httpx() -> None:
     assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
 
 
+# Mirrors the real Sequoia markup shape confirmed by direct inspection
+# (PHASE8.md step 9): a <table id="company_listing"> whose data rows use
+# <th scope="row"> for the company name as a direct text node (no nested
+# .text-returns-empty quirk this time, confirmed directly) — the header
+# row uses scope="col", naturally excluded by the selector.
+_SEQUOIA_HTML = """
+<html><body>
+<table id="company_listing">
+<thead><tr><th scope="col">Company Name</th></tr></thead>
+<tbody>
+<tr><th scope="row">Cisco</th></tr>
+<tr><th scope="row">HubSpot</th></tr>
+<tr><th scope="row">Cisco</th></tr>
+</tbody>
+</table>
+</body></html>
+"""
+
+
+def test_discover_sequoia_companies_returns_deduplicated_names() -> None:
+    names = discover_sequoia_companies(make_fetcher(_SEQUOIA_HTML))
+    assert names == ["Cisco", "HubSpot"]
+
+
+def test_discover_sequoia_companies_returns_empty_for_no_matches() -> None:
+    names = discover_sequoia_companies(make_fetcher("<html><body>no companies here</body></html>"))
+    assert names == []
+
+
+def test_build_sequoia_fetcher_uses_tab_and_load_more_clicks() -> None:
+    fetcher = build_sequoia_fetcher()
+    transport = fetcher._transport  # type: ignore[attr-defined]
+    assert isinstance(transport, ScraplingTransport)
+    assert transport._tab_selector  # type: ignore[attr-defined]
+    assert transport._load_more_selector  # type: ignore[attr-defined]
+
+
 @pytest.fixture
 def session() -> Session:
     engine = repo.make_engine("sqlite:///:memory:")
@@ -226,6 +265,18 @@ def test_discover_and_save_companies_a16z_no_batch(
     items, _ = repo.list_companies(session)
     assert items[0].name == "SpaceX"
     assert items[0].source == "a16z"
+    assert items[0].batch is None
+
+
+def test_discover_and_save_companies_sequoia_no_batch(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(discovery_module, "discover_sequoia_companies", lambda fetcher: ["Cisco"])
+    saved = discover_and_save_companies(session, "sequoia")
+    assert saved == 1
+    items, _ = repo.list_companies(session)
+    assert items[0].name == "Cisco"
+    assert items[0].source == "sequoia"
     assert items[0].batch is None
 
 
