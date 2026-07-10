@@ -119,6 +119,19 @@ MAX_CONSECUTIVE_APPLICATION_FAILURES = 3
 # back-to-back; a fixed 5-minute floor is a real, conservative bound, not
 # tuned to any platform's specific detection thresholds (none published).
 MIN_SECONDS_BETWEEN_APPLICATIONS = 300
+# Match-score gating (PHASE10.md step 6) — cosine similarity (1 - cosine
+# distance) between a job's stored embedding and the resume's. A proposed,
+# tunable starting point, not derived from any labeled data. Real smoke
+# test against the dev DB (a real Ollama nomic-embed-text call, a real
+# stored job embedding): the exact text a job was embedded from scores a
+# real 1.0; an unrelated resume text scored 0.34; a genuinely relevant but
+# differently-worded (and, in that specific real job posting, differently
+# -languaged) resume text scored 0.48 — under this 0.5 default. Real
+# language/wording mismatches between resume text and job postings can
+# suppress scores below what "genuinely relevant" would suggest; this
+# constant is deliberately easy to tune down if real usage shows too many
+# relevant jobs getting gated out.
+MATCH_SCORE_THRESHOLD = 0.5
 
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 
