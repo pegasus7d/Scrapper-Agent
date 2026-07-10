@@ -48,6 +48,11 @@ A16Z_PORTFOLIO_URL = "https://a16z.com/portfolio/"
 # Sequoia Capital portfolio (PHASE8.md step 9) — real robots.txt confirmed
 # (redirects to sequoiacap.com/robots.txt, empty Disallow:, wide open).
 SEQUOIA_COMPANIES_URL = "https://sequoiacap.com/our-companies/"
+# Founders Fund portfolio (PHASE8.md step 9) — real robots.txt confirmed
+# wide open, but requests a 10s Crawl-delay; honored via a per-source
+# delay_s override (same pattern Arbeitnow already uses).
+FOUNDERSFUND_PORTFOLIO_URL = "https://foundersfund.com/portfolio/"
+FOUNDERSFUND_DELAY_S = 10.0
 # Persistent logs (PHASE8.md step 8) — real gap once scheduled company
 # automation (step 7) runs unattended: stderr alone leaves no record when
 # nobody's watching a terminal. A home-lab, single-user tool, not a

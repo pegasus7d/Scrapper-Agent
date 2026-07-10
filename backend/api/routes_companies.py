@@ -41,10 +41,11 @@ def discover_companies(session: SessionDep, source: str = "yc") -> DiscoveryResu
     scrolled session, PHASE8.md step 5 — not just the first 40 cards),
     "largest_us_companies" (PHASE8.md step 6, Wikipedia's revenue-ranked
     table), "a16z" (PHASE8.md step 9, its full portfolio inline on one
-    page), or "sequoia" (PHASE8.md step 9, a real tab-open + "Load More"
-    click sequence) — storing any real companies not already on file.
-    Defaults to "yc" for backward compatibility with the original
-    single-source endpoint."""
+    page), "sequoia" (PHASE8.md step 9, a real tab-open + "Load More"
+    click sequence), or "foundersfund" (PHASE8.md step 9, plain
+    server-rendered HTML, no JS needed) — storing any real companies not
+    already on file. Defaults to "yc" for backward compatibility with the
+    original single-source endpoint."""
     if source not in DISCOVERY_SOURCES:
         raise HTTPException(422, f"unknown discovery source: {source}")
     discovered = discover_and_save_companies(session, source)

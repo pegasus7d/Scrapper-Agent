@@ -10,11 +10,13 @@ from backend.scraper import discovery as discovery_module
 from backend.scraper.discovery import (
     DiscoveredCompany,
     build_a16z_fetcher,
+    build_foundersfund_fetcher,
     build_largest_us_companies_fetcher,
     build_sequoia_fetcher,
     build_yc_fetcher,
     discover_a16z_companies,
     discover_and_save_companies,
+    discover_foundersfund_companies,
     discover_largest_us_companies,
     discover_sequoia_companies,
     discover_yc_companies,
@@ -220,6 +222,43 @@ def test_build_sequoia_fetcher_uses_tab_and_load_more_clicks() -> None:
     assert transport._load_more_selector  # type: ignore[attr-defined]
 
 
+# Mirrors the real Founders Fund markup shape confirmed by direct
+# inspection (PHASE8.md step 9): plain server-rendered HTML, no
+# scroll/click/pagination — each company's name lives as a direct text
+# node inside h2.tile-heading span.
+_FOUNDERSFUND_HTML = """
+<html><body>
+<div class="portfolio-tile">
+  <h2 class="h3 tile-heading inline-block m0"><span>Stripe</span></h2>
+</div>
+<div class="portfolio-tile">
+  <h2 class="h3 tile-heading inline-block m0"><span>Anduril</span></h2>
+</div>
+<div class="portfolio-tile">
+  <h2 class="h3 tile-heading inline-block m0"><span>Stripe</span></h2>
+</div>
+</body></html>
+"""
+
+
+def test_discover_foundersfund_companies_returns_deduplicated_names() -> None:
+    names = discover_foundersfund_companies(make_fetcher(_FOUNDERSFUND_HTML))
+    assert names == ["Stripe", "Anduril"]
+
+
+def test_discover_foundersfund_companies_returns_empty_for_no_matches() -> None:
+    names = discover_foundersfund_companies(
+        make_fetcher("<html><body>no companies here</body></html>")
+    )
+    assert names == []
+
+
+def test_build_foundersfund_fetcher_uses_plain_httpx_with_crawl_delay() -> None:
+    fetcher = build_foundersfund_fetcher()
+    assert isinstance(fetcher._transport, HttpxTransport)  # type: ignore[attr-defined]
+    assert fetcher._delay_s == 10.0  # type: ignore[attr-defined]
+
+
 @pytest.fixture
 def session() -> Session:
     engine = repo.make_engine("sqlite:///:memory:")
@@ -277,6 +316,20 @@ def test_discover_and_save_companies_sequoia_no_batch(
     items, _ = repo.list_companies(session)
     assert items[0].name == "Cisco"
     assert items[0].source == "sequoia"
+    assert items[0].batch is None
+
+
+def test_discover_and_save_companies_foundersfund_no_batch(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        discovery_module, "discover_foundersfund_companies", lambda fetcher: ["Anduril"]
+    )
+    saved = discover_and_save_companies(session, "foundersfund")
+    assert saved == 1
+    items, _ = repo.list_companies(session)
+    assert items[0].name == "Anduril"
+    assert items[0].source == "foundersfund"
     assert items[0].batch is None
 
 
