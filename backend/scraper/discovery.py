@@ -25,11 +25,21 @@ from scrapling import Selector
 
 from backend import config
 from backend.scraper.fetcher import PageFetcher
+from backend.scraper.transport import ScraplingTransport
 
 logger = logging.getLogger(__name__)
 
 _COMPANY_LINK_SELECTOR = 'a[href^="/companies/"]'
 _COMPANY_NAME_SELECTOR = 'span[class*="coName"]'
+
+
+def build_yc_fetcher() -> PageFetcher:
+    """Wire a PageFetcher for the YC listing page — the real call site's
+    fetcher, injected into discover_yc_companies the same way
+    build_resume_extractor() is injected into derive_search_positions()
+    (dependency injection discipline: tests substitute a fake fetcher,
+    never this one)."""
+    return PageFetcher(transport=ScraplingTransport())
 
 
 def discover_yc_companies(fetcher: PageFetcher) -> list[str]:
