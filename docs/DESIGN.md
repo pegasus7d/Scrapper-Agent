@@ -414,8 +414,8 @@ docs instead of code:
   four open); a closing `FEATURES.md` written only once the above is
   real. Every other VC beyond those four deliberately deferred — not yet
   verified per-site (WORKFLOW.md rule 2).
-- **[[docs/phases/PHASE9.md]]** — extensibility refactor and robustness (not
-  started): company discovery sources (`discovery.py`/`discovery_vc.py`)
+- **[[docs/phases/PHASE9.md]]** — extensibility refactor and robustness (done):
+  company discovery sources (`discovery.py`/`discovery_vc.py`)
   never adopted the `Source`-registry pattern `sources/__init__.py` already
   established for job/question sources — phase 8's five new sources instead
   grew an `if/elif` dispatch chain, requiring 8 files touched per new source
@@ -433,8 +433,13 @@ docs instead of code:
   endpoints. Steps 9-10 widen company discovery breadth on top of the new
   registry: Russell 1000 as a seventh source (the existing
   `largest_us_companies` source only covered the top ~100 companies by
-  revenue — real, verified gap, missed companies like Netflix entirely),
-  plus more VC portfolio sources beyond the four PHASE8.md already landed.
+  revenue — real, verified gap, missed companies like Netflix entirely) and
+  Accel as an eighth (real `robots.txt`/page-structure checks run on five
+  VC candidates; four genuinely didn't pan out — Techstars needs API
+  reverse-engineering, 500 Global/Index Ventures only had small marketing
+  mentions not a real portfolio grid, Kleiner Perkins' real URL wasn't
+  found — Accel's real shape, a JS-rendered page with company names in
+  each card's `aria-label`, was the one clean win).
 - **[[docs/phases/PHASE10.md]]** — auto-apply (not started; only step 1
   approved to build, everything past it needs fresh confirmation): the
   project's first *write* action against a third party rather than a read.
