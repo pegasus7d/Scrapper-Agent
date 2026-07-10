@@ -424,6 +424,40 @@ rule 2):
    each (`"a16z"`, `"sequoia"`, `"foundersfund"`, `"bvp"`), not a new
    table. Smoke: one real discovery run per VC, confirm real portfolio
    company names land, distinguishable by `source`.
+   **a16z done** (1/4), in two commits (backend, frontend). Real page
+   structure confirmed by fetching the live page before writing any
+   parser (WORKFLOW.md rule 2), not assumed from robots.txt alone: unlike
+   YC, no scroll/JS-rendering was needed at all — the entire real
+   portfolio (849 companies) ships inline as a JS global,
+   `window.a16z_portfolio_companies = [...]`, in a `<script>` tag on the
+   plain server-rendered page, extracted via regex + `json.loads` and a
+   plain `HttpxTransport` (same shortcut class as Wikipedia's source, for
+   a different underlying reason). Each element's `title` field (not
+   `name`) holds the real company name — confirmed by inspection before
+   coding. Added `"a16z"` to `DISCOVERY_SOURCES`, `discover_a16z_companies`
+   + `build_a16z_fetcher` to `discovery.py`, a branch in
+   `discover_and_save_companies`, and `"a16z"` to the frontend's
+   `COMPANY_DISCOVERY_SOURCES` mirror.
+   Smoke: real live app, real POST to `/companies/discover?source=a16z`
+   against the actual internet (no mocking) — 831 new real companies
+   discovered and saved (18 overlapped with existing YC/Wikipedia rows),
+   1051 total after. Confirmed genuinely distinguishable by `source`
+   (`?source=a16z&q=SpaceX` returns exactly one real row). Confirmed
+   idempotent: an immediate second discovery run against the same live
+   source found 0 new companies.
+   One real false alarm during this smoke test, not a code bug: the first
+   attempt hit a stale `uvicorn` process left over from step 8's own smoke
+   test, still serving pre-fix code on `:8000` — the exact same trap
+   documented in step 1's "Done" note (`pkill -f "uvicorn backend"`
+   doesn't match `uvicorn --factory backend...`, since `backend` isn't the
+   token immediately after `uvicorn` on that command line). Caught by
+   checking `DISCOVERY_SOURCES` directly in a fresh Python process and
+   seeing it already included `"a16z"`, which meant the *server process*,
+   not the code, was stale. Killed by PID directly, confirmed a truly new
+   process before retrying.
+   **Sequoia, Founders Fund, and Bessemer still pending** — real page
+   structure not yet confirmed for any of the three; that's the next unit
+   of work for this step, one VC at a time, same discipline as a16z above.
 10. **`FEATURES.md` (docs).** A user-facing summary of what the app can
     actually do today, written last and only after steps 1-9 are real —
     describing a feature before it exists is exactly the kind of thing
