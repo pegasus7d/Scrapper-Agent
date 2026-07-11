@@ -478,6 +478,22 @@ docs instead of code:
   gate has still never been crossed** — the first real Confirm remains
   the user's own click, taken once real applicant data exists to answer
   with.
+- **[[docs/phases/PHASE12.md]]** — source health visibility and cached field
+  detection (not started): prompted by researching two external agent
+  tools (Agent-Reach, OpenCLI), verified real rather than adopted on
+  faith — neither is taken on as a dependency (one would reverse the
+  phase 1 LinkedIn ToS decision, the other brings a second language
+  runtime into a Python-only backend), but each surfaces a pattern
+  matched against a real, confirmed gap: a `sources doctor`-style health
+  check across the 9 job/question + 8 discovery sources (nothing today
+  distinguishes "zero matches" from "the source is silently broken"),
+  and a cache for `autoapply/filler.py`'s per-request live field
+  detection (identical ATS form shapes re-derive selectors from scratch
+  every time today). Also hardens the `/loop` template itself (stuck-loop
+  circuit breaker, explicit no-fabrication clause, required per-step
+  "Done." writeups) and runs a ToS review spike on Agent-Reach-style
+  authenticated scraping against the existing LinkedIn/Reddit/Blind
+  rejections.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to

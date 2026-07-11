@@ -135,8 +135,18 @@ exact prompt, swapping the phase file and its final step number for the phase
 being built:
 
 ```
-/loop Work on the project at /Users/debayanbiswas/hirable. Each iteration: read CLAUDE.md, DESIGN.md, and PHASE{N}.md, look at git log to see what is already done, then implement ONLY the smallest next unit from PHASE{N}.md's build order. Validate with pytest, mypy, ruff check, ruff format --check, and npm run build for frontend changes; fix until green; then make one small commit. At each step boundary, run the real smoke test described in CLAUDE.md before moving to the next step. Follow every rule in CLAUDE.md strictly. Stop the loop when PHASE{N}.md step M is complete and all checks pass.
+/loop Work on the project at /Users/debayanbiswas/hirable. Each iteration: read CLAUDE.md, DESIGN.md, and PHASE{N}.md, look at git log to see what is already done, then implement ONLY the smallest next unit from PHASE{N}.md's build order. Validate with pytest, mypy, ruff check, ruff format --check, and npm run build for frontend changes; fix until green; then make one small commit, appending a "Done." writeup (what actually happened, real numbers, any bug found) to that step in PHASE{N}.md in the same commit. At each step boundary, run the real smoke test described in CLAUDE.md before moving to the next step. If the same validation check fails three consecutive attempts on the same step, stop the loop and report instead of continuing to iterate. If the next unbuilt step requires data, credentials, or an irreversible action only the user can supply, stop and report rather than inventing a placeholder or routing around it. Follow every rule in CLAUDE.md strictly. Stop the loop when PHASE{N}.md step M is complete and all checks pass.
 ```
+
+Three rules folded into that prompt are easy to lose in a long unattended
+run, so they're stated as literal instructions rather than left to
+CLAUDE.md being correctly re-inferred every iteration: a stuck-loop
+circuit breaker (three failed attempts at the same check → stop, don't
+keep burning iterations), a no-fabrication/hard-stop clause (added
+2026-07-12 after noticing PHASE10.md/PHASE11.md's two real hard stops —
+real applicant data, Gmail OAuth — were honored in practice but the
+prompt never actually said to do that), and a required per-step "Done."
+writeup (also emergent practice through phase 11, now a stated rule).
 
 Used so far: phase 1 ([[docs/phases/PHASE1.md]], stop at step 6 — the MVP), phase 2
 ([[docs/phases/PHASE2.md]], stop at step 8), phase 3 ([[docs/phases/PHASE3.md]], stop at step 4), phase 4
@@ -156,7 +166,10 @@ verified with a real dry-run against two live ATS postings. **The
 submission gate has still never been crossed** — no application has
 ever been confirmed/submitted; the first real Confirm is the user's own
 click in the Applications view, once real applicant data exists to
-answer with).
+answer with), phase 12 ([[docs/phases/PHASE12.md]], stop at step 4 —
+not started: sources doctor, cached field detection for auto-apply,
+this loop template's own hardening, and a ToS review spike — no new
+runtime dependencies).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.
