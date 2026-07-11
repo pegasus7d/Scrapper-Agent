@@ -141,6 +141,12 @@ class Application(Base):
     started_at: Mapped[datetime]
     finished_at: Mapped[datetime | None] = mapped_column(default=None)
     error: Mapped[str | None] = mapped_column(default=None)
+    # The full per-field plan the planner (PHASE11.md step 5) produced --
+    # one dict per detected field ({field_name, label, input_type, answer,
+    # source}), persisted so a human can review exactly what would be
+    # submitted before confirming. Same JSON-column precedent Run.errors
+    # already set for a real, variable-length list of structured records.
+    planned_fields: Mapped[list[dict[str, str | None]]] = mapped_column(JSON, default=list)
 
 
 class ApplicationEvent(Base):

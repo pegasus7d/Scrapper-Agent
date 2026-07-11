@@ -47,6 +47,24 @@ def finish_application(
     logger.info("application %s finished: %s", application.id, status)
 
 
+def mark_awaiting_confirmation(
+    session: Session,
+    application: Application,
+    *,
+    risk_level: str,
+    planned_fields: list[dict[str, str | None]],
+) -> None:
+    """Move the application to "awaiting_confirmation" (PHASE11.md step
+    5) — a real pause, not a terminal state, so `finished_at` is
+    deliberately left unset: execution (step 7) still has to happen
+    later, once a human confirms the persisted plan."""
+    application.risk_level = risk_level
+    application.planned_fields = planned_fields
+    application.status = "awaiting_confirmation"
+    session.commit()
+    logger.info("application %s awaiting confirmation (risk=%s)", application.id, risk_level)
+
+
 def record_event(
     session: Session,
     application: Application,

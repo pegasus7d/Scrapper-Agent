@@ -52,6 +52,29 @@ def test_finish_application_records_the_error_on_failure(session: Session) -> No
     assert application.error == "no confirmation page"
 
 
+def test_mark_awaiting_confirmation_is_a_real_pause_not_terminal(session: Session) -> None:
+    company = make_company(session)
+    application = events.start_application(session, company_id=company.id)
+    planned = [
+        {
+            "field_name": "phone",
+            "label": "Phone",
+            "input_type": "tel",
+            "answer": "555-0100",
+            "source": "profile",
+        }
+    ]
+
+    events.mark_awaiting_confirmation(
+        session, application, risk_level="high", planned_fields=planned
+    )
+
+    assert application.status == "awaiting_confirmation"
+    assert application.risk_level == "high"
+    assert application.planned_fields == planned
+    assert application.finished_at is None  # a real pause, not terminal
+
+
 def test_record_event_appends_to_the_log(session: Session) -> None:
     company = make_company(session)
     application = events.start_application(session, company_id=company.id)
