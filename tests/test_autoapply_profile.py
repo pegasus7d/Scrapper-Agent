@@ -69,3 +69,34 @@ def test_save_profile_overwrites_a_prior_save(session: Session) -> None:
     row = profile.get_profile(session)
     assert row.phone == "555-0200"
     assert row.relocation is False
+
+
+def test_save_resume_markdown_defaults_to_unset(session: Session) -> None:
+    assert profile.get_profile(session).resume_markdown is None
+
+
+def test_save_resume_markdown_stores_the_given_markdown(session: Session) -> None:
+    row = profile.save_resume_markdown(session, "# Resume\nBackend engineer.")
+    assert row.resume_markdown == "# Resume\nBackend engineer."
+
+
+def test_save_resume_markdown_does_not_touch_other_fields(session: Session) -> None:
+    profile.save_profile(
+        session,
+        phone="555-0100",
+        current_salary=None,
+        expected_salary=None,
+        work_authorization=None,
+        relocation=None,
+        start_date_availability=None,
+    )
+    profile.save_resume_markdown(session, "# Resume\nBackend engineer.")
+    row = profile.get_profile(session)
+    assert row.phone == "555-0100"
+    assert row.resume_markdown == "# Resume\nBackend engineer."
+
+
+def test_save_resume_markdown_overwrites_a_prior_resume(session: Session) -> None:
+    profile.save_resume_markdown(session, "first resume")
+    profile.save_resume_markdown(session, "second resume")
+    assert profile.get_profile(session).resume_markdown == "second resume"

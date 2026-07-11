@@ -9,6 +9,8 @@ same retry/validate/optionally-escalate discipline job/question extraction
 already gets, not a second bespoke mechanism for one more schema.
 """
 
+from pathlib import Path
+
 import pymupdf
 import pymupdf4llm
 
@@ -29,6 +31,16 @@ def pdf_to_markdown(pdf_bytes: bytes) -> str:
     except pymupdf.FileDataError as error:
         raise ResumeParseError(f"not a valid PDF: {error}") from error
     return pymupdf4llm.to_markdown(doc)  # type: ignore[no-any-return]
+
+
+def save_resume_pdf(pdf_bytes: bytes, path: str = config.RESUME_STORAGE_PATH) -> None:
+    """Persist the real, validated PDF bytes to disk (PHASE11.md step 1) —
+    the executor attaches this exact file to a real application form
+    rather than requiring a re-upload per attempt. Called only after
+    pdf_to_markdown() has already confirmed the bytes parse as a real PDF."""
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(pdf_bytes)
 
 
 def build_resume_extractor(model: str = config.LOCAL_MODEL) -> Extractor[ResumePosition]:

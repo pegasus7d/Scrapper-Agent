@@ -2,6 +2,8 @@
 2-3) — TestClient over an in-memory DB; no real Ollama call happens
 (mocked)."""
 
+from pathlib import Path
+
 import pymupdf
 import pytest
 from fastapi.testclient import TestClient
@@ -44,6 +46,26 @@ def test_upload_resume_returns_real_markdown(client: TestClient) -> None:
     )
     assert response.status_code == 200
     assert "Backend Engineer" in response.json()["markdown"]
+
+
+def test_upload_resume_persists_the_pdf_and_markdown(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PHASE11.md step 1: a real, persisted PDF file and the Markdown
+    saved onto the applicant profile -- not just returned to the caller
+    and forgotten, as the upload endpoint did before this step."""
+    storage_path = tmp_path / "resume.pdf"
+    monkeypatch.setattr(config, "RESUME_STORAGE_PATH", str(storage_path))
+    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with real Python experience.")
+
+    response = client.post(
+        "/api/resume", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}
+    )
+    assert response.status_code == 200
+    assert storage_path.read_bytes() == pdf_bytes
+
+    profile = client.get("/api/profile").json()
+    assert profile["has_resume"] is True
 
 
 def test_upload_resume_rejects_non_pdf(client: TestClient) -> None:

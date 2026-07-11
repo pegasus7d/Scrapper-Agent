@@ -42,3 +42,13 @@ def save_profile(
     row.start_date_availability = start_date_availability
     session.commit()
     return row
+
+
+def save_resume_markdown(session: Session, markdown: str) -> ApplicantProfile:
+    """Update only the resume Markdown (PHASE11.md step 1) — a resume
+    re-upload must not clobber salary/phone/etc. the way a full
+    save_profile() call would; every other field is left untouched."""
+    row = get_profile(session)
+    row.resume_markdown = markdown
+    session.commit()
+    return row

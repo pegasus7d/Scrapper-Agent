@@ -7,12 +7,15 @@ from typing import Annotated
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 from backend import config
+from backend.api.deps import SessionDep
 from backend.api.dto import ResumeMarkdown, ResumePositionsOut
+from backend.autoapply import profile as profile_repo
 from backend.resume import (
     ResumeParseError,
     build_resume_extractor,
     derive_search_positions,
     pdf_to_markdown,
+    save_resume_pdf,
 )
 from backend.scraper.extractor import ExtractionFailed
 
@@ -20,8 +23,14 @@ router = APIRouter()
 
 
 @router.post("/resume")
-async def upload_resume(request: Request, file: Annotated[UploadFile, File()]) -> ResumeMarkdown:
-    """Convert an uploaded resume PDF to Markdown (PHASE7.md step 2).
+async def upload_resume(
+    request: Request, session: SessionDep, file: Annotated[UploadFile, File()]
+) -> ResumeMarkdown:
+    """Convert an uploaded resume PDF to Markdown (PHASE7.md step 2), and
+    persist both the PDF and the Markdown (PHASE11.md step 1) — the
+    executor attaches the real file to a live application form, and the
+    answer-tool system grounds open-ended answers in the Markdown,
+    without re-uploading per application attempt.
 
     Real size/type guard (PHASE9.md step 7) — an oversized or wrong-type
     file used to be fully read into memory (`await file.read()`) before any
@@ -41,6 +50,13 @@ async def upload_resume(request: Request, file: Annotated[UploadFile, File()]) -
         markdown = pdf_to_markdown(pdf_bytes)
     except ResumeParseError as error:
         raise HTTPException(422, str(error)) from error
+    # Reads config.RESUME_STORAGE_PATH here, not via save_resume_pdf's own
+    # default parameter -- a default is bound once at import time, so a
+    # test monkeypatching config.RESUME_STORAGE_PATH would silently miss
+    # it if the call relied on the default instead (real bug caught by
+    # this file's own test suite before it shipped).
+    save_resume_pdf(pdf_bytes, config.RESUME_STORAGE_PATH)
+    profile_repo.save_resume_markdown(session, markdown)
     return ResumeMarkdown(markdown=markdown)
 
 

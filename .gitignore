@@ -8,6 +8,7 @@ huey.db-shm
 huey.db-wal
 hirable.log*
 backups/
+data/
 
 # Python
 .venv/

@@ -4,6 +4,7 @@ parsing, and derive_search_positions takes an injected fake Extractor.
 """
 
 import json
+from pathlib import Path
 
 import pymupdf
 import pytest
@@ -15,6 +16,7 @@ from backend.resume import (
     build_resume_extractor,
     derive_search_positions,
     pdf_to_markdown,
+    save_resume_pdf,
 )
 from backend.schemas import ResumePosition
 from backend.scraper.extractor import Extractor
@@ -76,3 +78,23 @@ def test_build_resume_extractor_with_api_key_enables_frontier(
 ) -> None:
     monkeypatch.setattr(resume_module.config, "anthropic_api_key", lambda: "sk-test")
     assert isinstance(build_resume_extractor()._frontier, FrontierClient)
+
+
+def test_save_resume_pdf_writes_the_real_bytes(tmp_path: Path) -> None:
+    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with Python experience.")
+    destination = tmp_path / "resume.pdf"
+    save_resume_pdf(pdf_bytes, str(destination))
+    assert destination.read_bytes() == pdf_bytes
+
+
+def test_save_resume_pdf_creates_missing_parent_directories(tmp_path: Path) -> None:
+    destination = tmp_path / "nested" / "dir" / "resume.pdf"
+    save_resume_pdf(b"real pdf bytes", str(destination))
+    assert destination.read_bytes() == b"real pdf bytes"
+
+
+def test_save_resume_pdf_overwrites_a_prior_upload(tmp_path: Path) -> None:
+    destination = tmp_path / "resume.pdf"
+    save_resume_pdf(b"first upload", str(destination))
+    save_resume_pdf(b"second upload", str(destination))
+    assert destination.read_bytes() == b"second upload"

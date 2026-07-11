@@ -188,6 +188,13 @@ class ApplicantProfile(Base):
     work_authorization: Mapped[str | None] = mapped_column(default=None)
     relocation: Mapped[bool | None] = mapped_column(default=None)
     start_date_availability: Mapped[str | None] = mapped_column(default=None)
+    # The converted resume Markdown (PHASE11.md step 1) — the answer-tool
+    # system's open-ended fallback grounding, persisted once per upload
+    # instead of re-uploaded per application attempt. The PDF bytes
+    # themselves live at config.RESUME_STORAGE_PATH, a real file on disk,
+    # not a second DB column — same "binary belongs on the filesystem"
+    # precedent BACKUP_DIR already set.
+    resume_markdown: Mapped[str | None] = mapped_column(default=None)
 
 
 class Schedule(Base):

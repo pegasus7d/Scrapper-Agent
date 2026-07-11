@@ -45,6 +45,11 @@ BACKUP_RETENTION_COUNT = 14
 # bound, same order of magnitude as LOG_MAX_BYTES, not an arbitrary number.
 RESUME_MAX_BYTES = 5 * 1024 * 1024
 RESUME_CONTENT_TYPE = "application/pdf"
+# Persisted resume file (PHASE11.md step 1) — a real file on disk, not a
+# DB blob, matching BACKUP_DIR's own precedent for binary artifacts; a
+# single path since there is exactly one applicant profile (id=1) to
+# attach it to. Gitignored like hirable.db/backups/ — real personal data.
+RESUME_STORAGE_PATH = "data/resume.pdf"
 # robots.txt confirmed (PHASE7.md step 5): only /companies?* (query-string
 # filtered views) is disallowed — the bare listing page below is not.
 YC_COMPANIES_URL = "https://www.ycombinator.com/companies"

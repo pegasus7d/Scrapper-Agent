@@ -150,14 +150,16 @@ class ScheduleOut(BaseModel):
 
 
 class ApplicantProfileOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     phone: str | None
     current_salary: str | None
     expected_salary: str | None
     work_authorization: str | None
     relocation: bool | None
     start_date_availability: str | None
+    # Whether a resume has ever been uploaded (PHASE11.md step 1) — never
+    # the Markdown itself, which can be large and is only needed by the
+    # planner, not by a profile-completeness check in the UI.
+    has_resume: bool
 
 
 class ApplicantProfileIn(BaseModel):
