@@ -659,6 +659,42 @@ stops, not routed around.
    authorization. Outcome feedback (tuning the match-score threshold from
    real response data) is blocked on real submissions existing at all —
    deferred until after the submission gate below is separately crossed.
+   **Interview-question surfacing: done.** `GET
+   /jobs/{job_id}/interview-questions` (`backend/api/routes.py`) reuses
+   `repo.list_questions`'s existing `company` filter — no new lookup
+   mechanism — 404s for a missing job. `frontend/src/views/Jobs.tsx`'s
+   `JobDrawer` gained an `InterviewQuestions` section that only renders
+   (and only *fetches* — `useApi` was extended to accept a nullable path
+   and skip the request entirely, not just skip rendering already-fetched
+   data) once `job.status === "interviewing"`. 2 new backend tests
+   (`tests/test_api.py`); `npm run build` (strict `tsc` + Vite) green.
+   Real smoke test (real backend, real dev DB, real HTTP calls): flipped
+   a real job's status to `"interviewing"`, called the new endpoint (real
+   `200`, honest `{"items": [], "total": 0}`), confirmed a real `404` for
+   a nonexistent job, then reverted the job's status back to its original
+   value — no residual state left behind. **A real, honest finding, not
+   swept under the rug**: all 109 real interview questions in the dev DB
+   currently have `company = None` (this project's existing question
+   sources are generic, non-company-attributed reference banks, per
+   `InterviewQuestion.company`'s own docstring) — the wiring is correct
+   and proven by the seeded-data unit test, but today's real scraped data
+   has zero company-attributed questions for this feature to surface
+   against yet. Not a bug to fix now — a real gap in upstream data, not
+   in this step's logic. `pytest` (416 passed) / `mypy` / `ruff check` /
+   `ruff format --check` all green.
+   **Gmail reply-detection: hard stop reached, reporting back per this
+   loop's own instructions.** This sub-task genuinely needs Google Cloud
+   OAuth credentials and your explicit consent grant — nothing here was
+   faked or skipped to route around it; it simply was not attempted. When
+   you're ready to set this up: create a Google Cloud project, enable the
+   Gmail API, create OAuth 2.0 credentials (Desktop app type — this is a
+   local tool per `CLAUDE.md`, not a hosted service), and grant read
+   access to your own inbox. Once that credential exists, the rest of
+   this sub-task (polling for replies, `email-reply-parser` for
+   quote-stripping, this project's existing LLM cascade for
+   accept/reject/interview classification — see "Real tooling for closing
+   the loop's reply-detection piece" above) is real, scoped, buildable
+   work — just gated on that one credential only you can create.
 
 ## The submission gate (separate from the authorization above)
 
