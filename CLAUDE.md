@@ -150,10 +150,13 @@ two real hard stops reached and reported rather than routed around: step
 OAuth credentials only the user can grant. The first real application
 submission to a real company stays its own separate, explicit checkpoint
 — the "submission gate" — not part of this build order at all), phase 11
-([[docs/phases/PHASE11.md]], stop at step 9 — written, not started; wires
-phase 10's components into the plan → review → confirm → execute pipeline;
-the loop must never issue a real confirmation — the first real submission
-is the user's own click in the UI).
+([[docs/phases/PHASE11.md]], stop at step 9 — done: the full plan →
+review → confirm → execute pipeline is built and wired end-to-end,
+verified with a real dry-run against two live ATS postings. **The
+submission gate has still never been crossed** — no application has
+ever been confirmed/submitted; the first real Confirm is the user's own
+click in the Applications view, once real applicant data exists to
+answer with).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.

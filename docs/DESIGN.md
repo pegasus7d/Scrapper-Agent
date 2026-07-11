@@ -456,18 +456,28 @@ docs instead of code:
   reported rather than routed around: real applicant data, and Gmail OAuth
   for reply-detection. **No real submission has ever occurred** — that stays
   behind the file's own "submission gate."
-- **[[docs/phases/PHASE11.md]]** — the application attempt pipeline (written,
-  not started): phase 10 built every component but nothing composes them —
-  no orchestrator, no API, no UI, so the submission gate can't even be
-  reached. Phase 11 wires it all into one observable plan → review →
-  confirm → execute flow: persist the resume (the upload is currently
-  stateless), per-provider page preparation and radio/checkbox filling
-  (both real gaps from step 8's live investigation), match-score
-  calibration over real data, a planner that stops at
-  `awaiting_confirmation` and is structurally incapable of submitting, a
-  confirmation-triggered executor tested only against the local form, and
-  an Applications review UI. The first real submission remains the user's
-  own explicit click, never the build loop's.
+- **[[docs/phases/PHASE11.md]]** — the application attempt pipeline (steps
+  1-9 done): phase 10 built every component but nothing composed them —
+  phase 11 wired it all into one observable plan → review → confirm →
+  execute flow. Persisted the resume (previously stateless), added
+  per-provider page preparation and radio/checkbox filling (real gaps
+  from PHASE10.md step 8's live investigation), calibrated match scoring
+  against real data (threshold confirmed, not changed), built a planner
+  that composes every PHASE10.md safety control and is structurally
+  incapable of filling/submitting, a confirmation-triggered executor
+  (tested only against the local form), the attempt API + Huey task
+  wiring, and an Applications review UI — the submission gate's own
+  required record of "exactly what's about to happen" before the one
+  irreversible click. A real incident occurred and was fixed: testing a
+  migration's downgrade against the live `hirable.db` corrupted an
+  unrelated vec0 table; recovered via backup, and `CLAUDE.md` now
+  documents the fix (round-trip migration tests run against a scratch
+  copy only). Verified end-to-end with a real dry-run against two live
+  ATS postings (Checkr/Greenhouse, The Athletic/Lever), both correctly
+  reaching `awaiting_confirmation` and both rejected. **The submission
+  gate has still never been crossed** — the first real Confirm remains
+  the user's own click, taken once real applicant data exists to answer
+  with.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
