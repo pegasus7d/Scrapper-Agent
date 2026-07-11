@@ -409,6 +409,48 @@ not a guess:
    Confirm — is the user's own action, taken in the UI, whenever they
    have filled in their real profile and are actually ready to apply to
    that specific job.
+   **Done — the full pipeline verified end-to-end against two real, live
+   ATS postings, through the real, running dev backend (found already
+   running from an earlier session; restarted once to pick up this
+   phase's new routes — a routine, reversible dev action).**
+   `POST /applications` against job 88 (Checkr, Greenhouse) and job 92
+   (The Athletic, Lever) — the exact same postings every real smoke test
+   in this phase and PHASE10.md step 8 used. The real, global
+   one-at-a-time guard (`active_application_exists`) correctly blocked
+   the second while the first was still planning (`409`); once the first
+   reached `awaiting_confirmation`, the **real pacing check correctly
+   blocked the second again** (`422`, "only Ns since the last
+   application, minimum 300s") until the real 5-minute gap had actually
+   elapsed — both real safety controls verified firing for real, not
+   just in a unit test.
+   **Checkr/Greenhouse**: 17 real planned fields — the exact same count
+   PHASE10.md step 8's investigation found by hand. **The Athletic/
+   Lever**: 20 real planned fields, which **exactly reconciles** with
+   step 8's own original raw count of 26 individual inputs once the 12
+   individual radio inputs matching this posting's 6 real Yes/No
+   questions collapse into 6 grouped fields (26 − 12 + 6 = 20) — a real,
+   cross-checked confirmation that PHASE11.md step 3's radio-grouping
+   fix behaves exactly as designed against this exact live page. Both
+   applications correctly classified `"high"` risk (first application
+   to each company) and every field came back `unanswered` — correct,
+   since the real profile still has no data entered. The event replay
+   for both reads as a real, coherent story: one `answer_field:<label>`
+   event per planned field, in order, each honestly reporting
+   `source=unanswered`. Both rows confirmed correctly reviewable in a
+   real browser (Playwright against the real running dev servers).
+   **Both applications were rejected — neither was ever confirmed.**
+   These two rows are left in the dev DB as real, legitimate history (not
+   deleted as smoke-test artifacts, since the plans themselves are real
+   and informative) — both currently sit at `"rejected"`.
+   `pytest` (468 passed) / `mypy` / `ruff check` / `ruff format --check`
+   all still green; no new code was written for this step.
+
+**The submission gate has not been crossed.** No real application has
+ever been submitted to a real company throughout this build. The first
+real Confirm is the user's own action, taken deliberately in the
+Applications view, once real applicant data exists in the Profile view
+to answer with (right now, every field would still come back
+`unanswered`, exactly as both dry-runs showed).
 
 ## What the user must do before the first real Confirm (not build steps)
 
