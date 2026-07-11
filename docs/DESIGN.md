@@ -501,7 +501,8 @@ docs instead of code:
   legal-risk one).
 
 - **[[docs/phases/PHASE13.md]]** — Ashby, a real Workday feasibility spike,
-  and WhatsApp job-link intake (not started): the user asked directly for
+  and WhatsApp job-link intake (steps 1-11 done, step 12 blocked on the
+  user's own Meta Business setup): the user asked directly for
   broader auto-apply platform coverage and a WhatsApp job-link channel.
   Grounded in real, checked facts before scoping: of 2,979 discovered
   companies, 2,566 (86%) were checked and confirmed not on
@@ -522,6 +523,23 @@ docs instead of code:
   in [[docs/phases/PHASE12.md]]). This is also the first feature in the
   codebase to require an internet-reachable endpoint at all, an explicit,
   named exception to this app's local-tool design.
+
+  Landed: Ashby ATS support end-to-end (resolution, a job source, a
+  timing bug in the shared field-detection filler found and fixed live,
+  verified with a real dry-run reaching `awaiting_confirmation`), nearly
+  doubling real ATS coverage (14% → 25%). Workday's own feasibility
+  spike came back a real, evidence-based no-go — its job API is real and
+  public, but resolution needs an unguessable tenant/cluster/site-name
+  triple per company, not a fit for this app's slug-guess architecture.
+  The WhatsApp webhook receiver and single-URL job-intake pipeline are
+  fully built and smoke-tested against real live data; only the final
+  real-message smoke test is blocked, on the user's own Meta Business
+  setup. A real, serious, unrelated bug was found and fixed along the
+  way: `hirable.db`'s FTS5 search tables were missing entirely and its
+  job embeddings vec0 table was partially corrupted (predating this
+  phase), breaking `GET /api/search` for jobs in production — repaired
+  with the user's explicit sign-off, verified against the real, live
+  dev server afterward.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to

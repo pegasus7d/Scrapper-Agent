@@ -146,6 +146,14 @@ def anthropic_api_key() -> str | None:
     return os.environ.get("ANTHROPIC_API_KEY")
 
 
+def whatsapp_verify_token() -> str | None:
+    """Return the WhatsApp webhook verify token (PHASE13.md step 9's real,
+    user-supplied setup), or None until the user completes that setup —
+    the webhook's GET verification handshake fails closed, not open, when
+    this is unset (backend/whatsapp/webhook.py)."""
+    return os.environ.get("WHATSAPP_VERIFY_TOKEN")
+
+
 def configure_logging() -> None:
     """Configure stderr + a rotating log file for the whole app; safe to
     call more than once — logging.basicConfig() is itself a no-op once the

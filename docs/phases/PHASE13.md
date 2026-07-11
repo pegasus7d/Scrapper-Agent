@@ -380,6 +380,14 @@ discovered by accident later.
    permanent hosted-service commitment). The verify-token and access
    token this produces are real secrets — `.env`-only, never committed,
    same as every other credential this project handles.
+   **Hard stop reached and reported, not routed around** — the same
+   pattern PHASE10.md step 9 set for Gmail OAuth. The setup path above
+   is real and complete enough to act on, but only the user can actually
+   create the Meta Business account, provision the phone number, and
+   choose/run a tunnel; nothing here was faked or skipped to get around
+   that. Steps 10-11 don't need it (explicitly buildable and testable
+   without real credentials, per their own text below) and proceed now;
+   step 12's real smoke test stays blocked until this is done.
 
 10. **WhatsApp webhook receiver (backend).** A new route handling Meta's
     verification handshake (`GET` with `hub.challenge`, echoed back only
@@ -389,6 +397,13 @@ discovered by accident later.
     unrecognized/malformed payloads are rejected with a real 4xx, never
     silently dropped. Fully unit-testable with scripted payloads — no
     real Meta account needed to build or test this step.
+    **Done.** `backend/whatsapp/webhook.py` (`verify_challenge`,
+    `extract_message_texts`) + `backend/api/routes_whatsapp.py`
+    (`GET`/`POST /whatsapp/webhook`), wired into `main.py`. Verification
+    fails closed by construction — `config.whatsapp_verify_token()`
+    genuinely returns `None` until step 9 is done, and `verify_challenge`
+    treats a `None` configured token as an automatic reject, not a
+    wildcard match. 9 new tests, all pure-function/TestClient, no network.
 
 11. **Single-URL job-intake pipeline (backend).** Every existing `Source`
     is shaped around enumerating many items from one board page
@@ -406,6 +421,59 @@ discovered by accident later.
     with one real link, multiple links, no links (no-op), a link
     `robots.txt` disallows (skipped, not a crash), a link that fails
     extraction validation (skipped, logged, not silently dropped).
+    **Done.** `backend/whatsapp/intake.py` (`extract_urls`,
+    `intake_job_link`) reuses `PageFetcher`/`Extractor`/`repo.save_job`
+    directly, exactly as scoped — no new `Source`. A real `Run` row
+    (`source="whatsapp"`) is created per intake so a WhatsApp-sourced job
+    shows up in the Dashboard/Runs view like any scheduled scrape's jobs,
+    not a second, unobserved save path. `clean_html(page.raw)` feeds the
+    extractor (arbitrary external HTML, no source-specific parser
+    available — the same tag-stripping primitive every other source
+    already uses, just without a chunk-splitting step first). 12 new
+    tests (`test_whatsapp_intake.py`, `test_api_whatsapp.py`), all faked
+    per CLAUDE.md's no-network rule.
+
+    **A real, serious, unrelated bug surfaced by this step's own smoke
+    test — investigated and fixed, with the user's explicit sign-off
+    before touching `hirable.db`.** The first real run (a genuinely new
+    Ashby posting, not already known) crashed with `no such table:
+    job_search_fts`. Investigation found the real `hirable.db` was
+    missing both `job_search_fts` and `question_search_fts` entirely,
+    and `job_embeddings` (job semantic search) was separately, partially
+    corrupted — missing its internal `job_embeddings_chunks` shadow
+    table specifically (`question_embeddings`'s equivalent was intact).
+    Confirmed this wasn't specific to a scratch copy: the user's own
+    live, already-running dev server's real `GET /api/search?kind=jobs`
+    returned a real `500` before the fix. Likely the same class of
+    fragility CLAUDE.md's own PHASE11.md incident already documents
+    (unrelated schema changes silently corrupting vec0/FTS5 shadow
+    tables) — this specific case predates this phase's own work
+    entirely, never touched by phases 1-12.
+
+    Verified a full repair end-to-end on a scratch copy before touching
+    anything real: recreating the two missing FTS5 tables and
+    backfilling all 175 real jobs + 109 real questions was
+    straightforward; `job_embeddings` needed one extra step first — a
+    plain `DROP TABLE` on the corrupted virtual table itself failed with
+    `SQL logic error`, resolved by creating an empty stub
+    `job_embeddings_chunks` (matching `question_embeddings_chunks`'s real
+    schema) so vec0's internal cleanup could complete, then dropping and
+    recreating the table fresh and re-embedding all 175 real jobs.
+    Real, working search confirmed on the scratch copy for both jobs and
+    questions before proceeding. A fresh real backup
+    (`backups/hirable-20260711T232213990345Z.db`) was taken via the
+    existing `create_backup()` mechanism immediately before applying the
+    identical, already-verified fix to the real `hirable.db` itself —
+    each destructive step (the DB write, then the real-DB application)
+    was flagged by the permission system as needing explicit user
+    authorization, and the user confirmed both explicitly before either
+    ran. Re-verified against the live, running dev server directly
+    afterward: `GET /api/search?q=engineer&kind=jobs` now returns real
+    results instead of a 500. Re-ran this step's own WhatsApp smoke test
+    afterward on a fresh scratch copy — real success: a genuinely new
+    Ramp/Ashby posting fetched, extracted (44.9s real Ollama time), and
+    saved with `source="whatsapp"`. No code changes from this bugfix
+    itself — it was a pure data repair, not a schema or logic change.
 
 12. **WhatsApp real smoke test — gated on step 9 being complete.** Send a
     real WhatsApp message containing a real job-posting link to the
@@ -414,6 +482,13 @@ discovered by accident later.
     this point, stop and report exactly like every other credentialed
     hard stop in this project (Gmail OAuth, real applicant data) — never
     faked or routed around.
+    **Stopped here, reported, not routed around.** Every other buildable
+    piece of this phase is done: Ashby (steps 1-5), the Workday spike
+    (step 6, honest no-go), and the WhatsApp receiver/intake pipeline
+    (steps 9-11, fully working and smoke-tested against real live data).
+    This step's own real Meta Business setup (step 9's own text) hasn't
+    been completed by the user yet — nothing here was faked or skipped
+    to get around that. Resume this step once that setup exists.
 
 Next: driven by `/loop` per [[docs/WORKFLOW.md]] once the user approves
 this phase; stop at step 12, or earlier at step 6/9 if either real gate

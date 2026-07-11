@@ -178,14 +178,25 @@ own run), and a real ToS review spike (LinkedIn's live User Agreement
 fetched directly) that sharpened the LinkedIn rejection and found no
 reason to revisit Reddit or Blind. No new runtime dependency anywhere
 in this phase), phase 13 ([[docs/phases/PHASE13.md]], stop at step 12 —
-not started: Ashby ATS support (verified real and promising via a live
-probe), a real Workday feasibility spike (step 6 is a go/no-go gate —
-steps 7-8 only proceed if it comes back positive), and WhatsApp job-link
-intake via the compliant Business Platform forwarding-number path (step
-9 is a real, credentialed hard stop like Gmail OAuth — the loop
-documents the setup path but never attempts it itself). First phase
-requiring an internet-reachable endpoint (a tunnel for the WhatsApp
-webhook) — a named, explicit exception to this app's local-tool design).
+steps 1-11 done, step 12 blocked: Ashby ATS support landed end-to-end
+(resolution, job source, a real timing bug found and fixed live in the
+shared field-detection filler, verified with a real dry-run), nearly
+doubling real ATS coverage (14% → 25%); the Workday feasibility spike
+(step 6) came back a real, evidence-based no-go — its job API is real
+and public, but resolution needs an unguessable tenant/cluster/site-name
+triple per company; the WhatsApp webhook receiver and single-URL
+job-intake pipeline (steps 9-11) are fully built and smoke-tested
+against real live data, with step 9's own real Meta Business setup
+still the user's to do before step 12's final real-message smoke test
+can run — a real, credentialed hard stop like Gmail OAuth, reported
+rather than routed around. A real, serious, unrelated bug surfaced by
+this phase's own smoke tests was found and fixed along the way:
+`hirable.db`'s FTS5 search tables were missing and its job embeddings
+vec0 table was partially corrupted, breaking real production search —
+repaired with the user's explicit sign-off at each destructive step,
+verified against the live dev server afterward. First phase requiring
+an internet-reachable endpoint (a tunnel for the WhatsApp webhook) — a
+named, explicit exception to this app's local-tool design).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.
