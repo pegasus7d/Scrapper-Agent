@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from backend import config
 from backend.api.routes import router
+from backend.api.routes_applications import router as applications_router
 from backend.api.routes_companies import router as companies_router
 from backend.api.routes_profile import router as profile_router
 from backend.api.routes_resume import router as resume_router
@@ -47,6 +48,7 @@ def create_app(engine: Engine | None = None, *, start_consumer: bool = True) -> 
         allow_headers=["*"],
     )
     app.include_router(router, prefix="/api")
+    app.include_router(applications_router, prefix="/api")
     app.include_router(companies_router, prefix="/api")
     app.include_router(profile_router, prefix="/api")
     app.include_router(resume_router, prefix="/api")

@@ -222,3 +222,70 @@ class DiscoveryResult(BaseModel):
 class ResolutionResult(BaseModel):
     checked: int  # unresolved companies probed this run
     resolved: int  # of those, how many got a real ATS match
+
+
+class ApplicationRequest(BaseModel):
+    job_id: int
+
+
+class ApplicationCreated(BaseModel):
+    application_id: int
+
+
+class ApplicationEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    action: str
+    success: bool
+    detail: str | None
+    parent_event_id: int | None
+    created_at: datetime
+
+
+class ApplicationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    company_id: int
+    job_id: int | None
+    status: str
+    risk_level: str
+    started_at: datetime
+    finished_at: datetime | None
+    error: str | None
+    planned_fields: list[dict[str, str | None]]
+
+
+class ApplicationList(BaseModel):
+    items: list[ApplicationOut]
+    total: int
+
+
+class ApplicationDetail(BaseModel):
+    application: ApplicationOut
+    events: list[ApplicationEventOut]
+
+
+class Rejected(BaseModel):
+    rejected: bool
+
+
+class Confirmed(BaseModel):
+    confirmed: bool
+
+
+class KillSwitchOut(BaseModel):
+    enabled: bool
+
+
+class KillSwitchRequest(BaseModel):
+    enabled: bool
+
+
+class CompanyBlockRequest(BaseModel):
+    blocked: bool
+
+
+class CompanyBlockOut(BaseModel):
+    blocked: bool

@@ -93,6 +93,16 @@ def has_existing_application(session: Session, *, company_id: int, job_id: int |
     return session.scalar(query) is not None
 
 
+def active_application_exists(session: Session) -> bool:
+    """True while any application is mid-planning ("pending" — the real
+    browser work hasn't reached awaiting_confirmation/failed yet). Mirrors
+    active_run_exists' own "running" check (PHASE9.md); a real, global
+    one-at-a-time rule, same as scrape runs. Rows already sitting at
+    awaiting_confirmation don't count — several can be reviewed at once,
+    only concurrent *planning* is disallowed."""
+    return session.scalar(select(Application.id).where(Application.status == "pending")) is not None
+
+
 def applications_started_today(session: Session) -> int:
     """Count of Application rows started since midnight UTC."""
     since = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)

@@ -86,12 +86,13 @@ def _overall_confidence(answered: list[Answer]) -> float | None:
     return 1.0
 
 
-def plan_application(session: Session, job: Job) -> Application:
-    """Compose every safety check into one review-only application
-    attempt. Raises a real, typed exception for every pre-flight gate
-    failure before any Application row is created; once past every gate,
-    creates the row and reaches either "awaiting_confirmation" with a
-    full persisted plan, or "failed" with a real error recorded."""
+def check_preflight(session: Session, job: Job) -> tuple[Company, ApplicantProfile, bool]:
+    """Every fast, pure-DB pre-flight gate — no browser involved. Raises a
+    real, typed exception for the first gate that fails. Returns
+    (company, profile_row, is_first_application_to_company) once every
+    gate passes, so a caller (the API route) can surface a real 422
+    immediately, before any Application row exists or any Huey task
+    enqueues real, slow browser work."""
     if safety.kill_switch_enabled(session):
         raise safety.KillSwitchActive("kill switch is on")
 
@@ -121,9 +122,19 @@ def plan_application(session: Session, job: Job) -> Application:
     is_first_application = not safety.has_existing_application(
         session, company_id=company.id, job_id=None
     )
+    return company, profile_row, is_first_application
 
+
+def plan_application(session: Session, job: Job) -> Application:
+    """The full, synchronous plan: every pre-flight gate, then the real
+    (slow) browser work, in one call — used directly by tests and by any
+    caller that doesn't need the API's fast-fail/async-task split.
+    `run_page_planning` is what `backend.autoapply.tasks`' Huey task calls
+    instead, once the API route has already run `check_preflight` and
+    created the Application row itself."""
+    company, profile_row, is_first_application = check_preflight(session, job)
     application = events.start_application(session, company_id=company.id, job_id=job.id)
-    _plan_real_page(session, application, job, company, profile_row, is_first_application)
+    run_page_planning(session, application, job, company, profile_row, is_first_application)
     return application
 
 
@@ -150,7 +161,7 @@ def _detect_real_fields(company: Company, job: Job) -> list[DetectedField] | Non
             browser.close()
 
 
-def _plan_real_page(
+def run_page_planning(
     session: Session,
     application: Application,
     job: Job,
@@ -158,6 +169,10 @@ def _plan_real_page(
     profile_row: ApplicantProfile,
     is_first_application: bool,
 ) -> None:
+    """The real, slow browser work: detect fields, answer each one,
+    classify risk, persist the plan. Called directly by plan_application
+    for the synchronous, all-in-one path, and by
+    backend.autoapply.tasks' Huey task for the API's async path."""
     fields = _detect_real_fields(company, job)
     if not fields:
         events.finish_application(
