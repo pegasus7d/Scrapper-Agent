@@ -116,6 +116,16 @@ def index() -> str:
     return _FORM_HTML
 
 
+@app.get("/apply", response_class=HTMLResponse)
+def apply_alias() -> str:
+    """A Lever-style /apply alias for the same real, fully-working form
+    (PHASE11.md step 7) — the executor's own tests need a form reachable
+    via prepare_application_page's real "lever" convention that also has
+    a genuine, working /submit handler, unlike the read-only
+    /lever-like/{id}/apply route step 2 added."""
+    return _FORM_HTML
+
+
 @app.get("/greenhouse-like", response_class=HTMLResponse)
 def greenhouse_like() -> str:
     return _GREENHOUSE_LIKE_HTML
