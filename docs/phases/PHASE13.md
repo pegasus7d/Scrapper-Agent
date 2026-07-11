@@ -80,6 +80,19 @@ discovered by accident later.
    real usage terms (rate limits, attribution requirements) found. If
    the docs contradict what the live probe suggested, stop here and
    report, the same as any other source-rejection precedent.
+   **Done.** Confirmed real via the official docs
+   (`developers.ashbyhq.com/docs/public-job-posting-api`, found via
+   search, then fetched directly): the exact endpoint already probed
+   live (`GET /posting-api/job-board/{clientname}`) is documented,
+   public, and unauthenticated by design, explicitly for "if you host
+   your own careers page, you can use this data to populate it" plus a
+   named "Dedicated Partner Job Feeds" use case (the same category of
+   thing LinkedIn/Indeed/Otta/Built In/ZipRecruiter/Levels.fyi
+   integrate against, per the docs). No rate limits or attribution
+   requirements documented. No restriction on automated access found —
+   the opposite of the SmartRecruiters/LinkedIn/Reddit rejection
+   pattern; this is a platform that wants third parties consuming this
+   endpoint. Proceeding to step 2.
 
 2. **Ashby slug resolution (backend).** Extend `resolve.py`'s `_ATS_URLS`
    with an `"ashby"` entry
