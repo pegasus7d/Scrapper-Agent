@@ -135,6 +135,23 @@ not a guess:
    verified working in step 8's smoke test). Per-provider quirks isolated
    in one module, never spread through the filler. Unknown provider is a
    real error, not a silent fallthrough.
+   **Done.** `UnknownProvider` (bad `ats_provider` value) and
+   `PagePreparationFailed` (a known provider whose expected structure
+   isn't found, e.g. no real Apply button) are kept as two distinct
+   exceptions — a bad input and a broken assumption about live markup are
+   different failure modes. `test_form_server.py` gained
+   `/greenhouse-like` (a real hidden-until-clicked form) and
+   `/lever-like/{id}` + `/lever-like/{id}/apply` (a real two-page split)
+   so this is testable without touching a live third party in the
+   permanent suite — 4 real tests
+   (`tests/test_autoapply_providers.py`). Real smoke test against the
+   same live Greenhouse (`checkr`) and Lever (`theathletic`) postings
+   step 8 used: `prepare_application_page` reproduced the exact same real
+   field counts step 8 found by hand (17 Greenhouse, 26 Lever), with
+   `page.url` confirmed unchanged for Greenhouse and confirmed to be the
+   real `/apply` URL for Lever — no `submit()` call anywhere in this
+   step's code path. `pytest` (429 passed) / `mypy` / `ruff check` /
+   `ruff format --check` all green.
 
 3. **Radio/checkbox support in the filler (backend).** `detect_fields`
    already reports `input_type="radio"`; `fill_field` grows a real branch:
