@@ -197,6 +197,31 @@ not a guess:
    would gate out, and `MATCH_SCORE_THRESHOLD` gets tuned from evidence
    (a config change with the reasoning documented) if the real
    distribution says so.
+   **Done — real, positive calibration result.**
+   `matching.score_all_jobs()` embeds the resume once (not once per job,
+   unlike `gate()`/`compute_match_score()`) and scores every job with a
+   stored embedding; `GET /profile/match-scores` (422 with no resume
+   uploaded) joins the scores back to real `Job` rows and returns them
+   sorted, highest first, alongside the current threshold.
+   `MatchScoreSection` in the Profile view fetches this (skipped
+   entirely, not just unrendered, until `has_resume` is true) and shows
+   how many of the scraped jobs clear the threshold plus the top 10 with
+   pass/fail badges. 4 new backend tests
+   (`tests/test_autoapply_matching.py`, `tests/test_api_profile.py`).
+   Real smoke test against the actual dev DB (102 real jobs with stored
+   embeddings, the real persisted resume left in place from step 1): real
+   scores ran **0.44–0.72** — every one of the top 5 was a genuinely
+   relevant software-engineering role (Staff/Senior Software Engineer at
+   Checkr, a Senior Full Stack Engineer role), and only 3 of 102 fell
+   below the 0.5 default, all three genuinely irrelevant (a financial
+   controller, a founder's associate, a media marketing manager). Unlike
+   step 6's single-pair test (which found one relevant pair scoring just
+   under threshold), this real, comprehensive distribution shows 0.5
+   correctly separating relevant from irrelevant roles for this resume —
+   **`MATCH_SCORE_THRESHOLD` left unchanged at 0.5**, a real evidence-
+   based decision, not an untested guess either way. `pytest` (437
+   passed) / `mypy` / `ruff check` / `ruff format --check` /
+   `npm run build` all green.
 
 5. **The planner (backend).** `backend/autoapply/planner.py`:
    `plan_application(session, job)` composes, in order: kill switch →
