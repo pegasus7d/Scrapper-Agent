@@ -166,14 +166,18 @@ verified with a real dry-run against two live ATS postings. **The
 submission gate has still never been crossed** — no application has
 ever been confirmed/submitted; the first real Confirm is the user's own
 click in the Applications view, once real applicant data exists to
-answer with), phase 12 ([[docs/phases/PHASE12.md]], stop at step 4 —
-steps 1-2 done: `GET /sources/health` liveness probe across all 17
-registered sources (verified, all `ok`), and a field-detection cache for
-auto-apply keyed on `(ats_provider, company_id)` (verified with a real
-live Checkr/Greenhouse posting plus a deterministic call-count proof
-that a repeat application to the same company skips live detection);
-steps 3-4 (this loop template's own verification write-up, and a ToS
-review spike) remain — no new runtime dependencies).
+answer with), phase 12 ([[docs/phases/PHASE12.md]], stop at step 4 — done:
+`GET /sources/health` liveness probe across all 17 registered sources
+(verified, all `ok`), a field-detection cache for auto-apply keyed on
+`(ats_provider, company_id)` (verified with a real live
+Checkr/Greenhouse posting plus a deterministic call-count proof), this
+loop template's own hardening (the "Done." writeup clause confirmed
+exercised in practice; the circuit-breaker/no-fabrication clauses
+grounded in real prior incidents but not yet triggered by this phase's
+own run), and a real ToS review spike (LinkedIn's live User Agreement
+fetched directly) that sharpened the LinkedIn rejection and found no
+reason to revisit Reddit or Blind. No new runtime dependency anywhere
+in this phase).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.

@@ -202,6 +202,24 @@ no defined stop condition today.
    against this exact phase's own step 1/2 execution once they're done, and
    note in this file whether the template as written would have produced
    the same behavior.
+   **Done.** The three amendments themselves landed early (in the same
+   commit that wrote this file), not deferred to this point — but this
+   step's own verification requirement only became checkable once steps
+   1 and 2 actually ran, so it's recorded here rather than there.
+   Re-reading the amended template against the real steps 1/2 execution,
+   honestly: the required per-step "Done." writeup rule is the one
+   clause actually exercised — both steps got one, in the same commit as
+   the code, matching the rule exactly. The other two clauses were never
+   triggered by real conditions and so remain unverified in practice, not
+   confirmed working: no validation check failed three consecutive times
+   on either step (ruff/mypy failures that did occur were each fixed on
+   the first retry), and neither step needed user-only data or
+   credentials, so the no-fabrication clause never had a real decision to
+   make. Reported honestly rather than claimed proven — same precedent
+   PHASE6.md's bottleneck pass set (a second measurement that didn't
+   match the first got reported as-is, not re-run to match). Both
+   clauses remain design decisions grounded in PHASE10.md/PHASE11.md's
+   real prior incidents, just not yet exercised by this phase's own run.
 
 4. **ToS review spike for Agent-Reach-style authenticated access (research
    only, no code).** Re-run the phase-1/phase-5 source rejection list
@@ -214,6 +232,58 @@ no defined stop condition today.
    rejection, not a mitigation of it. This step exists to make that
    reasoning explicit and checked rather than assumed, per WORKFLOW.md
    rule 2.
+   **Done.** Answer for all three: authentication does not change the
+   calculus, and for LinkedIn specifically makes it worse — confirmed
+   with real, current source text, not assumed from the phase 1/5
+   findings alone:
+   - **LinkedIn** — fetched the live User Agreement
+     (linkedin.com/legal/user-agreement) directly. Section 8.2(2)
+     prohibits software/scripts/bots/crawlers used "to scrape or copy
+     the Services"; 8.2(3) separately prohibits bypassing access
+     controls; neither clause is scoped to anonymous access — the
+     restriction is on the *method*, not the *authentication state*. The
+     practical effect of authenticating to scrape is strictly worse than
+     phase 1's original anonymous-scraping rejection: logging in means
+     personally agreeing to this User Agreement first, so an authenticated
+     scrape is a direct breach of a contract the scraper's own account
+     accepted, with real account-ban exposure on top of the
+     already-established robots.txt/legal-risk rejection. Still rejected,
+     more firmly than before.
+   - **Reddit** — attempted a live fetch of redditinc.com/policies/
+     user-agreement; the fetch tool itself could not reach the site
+     ("unable to fetch from www.redditinc.com"). Not treated as proof of
+     anything on its own, but consistent with Reddit's already-documented
+     posture (phase 1: robots.txt disallows all crawling) — robots.txt is
+     an unauthenticated, protocol-level file that doesn't vary by login
+     state, so authenticating changes nothing about that specific
+     restriction. Reddit's separate 2023 API pricing/access changes (well
+     documented publicly, not re-verified here since it's outside this
+     spike's scope) only tightened automated-access terms since the
+     original MVP-era decision, not loosened them. Still rejected.
+   - **Blind** — attempted a live fetch of a guessed terms URL
+     (teamblind.com/terms); got a real HTTP 404, so no current terms text
+     was retrieved this pass (the correct URL wasn't found, not that the
+     content was checked and found permissive — an honest gap, not a
+     clean verification). Falls back to phase 1's already-verified,
+     directly observed finding: Blind blocks even a plain, unauthenticated
+     robots.txt request with an anti-bot interstitial. That's independent
+     of ToS text — it's active bot detection on the transport layer.
+     Authenticating via a real logged-in browser session (Agent-Reach's
+     model) might technically get *past* that detection, but doing so
+     deliberately to circumvent an active anti-bot barrier is exactly the
+     kind of detection evasion this project's own operating rules treat
+     as off-limits, independent of whatever Blind's terms turn out to
+     say. Still rejected.
+   No code changes; `pytest`/`mypy`/`ruff` untouched by this step.
+
+Phase 12 build order complete (steps 1-4). Sources doctor and the
+field-detection cache are real, tested, and smoke-tested; the loop
+template carries three new clauses, one confirmed exercised in practice
+(the "Done." writeup requirement) and two grounded in real prior
+incidents but not yet triggered by a real failure; the ToS spike found
+no reason to revisit any of the three existing rejections, and sharpened
+the LinkedIn one. No new runtime dependency was added anywhere in this
+phase.
 
 Next: driven by `/loop` per [[docs/WORKFLOW.md]] once the user approves
 this phase; stop at step 4.

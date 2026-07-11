@@ -479,21 +479,26 @@ docs instead of code:
   the user's own click, taken once real applicant data exists to answer
   with.
 - **[[docs/phases/PHASE12.md]]** — source health visibility and cached field
-  detection (steps 1-2 done): prompted by researching two external agent
+  detection (done): prompted by researching two external agent
   tools (Agent-Reach, OpenCLI), verified real rather than adopted on
   faith — neither is taken on as a dependency (one would reverse the
   phase 1 LinkedIn ToS decision, the other brings a second language
   runtime into a Python-only backend), but each surfaces a pattern
-  matched against a real, confirmed gap: a `sources doctor`-style health
-  check across the 9 job/question + 8 discovery sources (nothing today
-  distinguishes "zero matches" from "the source is silently broken"),
-  and a cache for `autoapply/filler.py`'s per-request live field
-  detection (identical ATS form shapes re-derive selectors from scratch
-  every time today). Also hardens the `/loop` template itself (stuck-loop
-  circuit breaker, explicit no-fabrication clause, required per-step
-  "Done." writeups) and runs a ToS review spike on Agent-Reach-style
-  authenticated scraping against the existing LinkedIn/Reddit/Blind
-  rejections.
+  matched against a real, confirmed gap: a `GET /sources/health`
+  liveness check across all 17 job/question/discovery sources (nothing
+  before this told "zero matches" apart from "the source is silently
+  broken"), and a `(ats_provider, company_id)`-keyed cache in front of
+  `autoapply/filler.py`'s per-request live field detection, verified by
+  a real live Checkr/Greenhouse posting plus a deterministic call-count
+  proof. Also hardened the `/loop` template itself (stuck-loop circuit
+  breaker, explicit no-fabrication clause, required per-step "Done."
+  writeups — the last one confirmed exercised in practice by this
+  phase's own two build steps) and ran a real ToS review spike
+  (LinkedIn's live User Agreement fetched directly) confirming
+  authenticated scraping doesn't loosen any of the existing
+  LinkedIn/Reddit/Blind rejections — for LinkedIn specifically, it
+  sharpens the rejection (a personal ToS breach on top of the existing
+  legal-risk one).
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
