@@ -6,7 +6,6 @@ parsing, and derive_search_positions takes an injected fake Extractor.
 import json
 from pathlib import Path
 
-import pymupdf
 import pytest
 
 from backend import resume as resume_module
@@ -22,17 +21,8 @@ from backend.schemas import ResumePosition
 from backend.scraper.extractor import Extractor
 
 
-def _minimal_pdf_bytes(text: str) -> bytes:
-    """Build a real, minimal PDF in memory — no bundled binary fixture file."""
-    doc = pymupdf.open()
-    page = doc.new_page()
-    page.insert_text((72, 72), text)
-    return doc.tobytes()  # type: ignore[no-any-return]
-
-
-def test_pdf_to_markdown_extracts_real_text() -> None:
-    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with Python experience.")
-    markdown = pdf_to_markdown(pdf_bytes)
+def test_pdf_to_markdown_extracts_real_text(resume_pdf_bytes: bytes) -> None:
+    markdown = pdf_to_markdown(resume_pdf_bytes)
     assert "Backend Engineer" in markdown
 
 
@@ -80,11 +70,10 @@ def test_build_resume_extractor_with_api_key_enables_frontier(
     assert isinstance(build_resume_extractor()._frontier, FrontierClient)
 
 
-def test_save_resume_pdf_writes_the_real_bytes(tmp_path: Path) -> None:
-    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with Python experience.")
+def test_save_resume_pdf_writes_the_real_bytes(tmp_path: Path, resume_pdf_bytes: bytes) -> None:
     destination = tmp_path / "resume.pdf"
-    save_resume_pdf(pdf_bytes, str(destination))
-    assert destination.read_bytes() == pdf_bytes
+    save_resume_pdf(resume_pdf_bytes, str(destination))
+    assert destination.read_bytes() == resume_pdf_bytes
 
 
 def test_save_resume_pdf_creates_missing_parent_directories(tmp_path: Path) -> None:

@@ -52,9 +52,9 @@ def page(browser: Browser, live_form_server: None) -> Iterator[Page]:
 
 
 @pytest.fixture
-def resume_file(tmp_path: Path) -> Path:
-    path = tmp_path / "resume.txt"
-    path.write_text("Backend Engineer with real Python experience.")
+def resume_file(tmp_path: Path, resume_pdf_bytes: bytes) -> Path:
+    path = tmp_path / "resume-backend.pdf"
+    path.write_bytes(resume_pdf_bytes)
     return path
 
 
@@ -90,7 +90,7 @@ def test_fill_and_submit_real_happy_path(page: Page, resume_file: Path) -> None:
     assert page.locator("#received-phone").inner_text() == "555-0100"
     assert page.locator("#received-role").inner_text() == "backend"
     assert page.locator("#received-cover_note").inner_text() == "Real test submission."
-    assert page.locator("#received-resume_filename").inner_text() == "resume.txt"
+    assert page.locator("#received-resume_filename").inner_text() == "resume-backend.pdf"
     assert int(page.locator("#received-resume_size_bytes").inner_text()) > 0
 
 

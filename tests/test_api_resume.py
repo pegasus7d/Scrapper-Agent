@@ -4,7 +4,6 @@
 
 from pathlib import Path
 
-import pymupdf
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
@@ -33,36 +32,28 @@ def client(engine: Engine) -> TestClient:
     return TestClient(create_app(engine, start_consumer=False))
 
 
-def _minimal_pdf_bytes(text: str) -> bytes:
-    doc = pymupdf.open()
-    doc.new_page().insert_text((72, 72), text)
-    return doc.tobytes()  # type: ignore[no-any-return]
-
-
-def test_upload_resume_returns_real_markdown(client: TestClient) -> None:
-    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with Python experience.")
+def test_upload_resume_returns_real_markdown(client: TestClient, resume_pdf_bytes: bytes) -> None:
     response = client.post(
-        "/api/resume", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}
+        "/api/resume", files={"file": ("resume.pdf", resume_pdf_bytes, "application/pdf")}
     )
     assert response.status_code == 200
     assert "Backend Engineer" in response.json()["markdown"]
 
 
 def test_upload_resume_persists_the_pdf_and_markdown(
-    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, resume_pdf_bytes: bytes
 ) -> None:
     """PHASE11.md step 1: a real, persisted PDF file and the Markdown
     saved onto the applicant profile -- not just returned to the caller
     and forgotten, as the upload endpoint did before this step."""
     storage_path = tmp_path / "resume.pdf"
     monkeypatch.setattr(config, "RESUME_STORAGE_PATH", str(storage_path))
-    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with real Python experience.")
 
     response = client.post(
-        "/api/resume", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}
+        "/api/resume", files={"file": ("resume.pdf", resume_pdf_bytes, "application/pdf")}
     )
     assert response.status_code == 200
-    assert storage_path.read_bytes() == pdf_bytes
+    assert storage_path.read_bytes() == resume_pdf_bytes
 
     profile = client.get("/api/profile").json()
     assert profile["has_resume"] is True
@@ -76,28 +67,30 @@ def test_upload_resume_rejects_non_pdf(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_upload_resume_rejects_wrong_content_type(client: TestClient) -> None:
+def test_upload_resume_rejects_wrong_content_type(
+    client: TestClient, resume_pdf_bytes: bytes
+) -> None:
     """A real, well-formed PDF, but sent with the wrong Content-Type — the
     type guard (PHASE9.md step 7) rejects it before ever calling
     pdf_to_markdown, distinct from test_upload_resume_rejects_non_pdf's
     garbage-bytes-with-a-correct-header case."""
-    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with Python experience.")
-    response = client.post("/api/resume", files={"file": ("resume.pdf", pdf_bytes, "text/plain")})
+    response = client.post(
+        "/api/resume", files={"file": ("resume.pdf", resume_pdf_bytes, "text/plain")}
+    )
     assert response.status_code == 422
     assert "unsupported file type" in response.json()["detail"]
 
 
 def test_upload_resume_rejects_oversized_file(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, resume_pdf_bytes: bytes
 ) -> None:
     """A real PDF, genuinely larger than a (lowered, for a fast test)
     RESUME_MAX_BYTES — proves the guard checks a real byte count, not a
     hardcoded pass."""
     monkeypatch.setattr(config, "RESUME_MAX_BYTES", 10)
-    pdf_bytes = _minimal_pdf_bytes("Backend Engineer with Python experience.")
-    assert len(pdf_bytes) > 10  # the real PDF must actually exceed the lowered bound
+    assert len(resume_pdf_bytes) > 10  # the real PDF must actually exceed the lowered bound
     response = client.post(
-        "/api/resume", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}
+        "/api/resume", files={"file": ("resume.pdf", resume_pdf_bytes, "application/pdf")}
     )
     assert response.status_code == 413
 
