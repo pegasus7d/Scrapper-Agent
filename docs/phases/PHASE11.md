@@ -371,6 +371,31 @@ not a guess:
    buttons. This screen *is* the submission gate's required record of
    "exactly what's about to happen" — the user sees the complete
    would-be submission before the one irreversible click.
+   **Done.** `ApplicationOut` gained real `company_name`/`job_title`
+   fields (built explicitly, not via `model_validate`, since they're
+   joined from `Company`/`Job`, not real `Application` columns — bare
+   ids alone aren't a usable list for a human). `frontend/src/views/
+   Applications.tsx` mirrors `Jobs.tsx`'s table+drawer shape exactly.
+   **Verified in a real browser, not just built** — Playwright driving
+   the actual running dev servers (`localhost:5173` + the real backend
+   on `:8000`, discovered already running from an earlier session; the
+   backend needed a restart to pick up the new route, a routine,
+   reversible dev action, not a destructive one): the empty-state message
+   renders correctly with zero real applications; a real
+   `awaiting_confirmation` row (seeded directly in the DB, three planned
+   fields spanning all three real sources) rendered the full review
+   screen correctly — every field's label, its exact answer text
+   (`"555-0100"`, `"Found via job board."`, `"(blank)"` for the
+   unanswered one), and the right source badge on each; the real Reject
+   button click correctly transitioned the row to `"rejected"` through
+   the real API. **Confirm was deliberately never clicked** — the dev
+   backend's Huey consumer was genuinely running at the time, so clicking
+   Confirm on any real, ATS-linked row would have risked a real
+   execution attempt; this is exactly the risk the phase's gate
+   discipline exists to prevent, so it was avoided even during UI
+   verification. Test row and screenshots cleaned up afterward. `pytest`
+   (468 passed) / `mypy` / `ruff check` / `ruff format --check` /
+   `npm run build` all green.
 
 9. **Real end-to-end dry-run (validation, no new code).** Run the real
    pipeline — `POST /applications` against one real Lever job and one
