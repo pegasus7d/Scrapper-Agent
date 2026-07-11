@@ -35,7 +35,7 @@ from backend.api.export import (
     stream_questions_json,
 )
 from backend.db import repo, search
-from backend.db.models import JOB_STATUSES
+from backend.db.models import JOB_STATUSES, Job
 from backend.llm.client import list_local_models
 from backend.llm.embeddings import embed_text
 
@@ -119,6 +119,22 @@ def status_job(job_id: int, body: StatusRequest, session: SessionDep) -> JobOut:
     if job is None:
         raise HTTPException(404, "job not found")
     return JobOut.model_validate(job)
+
+
+@router.get("/jobs/{job_id}/interview-questions")
+def job_interview_questions(
+    job_id: int, session: SessionDep, limit: LimitParam = 20
+) -> QuestionList:
+    """Interview questions for this job's company (PHASE10.md step 9) —
+    wires the existing question bank to a job once its status flips to
+    "interviewing", reusing list_questions' own company filter rather
+    than a new lookup mechanism."""
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(404, "job not found")
+    questions, total = repo.list_questions(session, company=job.company, limit=limit, offset=0)
+    items = [QuestionOut.model_validate(question) for question in questions]
+    return QuestionList(items=items, total=total)
 
 
 @router.get("/jobs/export")

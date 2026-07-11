@@ -294,6 +294,58 @@ def test_status_job_rejects_an_unknown_status(client: TestClient, engine: Engine
     assert response.status_code == 422
 
 
+def test_job_interview_questions_matches_by_company(client: TestClient, engine: Engine) -> None:
+    with Session(engine) as session:
+        run = repo.create_run(session, kind="jobs", source="hn")
+        job = JobExtract(
+            title="Backend Engineer",
+            company="Acme",
+            location=None,
+            salary=None,
+            requirements=["Python"],
+            apply_url=None,
+        )
+        repo.save_job(
+            session, job, posting_url="https://x.com/acme", source="hn", tier="local", run=run
+        )
+        acme_question = QuestionExtract(
+            company="Acme", role=None, question="Reverse a linked list.", round="phone"
+        )
+        repo.save_question(
+            session,
+            acme_question,
+            source_url="https://r.com/1",
+            source="reddit",
+            tier="local",
+            run=run,
+        )
+        other_question = QuestionExtract(
+            company="Other Co", role=None, question="Design a URL shortener.", round="onsite"
+        )
+        repo.save_question(
+            session,
+            other_question,
+            source_url="https://r.com/2",
+            source="reddit",
+            tier="local",
+            run=run,
+        )
+        repo.finish_run(session, run)
+
+    jobs = client.get("/api/jobs", params={"q": "Backend Engineer"}).json()["items"]
+    job_id = jobs[0]["id"]
+
+    response = client.get(f"/api/jobs/{job_id}/interview-questions")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["question"] == "Reverse a linked list."
+
+
+def test_job_interview_questions_404s_when_job_missing(client: TestClient) -> None:
+    assert client.get("/api/jobs/999/interview-questions").status_code == 404
+
+
 def test_export_jobs_json_and_csv(client: TestClient, engine: Engine) -> None:
     seed_items(engine)
     as_json = client.get("/api/jobs/export").json()
