@@ -127,10 +127,24 @@ class PageFetcher:
         except HTTPError as error:
             if error.code == 404:
                 return ["User-agent: *", "Allow: /"]  # no robots.txt = no restrictions
-            if error.code in (401, 403):
+            if error.code == 403:
                 # An explicit denial to our own honest, identified UA — respect it.
                 logger.warning("robots.txt forbidden for %s: %s", domain, error)
                 return ["User-agent: *", "Disallow: /"]
+            if error.code == 401:
+                # Real, found case (PHASE13.md step 3): api.ashbyhq.com/robots.txt
+                # itself returns 401 because that whole subdomain requires auth
+                # by default — not a bot-blocking signal like WeWorkRemotely's
+                # 403 above. 401 means "this resource needs credentials," which
+                # says nothing about whether some other path is meant to be
+                # public; Ashby's own developer docs (checked in step 1) confirm
+                # the specific API path this app fetches is a deliberately public
+                # carve-out. Treating a 401 on robots.txt itself as unrestricted
+                # is the same interpretation 404 already gets, not a new policy.
+                logger.warning(
+                    "robots.txt requires auth for %s: %s — treating as unrestricted", domain, error
+                )
+                return ["User-agent: *", "Allow: /"]
             logger.warning("robots.txt error for %s: %s — treating as unrestricted", domain, error)
             return ["User-agent: *", "Allow: /"]
         except URLError as error:

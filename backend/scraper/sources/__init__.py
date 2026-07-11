@@ -22,7 +22,11 @@ from backend.db.models import Company
 from backend.scraper.fetcher import Page
 from backend.scraper.sources import jobs, questions
 from backend.scraper.sources._base import Chunk, Source
-from backend.scraper.sources.companies import GreenhouseCompanySource, LeverCompanySource
+from backend.scraper.sources.companies import (
+    AshbyCompanySource,
+    GreenhouseCompanySource,
+    LeverCompanySource,
+)
 
 SOURCES: dict[str, Source] = {**jobs.SOURCES, **questions.SOURCES}
 
@@ -32,6 +36,7 @@ QUESTION_SOURCES = tuple(name for name, source in SOURCES.items() if source.kind
 _COMPANY_SOURCE_BUILDERS: dict[str, Callable[[str, str], Source]] = {
     "greenhouse": GreenhouseCompanySource,
     "lever": LeverCompanySource,
+    "ashby": AshbyCompanySource,
 }
 
 

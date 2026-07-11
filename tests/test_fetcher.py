@@ -177,6 +177,18 @@ def test_robots_403_treated_as_disallow_all(monkeypatch: pytest.MonkeyPatch) -> 
     assert instance._allowed_by_robots("https://x.com/anything") is False
 
 
+def test_robots_401_treated_as_allow_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Real case (PHASE13.md step 3): api.ashbyhq.com/robots.txt itself
+    # returns 401 because the whole subdomain requires auth by default,
+    # not because it's rejecting crawlers -- a 401 says nothing about
+    # whether some other path is meant to be public, unlike a 403.
+    instance = PageFetcher()
+    script_robots(
+        monkeypatch, [HTTPError("https://x.com/robots.txt", 401, "unauthorized", None, None)]
+    )
+    assert instance._allowed_by_robots("https://x.com/anything") is True
+
+
 def test_robots_unreachable_treated_as_allow_all(monkeypatch: pytest.MonkeyPatch) -> None:
     instance = PageFetcher()
     script_robots(monkeypatch, [URLError("connection refused")])

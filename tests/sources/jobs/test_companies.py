@@ -5,7 +5,11 @@ import json
 import pytest
 
 from backend.scraper.fetcher import Page
-from backend.scraper.sources.companies import GreenhouseCompanySource, LeverCompanySource
+from backend.scraper.sources.companies import (
+    AshbyCompanySource,
+    GreenhouseCompanySource,
+    LeverCompanySource,
+)
 
 LONG_DESCRIPTION = (
     "We build developer tools for distributed systems. You will design APIs, "
@@ -142,4 +146,70 @@ def test_lever_malformed_payload_raises_value_error() -> None:
     source = LeverCompanySource("acme", "Acme")
     page = Page(url="x", markdown="", raw=json.dumps({"not": "a list"}))
     with pytest.raises(ValueError, match="not a Lever"):
+        source.split_items(page)
+
+
+def ashby_response() -> str:
+    return json.dumps(
+        {
+            "jobs": [
+                {
+                    "title": "Backend Engineer",
+                    "jobUrl": "https://jobs.ashbyhq.com/acme/1",
+                    "applyUrl": "https://jobs.ashbyhq.com/acme/1/application",
+                    "location": "Remote (US)",
+                    "descriptionPlain": LONG_DESCRIPTION,
+                },
+                {
+                    "title": "Short Role",
+                    "jobUrl": "https://jobs.ashbyhq.com/acme/2",
+                    "applyUrl": "https://jobs.ashbyhq.com/acme/2/application",
+                    "location": "Remote (US)",
+                    "descriptionPlain": "Short.",
+                },
+                {
+                    "title": "No URL Role",
+                    "jobUrl": "",
+                    "applyUrl": "",
+                    "location": "Remote (US)",
+                    "descriptionPlain": LONG_DESCRIPTION,
+                },
+            ]
+        }
+    )
+
+
+def test_ashby_seed_url_includes_slug() -> None:
+    source = AshbyCompanySource("acme", "Acme")
+    assert source.seed_urls() == ["https://api.ashbyhq.com/posting-api/job-board/acme"]
+
+
+def test_ashby_split_items_builds_real_chunks_with_no_html_handling_needed() -> None:
+    source = AshbyCompanySource("acme", "Acme")
+    page = Page(url="x", markdown="", raw=ashby_response())
+    chunks = source.split_items(page)
+    assert len(chunks) == 1
+    assert chunks[0].url == "https://jobs.ashbyhq.com/acme/1"
+    assert "Backend Engineer at Acme" in chunks[0].text
+    assert "distributed systems" in chunks[0].text
+
+
+def test_ashby_split_items_skips_short_and_urlless() -> None:
+    source = AshbyCompanySource("acme", "Acme")
+    page = Page(url="x", markdown="", raw=ashby_response())
+    urls = [chunk.url for chunk in source.split_items(page)]
+    assert "https://jobs.ashbyhq.com/acme/2" not in urls
+    assert "" not in urls
+
+
+def test_ashby_next_links_always_empty() -> None:
+    source = AshbyCompanySource("acme", "Acme")
+    page = Page(url="x", markdown="", raw=ashby_response())
+    assert source.next_links(page) == []
+
+
+def test_ashby_malformed_payload_raises_value_error() -> None:
+    source = AshbyCompanySource("acme", "Acme")
+    page = Page(url="x", markdown="", raw=json.dumps({"not": "expected"}))
+    with pytest.raises(ValueError, match="not an Ashby"):
         source.split_items(page)

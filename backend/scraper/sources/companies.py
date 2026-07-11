@@ -14,6 +14,17 @@ postings already ship a clean plain-text field (`descriptionPlain`), no HTML
 handling needed at all. Both APIs return every posting on one page —
 confirmed real (Airbnb: 209 jobs, one response) — `next_links()` is always
 `[]`.
+
+Ashby (PHASE13.md step 3) confirmed live against a real board (`ramp`):
+same `{"jobs": [...]}` wrapper shape as Greenhouse, `location` already a
+plain string (not Greenhouse's nested `{"name": ...}`), and `descriptionPlain`
+already clean plain text like Lever's — no HTML handling needed at all.
+`jobUrl` is this source's own chunk URL (the job description page, same role
+Greenhouse's `absolute_url`/Lever's `hostedUrl` play); `applyUrl` is always
+`{jobUrl}/application` in every real sample seen, the same deterministic-
+suffix relationship Lever's own `{hostedUrl}/apply` already has — so it isn't
+stored separately, `providers.py` derives it the same way it already derives
+Lever's apply URL (PHASE13.md step 4).
 """
 
 import html
@@ -70,6 +81,27 @@ class LeverCompanySource:
         return _lever_chunks(page.raw, self._company_name)
 
 
+class AshbyCompanySource:
+    """One resolved company's Ashby job board."""
+
+    kind: Literal["jobs", "questions"] = "jobs"
+    transport: Literal["httpx", "scrapling"] = "httpx"
+    delay_s: float = config.REQUEST_DELAY_S
+
+    def __init__(self, slug: str, company_name: str) -> None:
+        self._slug = slug
+        self._company_name = company_name
+
+    def seed_urls(self) -> list[str]:
+        return [f"https://api.ashbyhq.com/posting-api/job-board/{self._slug}"]
+
+    def next_links(self, page: Page) -> list[str]:
+        return []  # confirmed real: one response holds every posting
+
+    def split_items(self, page: Page) -> list[Chunk]:
+        return _ashby_chunks(page.raw, self._company_name)
+
+
 def _greenhouse_chunks(raw: str, company_name: str) -> list[Chunk]:
     payload = json.loads(raw)
     jobs = payload.get("jobs") if isinstance(payload, dict) else None
@@ -117,4 +149,28 @@ def _lever_chunks(raw: str, company_name: str) -> list[Chunk]:
             continue
         chunks.append(Chunk(text=text, url=str(posting["hostedUrl"])))
     logger.info("lever/%s: %d chunks, %d skipped", company_name, len(chunks), skipped)
+    return chunks
+
+
+def _ashby_chunks(raw: str, company_name: str) -> list[Chunk]:
+    payload = json.loads(raw)
+    jobs = payload.get("jobs") if isinstance(payload, dict) else None
+    if not isinstance(jobs, list):
+        raise ValueError("not an Ashby job-board API payload")
+    chunks: list[Chunk] = []
+    skipped = 0
+    for job in jobs:
+        if not isinstance(job, dict) or not job.get("jobUrl"):
+            skipped += 1
+            continue
+        location = str(job.get("location", ""))
+        description = collapse_whitespace(str(job.get("descriptionPlain", "")))
+        title = job.get("title", "")
+        summary = f"{title} at {company_name}. Location: {location}. {description}"
+        text = collapse_whitespace(summary)
+        if len(text) < MIN_CHUNK_CHARS:
+            skipped += 1
+            continue
+        chunks.append(Chunk(text=text, url=str(job["jobUrl"])))
+    logger.info("ashby/%s: %d chunks, %d skipped", company_name, len(chunks), skipped)
     return chunks

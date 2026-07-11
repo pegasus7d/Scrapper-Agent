@@ -100,7 +100,9 @@ class Company(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True)
     slug: Mapped[str | None] = mapped_column(default=None)
-    ats_provider: Mapped[str | None] = mapped_column(default=None)  # "greenhouse" | "lever"
+    ats_provider: Mapped[str | None] = mapped_column(
+        default=None
+    )  # "greenhouse" | "lever" | "ashby"
     # YC batch (e.g. "Summer 2013") — only meaningful for YC-discovered
     # companies (PHASE8.md step 5); null for any other discovery source.
     batch: Mapped[str | None] = mapped_column(default=None)

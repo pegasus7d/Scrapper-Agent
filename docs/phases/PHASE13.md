@@ -165,6 +165,43 @@ discovered by accident later.
    below-`MIN_CHUNK_CHARS` posting (skip). Real smoke test: scrape one
    real Ashby-hosted company's board for real and report how many real
    jobs landed.
+   **Done.** Landed close to plan, with one field-naming correction:
+   `jobUrl` is this source's own chunk URL (Greenhouse/Lever's
+   `absolute_url`/`hostedUrl` equivalent), not `applyUrl` — every real
+   `applyUrl` sample seen is exactly `{jobUrl}/application`, the same
+   deterministic-suffix relationship Lever's `{hostedUrl}/apply` already
+   has, so it's derived in step 4 rather than stored separately. Ashby's
+   `location` field is already a plain string (unlike Greenhouse's
+   nested `{"name": ...}`), and `descriptionPlain` needs no
+   `html.unescape()` — a genuine simplification versus both existing
+   parsers. 5 new tests in `tests/sources/jobs/test_companies.py`,
+   mirroring the Greenhouse/Lever shape exactly (seed URL, real chunk
+   build, skip-short-and-urlless, empty next_links, malformed-payload
+   ValueError).
+
+   **A real bug, caught by the smoke test exactly as CLAUDE.md intends:**
+   the first real run raised `RobotsDisallowed` — `api.ashbyhq.com/
+   robots.txt` returns a genuine `401`, and the existing fetcher policy
+   (written for WeWorkRemotely's real `403`-to-honest-UA case,
+   [[docs/phases/PHASE3.md]]) treated any `401`/`403` on robots.txt as
+   "respect this as a full disallow." That's wrong for this specific,
+   independently-verified case: a `403` is a deliberate "we see you and
+   reject you" signal (WeWorkRemotely's real behavior); a `401` only
+   means "this resource requires credentials," which says nothing about
+   whether some *other* path is meant to be public — and step 1 already
+   confirmed via Ashby's own developer docs that this exact API path is
+   a deliberate public carve-out. Fixed by splitting the two codes in
+   `fetcher.py`'s `_fetch_robots_lines`: `403` still means full disallow
+   (unchanged, WeWorkRemotely's real case stays correct), `401` is now
+   treated the same as a missing robots.txt (unrestricted) — a shared-
+   module change, not a source-specific hack, so it's covered by a new
+   shared test (`test_robots_401_treated_as_allow_all`) alongside the
+   existing `403` test, both passing. Re-running the real smoke test
+   after the fix: **128 real chunks from Ramp's live Ashby board**
+   (`https://jobs.ashbyhq.com/ramp/...`), first chunk a real "Technical
+   Consultant, Mid-Market" posting with real description text. `pytest`
+   (491 passed, +6 counting the fetcher test) / `mypy` / `ruff check` /
+   `ruff format --check` all green.
 
 4. **Ashby field-detection page preparation (backend).** Live
    investigation (a real headless browser against a real live Ashby
