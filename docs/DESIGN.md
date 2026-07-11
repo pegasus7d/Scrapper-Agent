@@ -500,6 +500,29 @@ docs instead of code:
   sharpens the rejection (a personal ToS breach on top of the existing
   legal-risk one).
 
+- **[[docs/phases/PHASE13.md]]** — Ashby, a real Workday feasibility spike,
+  and WhatsApp job-link intake (not started): the user asked directly for
+  broader auto-apply platform coverage and a WhatsApp job-link channel.
+  Grounded in real, checked facts before scoping: of 2,979 discovered
+  companies, 2,566 (86%) were checked and confirmed not on
+  Greenhouse/Lever — a real, quantified coverage gap. Live-probed three
+  next-platform candidates: SmartRecruiters cleanly rejected
+  (`robots.txt` disallows everyone but `LinkedInBot`, same shape as the
+  LinkedIn/Reddit/Blind rejections); Ashby confirmed real and promising
+  (a deliberately public job-board API carved out of an otherwise
+  `401`-locked subdomain); Workday inconclusive on a first check
+  (no single global `robots.txt`, per-tenant architecture) — gets its
+  own real feasibility spike before any build commitment, not assumed
+  either way. Also checked WhatsApp's real API shape directly: the
+  official Business Platform only delivers messages sent to a number you
+  provision, not messages in a channel/group you already follow — the
+  user chose to build the compliant forwarding-number version rather
+  than an unofficial personal-session automation (which this project
+  would reject the same way it rejected authenticated LinkedIn scraping
+  in [[docs/phases/PHASE12.md]]). This is also the first feature in the
+  codebase to require an internet-reachable endpoint at all, an explicit,
+  named exception to this app's local-tool design.
+
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
 the list above, and amend the sections above it in *this* file wherever the

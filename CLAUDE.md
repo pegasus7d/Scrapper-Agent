@@ -177,7 +177,15 @@ grounded in real prior incidents but not yet triggered by this phase's
 own run), and a real ToS review spike (LinkedIn's live User Agreement
 fetched directly) that sharpened the LinkedIn rejection and found no
 reason to revisit Reddit or Blind. No new runtime dependency anywhere
-in this phase).
+in this phase), phase 13 ([[docs/phases/PHASE13.md]], stop at step 12 —
+not started: Ashby ATS support (verified real and promising via a live
+probe), a real Workday feasibility spike (step 6 is a go/no-go gate —
+steps 7-8 only proceed if it comes back positive), and WhatsApp job-link
+intake via the compliant Business Platform forwarding-number path (step
+9 is a real, credentialed hard stop like Gmail OAuth — the loop
+documents the setup path but never attempts it itself). First phase
+requiring an internet-reachable endpoint (a tunnel for the WhatsApp
+webhook) — a named, explicit exception to this app's local-tool design).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.
