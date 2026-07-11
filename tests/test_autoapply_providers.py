@@ -74,3 +74,10 @@ def test_greenhouse_without_a_real_apply_button_raises(page: Page) -> None:
     page.goto(f"{_URL}/lever-like/123")  # a real page with no Apply button at all
     with pytest.raises(providers.PagePreparationFailed):
         providers._click_greenhouse_apply(page)
+
+
+def test_ashby_navigates_to_the_real_application_url(page: Page) -> None:
+    providers.prepare_application_page(page, "ashby", f"{_URL}/ashby-like/123")
+    assert page.url == f"{_URL}/ashby-like/123/application"
+    assert page.locator('[name="_systemfield_name"]').count() == 1
+    assert page.locator("form").count() == 0  # the real quirk this simulates

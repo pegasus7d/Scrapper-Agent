@@ -89,6 +89,18 @@ def test_detect_fields_collapses_a_radio_group_into_one_field_with_options(page:
     assert relocate.options == ["Yes", "No"]
 
 
+def test_detect_fields_works_on_a_page_with_no_form_element(page: Page) -> None:
+    """Real bug found live (PHASE13.md step 4): a real Ashby application
+    page has no <form> at all, which made the old `page.locator("form")`
+    snapshot hang for the full 30s timeout. `test_form_server`'s
+    ashby-like route reproduces that exact shape."""
+    page.goto(f"{_URL}/ashby-like/1/application")
+    fields = filler.detect_fields(page)
+    assert len(fields) == 1
+    assert fields[0].name == "_systemfield_name"
+    assert fields[0].label == "Legal Name"
+
+
 def test_fill_and_submit_real_happy_path(page: Page, resume_file: Path) -> None:
     text_values = {
         "full_name": "Ada Lovelace",

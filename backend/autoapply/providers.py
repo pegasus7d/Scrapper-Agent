@@ -4,6 +4,24 @@ investigation) in one module, never spread through the generic filler:
 Lever's real application form lives at a distinct `/apply` URL, separate
 from the job-description page; Greenhouse's is embedded on the posting
 page but stays hidden until a real "Apply" button click.
+
+Ashby (PHASE13.md step 4, live-investigated the same way): its real
+application form lives at a distinct `{posting_url}/application` URL,
+Lever's shape rather than Greenhouse's — every field is already visible
+on load, no button click needed. A real, separate finding from this same
+investigation lives in `filler.py`'s `detect_fields` docstring instead
+(Ashby's page has no `<form>` element at all), since it's a shared-filler
+fix, not provider-specific navigation.
+
+Known real limitation, not fixed here: Ashby's custom Yes/No questions
+render as `<button>` elements and its location field as a custom
+combobox, neither a native `<input>`/`<select>` — `detect_fields`'s DOM
+query doesn't see them at all, so they're silently absent from a planned
+Ashby application today (confirmed directly against a real posting,
+PHASE13.md step 4's own "Done." writeup has the full field list found vs.
+missed). Native fields (name/email/phone/resume/LinkedIn/free-text
+questions) detect and would fill correctly; button-based custom
+questions are a real, separate capability this step doesn't add.
 """
 
 from typing import Literal
@@ -42,6 +60,13 @@ def prepare_application_page(page: Page, ats_provider: str, posting_url: str) ->
     if ats_provider == "greenhouse":
         page.goto(posting_url, wait_until=_GOTO_WAIT_UNTIL)
         _click_greenhouse_apply(page)
+        return
+    if ats_provider == "ashby":
+        # Lever's shape, not Greenhouse's: a distinct URL, every field
+        # already visible on load, confirmed live (PHASE13.md step 4) —
+        # {jobUrl}/application is exactly the real applyUrl the Ashby API
+        # itself returns for every posting sampled.
+        page.goto(f"{posting_url}/application", wait_until=_GOTO_WAIT_UNTIL)
         return
     raise UnknownProvider(f"no page-preparation logic for ats_provider={ats_provider!r}")
 

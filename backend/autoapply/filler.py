@@ -66,8 +66,16 @@ def detect_fields(page: Page) -> list[DetectedField]:
     Radios collapse to one DetectedField per group (grouped by name=,
     the real HTML requirement for radios to behave as a group at all) —
     emitted after every other field, once every option's label is known.
+
+    Snapshots `body`, not `form` (PHASE13.md step 4): a real Ashby
+    application page has no `<form>` element at all — a React app
+    rendering inputs directly — which made `page.locator("form")` hang
+    for the full 30s timeout and raise. `body` is a strict superset of
+    whatever a real `<form>` would contain, so this is a backward-
+    compatible broadening, confirmed against the existing Greenhouse/
+    Lever real-browser tests, not a behavior change for either.
     """
-    ax_snapshot = page.locator("form").aria_snapshot()
+    ax_snapshot = page.locator("body").aria_snapshot()
     fields: list[DetectedField] = []
     radio_labels: dict[str, list[str]] = {}
     radio_selectors: dict[str, str] = {}

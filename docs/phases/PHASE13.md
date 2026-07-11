@@ -215,6 +215,49 @@ discovered by accident later.
    to match Ashby's confirmed real shape). Real smoke test: `detect_fields`
    against one real, live Ashby posting's real application page — no
    fill, no submit, matching PHASE10.md step 8's own read-only precedent.
+   **Done.** Real shape confirmed live against Ramp's actual application
+   page (`https://jobs.ashbyhq.com/ramp/.../application`): Lever's shape,
+   not Greenhouse's — a distinct URL, every field already visible on
+   load, no button click needed, and `{jobUrl}/application` matches every
+   real `applyUrl` sample seen exactly, so `providers.py`'s `"ashby"`
+   branch is a one-line `page.goto`.
+
+   **A second real bug, in the shared filler, not just this provider:**
+   the live page raised a 30-second `Locator.aria_snapshot: Timeout`
+   inside `detect_fields` itself — Ashby's application page has no
+   `<form>` element at all (a React app rendering inputs directly in the
+   page body), so `page.locator("form")` never matched anything. Fixed
+   in `filler.py`: `detect_fields` now snapshots `page.locator("body")`
+   instead — a strict superset of whatever a real `<form>` would
+   contain, confirmed backward-compatible by re-running every existing
+   Greenhouse/Lever-shaped `test_autoapply_filler.py` test unchanged (all
+   9 still pass). Added `ashby-like` routes to `test_form_server.py`
+   (a job page + a no-`<form>` application page, reproducing the exact
+   real shape that broke) plus a dedicated
+   `test_detect_fields_works_on_a_page_with_no_form_element` test.
+
+   **A real, honest limitation found and not fixed here:** re-running
+   the real `detect_fields()` against Ramp's live page found 7 native
+   fields correctly (`_systemfield_name`/`_systemfield_email` as
+   Legal Name/Email, a UUID-`id` phone field, `_systemfield_resume` as a
+   file upload, a UUID-`id` LinkedIn text field, one free-text textarea
+   question, and the SMS-consent radio group) — but Ashby's *custom*
+   Yes/No screening questions ("Do you have 2+ years in technical
+   consulting...", "Have you worked with ERP systems...") render as real
+   `<button>` elements, not native `<input type="radio">`, and the
+   location field is a custom combobox, not a `<select>` — none of the
+   three are visible to `detect_fields`'s DOM query
+   (`input:visible, select:visible, textarea:visible`) at all. This is a
+   genuine capability gap (recognizing ARIA button-toggle groups and
+   comboboxes as fillable fields), not a bug in what step 4 scoped, and
+   is not fixed here — an Ashby application today will plan correctly
+   against every native field and silently have no data for these custom
+   questions, exactly the same "unanswered, not fabricated" honesty the
+   answer-tool system already guarantees for any field with no matching
+   data (PHASE10.md step 7). 4 new tests (provider navigation + the
+   no-form `detect_fields` test). `pytest` (493 passed, +2 net after the
+   test-file real-shape correction) / `mypy` / `ruff check` /
+   `ruff format --check` all green.
 
 5. **Ashby end-to-end real smoke test.** One full `plan_application` dry
    run against a real, live Ashby posting, reaching `awaiting_confirmation`

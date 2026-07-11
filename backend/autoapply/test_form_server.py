@@ -111,6 +111,23 @@ _LEVER_LIKE_APPLY_HTML = """<!doctype html>
 """
 
 
+# Simulates Ashby's real quirk (PHASE13.md step 4): a distinct
+# `/application` URL like Lever's, but with no `<form>` element at all —
+# a React app rendering inputs directly in the page body, which is what
+# broke `page.locator("form").aria_snapshot()` on the real live page.
+_ASHBY_LIKE_JOB_HTML = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Ashby-like posting</title></head>
+<body><h1>Job at Ashby-like Co</h1><p>No form on this page.</p></body></html>
+"""
+_ASHBY_LIKE_APPLICATION_HTML = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Ashby-like application</title></head>
+<body>
+<label for="_systemfield_name">Legal Name</label>
+<input type="text" id="_systemfield_name" name="_systemfield_name">
+</body></html>
+"""
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return _FORM_HTML
@@ -139,6 +156,16 @@ def lever_like_job(job_id: str) -> str:
 @app.get("/lever-like/{job_id}/apply", response_class=HTMLResponse)
 def lever_like_apply(job_id: str) -> str:
     return _LEVER_LIKE_APPLY_HTML
+
+
+@app.get("/ashby-like/{job_id}", response_class=HTMLResponse)
+def ashby_like_job(job_id: str) -> str:
+    return _ASHBY_LIKE_JOB_HTML
+
+
+@app.get("/ashby-like/{job_id}/application", response_class=HTMLResponse)
+def ashby_like_application(job_id: str) -> str:
+    return _ASHBY_LIKE_APPLICATION_HTML
 
 
 @app.post("/submit", response_class=HTMLResponse)
