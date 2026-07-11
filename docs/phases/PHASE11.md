@@ -236,6 +236,51 @@ not a guess:
    `awaiting_confirmation` → close the browser. Every action through the
    event log. **This function is structurally incapable of submitting** —
    it never calls `fill_field`, `upload_file`, or `submit` on a real page.
+   **Done.** Every pre-flight gate (kill switch, unresolved provider,
+   blocked company, dedup, daily cap, pacing, no resume, match score)
+   raises a real, typed exception *before* any `Application` row is
+   created — no partial/broken row for a rejected pre-flight check.
+   `is_first_application_to_company` is computed before
+   `start_application` creates this attempt's own row (afterward, "any
+   application exists for this company" would always be true). Risk
+   classification's `llm_confidence` uses a real, simple proxy: any
+   open-ended LLM-sourced answer makes the whole plan uncertain (fails
+   safe to high); a genuinely unanswered field doesn't, since it's a
+   different, less risky situation (no data, not a guess). A structural
+   test (`test_planner_has_no_way_to_fill_or_submit`) asserts the module
+   doesn't even import `fill_field`/`upload_file`/`submit`/
+   `detect_and_fill`/`fill_and_submit` — 13 tests total
+   (`tests/test_autoapply_planner.py`), against `test_form_server.py`'s
+   Greenhouse-like/Lever-like routes, a scripted fake LLMClient.
+   **A real incident occurred and was fixed during this step**: testing
+   the new `planned_fields` migration's downgrade against the live
+   `hirable.db` (this project's own established discipline until now)
+   silently corrupted the unrelated `job_embeddings` vec0 table's shadow
+   tables — confirmed by comparing against the backup taken immediately
+   before, which had `job_embeddings` fully intact. Recovered by
+   restoring that backup (with the user's explicit confirmation first,
+   since overwriting the live DB is irreversible) and re-applying the
+   migration once, cleanly. `CLAUDE.md` now documents the fix: round-trip
+   migration tests must run against a scratch copy via `alembic -x
+   db_url=sqlite:////tmp/scratch.db <command>` (the real override key
+   `migrations/env.py` documents — an earlier attempt using `-x
+   sqlalchemy.url=...` silently did nothing and nearly caused a second
+   incident before the real key was found), never against `hirable.db`
+   directly.
+   Real smoke test against the same live Checkr/Greenhouse posting used
+   throughout this phase, with the real persisted resume: real
+   navigation, real 17-field detection matching step 8's own finding,
+   real per-field LLM answer attempts (real Ollama calls, one
+   `answer_field:<label>` event per field), correctly classified `"high"`
+   risk (first application to this company), correctly reached
+   `awaiting_confirmation` with `finished_at` still unset. Every field
+   came back `unanswered` — a real, honest, *correct* outcome: the real
+   profile has no data filled in yet (deliberately reset in step 1), and
+   the local model's documented conservative behavior (step 7's own
+   finding) means it declines to guess rather than fabricate an answer.
+   Smoke-test `Application`/`ApplicationEvent` rows deleted afterward.
+   `pytest` (450 passed) / `mypy` / `ruff check` / `ruff format --check`
+   all green.
 
 6. **Attempt API + task wiring (backend).** `routes_applications.py` +
    one Huey task, mirroring the run endpoints exactly: `POST
