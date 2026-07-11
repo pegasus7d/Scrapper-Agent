@@ -291,6 +291,34 @@ not a guess:
    /applications/{id}/confirm` (records the confirmation event and
    triggers step 7's executor), `GET/POST /autoapply/kill-switch`, `POST
    /companies/{id}/auto-apply-block` toggle.
+   **Done.** `planner.py` split into `check_preflight` (fast, pure-DB —
+   kill switch, provider resolution, blocklist, dedup, daily cap,
+   pacing, resume, match gate) and `run_page_planning` (the real,
+   slow browser work) so the route runs the former synchronously (a real
+   422 with the actual reason, immediately) and enqueues the latter via
+   `backend/autoapply/tasks.py`'s `plan_application_page_task` — the
+   same fast-sync/slow-async split `backend.scraper.tasks` already uses
+   for scrape runs. `safety.active_application_exists` (checks
+   `status == "pending"`) is the 409 guard — rows already sitting at
+   `awaiting_confirmation` don't block a new plan; only concurrent
+   *planning* does. `GET /applications/{id}` returns the row and its full
+   event replay together — the confirmation-review UI (step 8) needs
+   both at once. 13 real API tests
+   (`tests/test_api_applications.py`), the real Huey task functions faked
+   the same way `test_api.py` already fakes `run_scrape_task`.
+   Real smoke test against the real dev DB: `POST /applications` against
+   the real Checkr job ran every real pre-flight gate (a real Ollama
+   embed call, a real match-gate pass) and created a genuine `"pending"`
+   row, confirmed to stay `"pending"` with the consumer disabled (proving
+   the task is truly enqueued, not run inline); reject, the kill switch,
+   and the company-block toggle all verified against real DB state and
+   reverted afterward. **Confirm's actual execution was deliberately not
+   smoke-tested against any real, ATS-linked row** — enqueuing real
+   execution work against a real Greenhouse posting, even accidentally,
+   is exactly the risk this phase's gate discipline exists to prevent;
+   the executor's own dedicated, local-only test suite (step 7) already
+   covers that path for real. `pytest` (468 passed) / `mypy` / `ruff
+   check` / `ruff format --check` all green.
 
 7. **The executor (backend).** `backend/autoapply/executor.py`:
    `execute_submission(session, application)` — refuses unless status is
