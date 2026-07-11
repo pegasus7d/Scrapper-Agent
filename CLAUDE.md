@@ -141,7 +141,11 @@ two real hard stops reached and reported rather than routed around: step
 5 never invents real applicant data, step 9's Gmail reply-detection needs
 OAuth credentials only the user can grant. The first real application
 submission to a real company stays its own separate, explicit checkpoint
-— the "submission gate" — not part of this build order at all).
+— the "submission gate" — not part of this build order at all), phase 11
+([[docs/phases/PHASE11.md]], stop at step 9 — written, not started; wires
+phase 10's components into the plan → review → confirm → execute pipeline;
+the loop must never issue a real confirmation — the first real submission
+is the user's own click in the UI).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.

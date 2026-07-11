@@ -440,17 +440,34 @@ docs instead of code:
   mentions not a real portfolio grid, Kleiner Perkins' real URL wasn't
   found — Accel's real shape, a JS-rendered page with company names in
   each card's `aria-label`, was the one clean win).
-- **[[docs/phases/PHASE10.md]]** — auto-apply (not started; only step 1
-  approved to build, everything past it needs fresh confirmation): the
+- **[[docs/phases/PHASE10.md]]** — auto-apply components (steps 1-9 done): the
   project's first *write* action against a third party rather than a read.
-  Step 1 is a self-contained spike — build a local test form and a
-  Playwright routine that fills and submits it, proving the automation
-  mechanism works before ever pointing it at a real ATS. Everything else
-  (fully autonomous submission against real Greenhouse/Lever forms, a
-  mandatory ToS check before that starts, a structured applicant profile,
-  match-score gating, safety caps/kill switch, closing the loop with
-  interview-question surfacing and reply detection) is scoped in the file
-  but deliberately not started.
+  Step 1 proved the automation mechanism against a local test form; step 2
+  was a real ToS check (Greenhouse's terms explicitly prohibit automation —
+  the user reviewed that finding directly and explicitly accepted the risk
+  for both platforms); steps 3-9 built every component — safety controls
+  (kill switch, fail-safe-to-high risk classification, daily cap, pacing,
+  dedup), an append-only per-application event log, a structured applicant
+  profile (all fields genuinely unset until the user fills them), match-score
+  gating via resume/job cosine similarity, an answer-tool system where a
+  profile lookup always beats an LLM guess, real Greenhouse/Lever
+  field-detection confirmed against live postings (never submitted), and
+  interview-question surfacing in the job drawer. Two hard stops reached and
+  reported rather than routed around: real applicant data, and Gmail OAuth
+  for reply-detection. **No real submission has ever occurred** — that stays
+  behind the file's own "submission gate."
+- **[[docs/phases/PHASE11.md]]** — the application attempt pipeline (written,
+  not started): phase 10 built every component but nothing composes them —
+  no orchestrator, no API, no UI, so the submission gate can't even be
+  reached. Phase 11 wires it all into one observable plan → review →
+  confirm → execute flow: persist the resume (the upload is currently
+  stateless), per-provider page preparation and radio/checkbox filling
+  (both real gaps from step 8's live investigation), match-score
+  calibration over real data, a planner that stops at
+  `awaiting_confirmation` and is structurally incapable of submitting, a
+  confirmation-triggered executor tested only against the local form, and
+  an Applications review UI. The first real submission remains the user's
+  own explicit click, never the build loop's.
 
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
