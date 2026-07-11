@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { apiPost, apiUrl } from '../api/client'
-import type { Job, Paginated } from '../api/types'
+import type { Job, Paginated, Question } from '../api/types'
 import { Drawer } from '../components/Drawer'
 import { Pagination } from '../components/Pagination'
 import { Badge } from '../components/ui/badge'
@@ -105,6 +105,33 @@ function StatusControl({ job, onChanged }: { job: Job; onChanged: (job: Job) => 
   )
 }
 
+// Surfaces the existing interview-question bank once a job's status flips
+// to "interviewing" (PHASE10.md step 9) -- wiring two already-existing
+// features together, not a new question-storage mechanism. The fetch
+// itself is skipped (useApi's path=null) for every other status, not just
+// the rendered section.
+function InterviewQuestions({ job }: { job: Job }) {
+  const questions = useApi<Paginated<Question>>(
+    job.status === 'interviewing' ? `/jobs/${job.id}/interview-questions` : null
+  )
+  if (job.status !== 'interviewing' || !questions.data || questions.data.items.length === 0) {
+    return null
+  }
+  return (
+    <>
+      <h3 className="mt-6 text-sm font-semibold text-foreground">Interview questions</h3>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        {questions.data.items.map((q) => (
+          <li key={q.id}>
+            {q.question}
+            {q.round && <span className="text-xs"> ({q.round})</span>}
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
 function JobDrawer({
   job,
   onClose,
@@ -127,6 +154,7 @@ function JobDrawer({
           status changed {formatTime(job.status_changed_at)}
         </p>
       )}
+      <InterviewQuestions job={job} />
       {job.requirements.length > 0 && (
         <>
           <h3 className="mt-6 text-sm font-semibold text-foreground">Requirements</h3>
