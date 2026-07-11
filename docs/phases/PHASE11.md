@@ -162,6 +162,31 @@ not a guess:
    valid answers, not two separate fields. Tested against an extended
    local test form (add a radio group and a checkbox to
    `test_form_server.py`), not against a real ATS.
+   **Done.** `detect_fields` now groups radios by their shared `name=`
+   (the real HTML requirement for radios to behave as a group at all)
+   into one `DetectedField` with an `options: list[str]` (e.g.
+   `["Yes", "No"]`); `fill_field` grew a checkbox branch (truthy/falsy
+   string → `check()`/`uncheck()`) and a radio branch (matches `value`
+   against each option's real resolved label, `check()`s the matching
+   one, raises a real `ValueError` — caught and reported as a normal
+   `ActionResult` failure — when nothing matches). `test_form_server.py`
+   gained a real radio group ("Willing to relocate?") and checkbox
+   ("Open to fully remote roles") so this is testable end-to-end without
+   touching a live ATS. **File-size cap crossed and fixed**:
+   `filler.py` hit 314 lines with these additions — split into
+   `filler_types.py` (dataclasses + label resolution, needed by both
+   sides), `filler_actions.py` (the per-field action functions), and
+   `filler.py` (detection + orchestration, re-exporting the public names
+   so existing callers are unaffected) — a naive two-file split would
+   have created a circular import (`fill_field` needs `DetectedField`,
+   `detect_fields` needs `fill_field`), which the shared `filler_types`
+   module resolves. 4 new real tests (`tests/test_autoapply_filler.py`).
+   Real smoke test against the same live Lever posting PHASE10.md step 8
+   used: the 8 previously-fragmented individual radio inputs that
+   investigation found now correctly collapse into 6 real `Yes`/`No`
+   groups, and `fill_field` successfully selected an option — no
+   `submit()` call anywhere in this step's code path. `pytest` (433
+   passed) / `mypy` / `ruff check` / `ruff format --check` all green.
 
 4. **Match-score calibration (backend + frontend).** `GET
    /profile/match-scores`: embeds the stored resume Markdown once (422 if
