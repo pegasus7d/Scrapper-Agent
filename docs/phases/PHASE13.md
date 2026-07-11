@@ -104,6 +104,54 @@ discovered by accident later.
    `resolve_unresolved_companies` against the real, current 2,566
    unresolved companies and report the real new-hit count — this is the
    number that actually validates step 1's premise, not a guess.
+   **Done.** `_ATS_URLS` gained `"ashby": "https://api.ashbyhq.com/
+   posting-api/job-board/{slug}"` as a third entry, checked last so the
+   existing Greenhouse-then-Lever hit order/tests are unchanged;
+   `resolve_company`'s existing loop needed zero control-flow changes.
+   Two new tests (`test_resolve_company_falls_through_to_ashby`,
+   `test_resolve_company_returns_none_on_triple_404`, replacing the old
+   double-404 test). `pytest` (485 passed) / `mypy` / `ruff check` /
+   `ruff format --check` all green.
+
+   Real smoke test — run against a scratch copy of `hirable.db` first
+   (`cp hirable.db /tmp/scratch_phase13_resolve_check.db`, same
+   real-DB-safety discipline CLAUDE.md's migration rule established,
+   applied here too since this is a large, real mutation across 2,566
+   rows): `resolve_unresolved_companies` took **5,137.1s (~86 minutes)**
+   real wall time — sequential, no concurrency, no artificial delay, one
+   HTTP round-trip at a time — and reported `checked=2566 resolved=340`.
+   Broken down by provider in the scratch DB: **338 newly resolved to
+   Ashby**, 2 newly resolved to Greenhouse (a real board/slug change
+   since the last check, not an Ashby effect). Coverage nearly doubled:
+   **413/2,979 (14%) before → 753/2,979 (25%) after**, purely from
+   adding one platform. One transient real error surfaced and handled
+   exactly as designed: a single "connection reset by peer" against
+   Greenhouse for "Quidsi (fka Diapers.com)," caught by the existing
+   `except TransportError: continue` and correctly treated as a miss,
+   not a crash. A real, honest mid-run finding: the Ashby-hit rate
+   wasn't uniform — it flatlined at 315 for 813 companies in a row
+   partway through (large, older enterprises — NRG Energy, Palo Alto
+   Networks, Acadia Healthcare, Walt Disney Company — plausibly not on
+   any startup-favored ATS), then resumed. Verified this wasn't
+   breakage (only the one warning above in the entire run, and `lsof`
+   showed a healthy live connection throughout) before concluding it was
+   real company-mix variance, not a bug — the same "flatlined but still
+   producing new resolutions before the run ended" pattern that,
+   unverified, would have looked exactly like silent rate-limiting.
+
+   **The 340 real resolutions above are not yet in the real `hirable.db`**
+   — they exist only in the scratch copy. Copying them back (a
+   name-matched, per-row `mark_company_checked` replay, chosen over
+   re-running the full ~86-minute probe against `hirable.db` directly to
+   avoid ~7,700 redundant real requests against Ashby/Greenhouse/Lever)
+   was flagged by the permission system as a write to a shared/production
+   resource needing explicit authorization, since it wasn't something
+   the user had specifically cleared — correctly stopped rather than
+   worked around. Asked the user directly which they'd prefer (the
+   targeted merge, or a full re-run against `hirable.db` itself);
+   decision pending. This step's code (the resolver change + tests) is
+   complete and committed regardless — only persisting the real
+   resolution data to the live database is on hold.
 
 3. **Ashby job source (backend).** `AshbyCompanySource` in
    `sources/companies.py`, mirroring `GreenhouseCompanySource`/

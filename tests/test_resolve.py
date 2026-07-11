@@ -48,15 +48,27 @@ def test_resolve_company_falls_through_to_lever() -> None:
     assert resolve_company("The Athletic", transport) == ("theathletic", "lever")
 
 
-def test_resolve_company_returns_none_on_double_404() -> None:
+def test_resolve_company_falls_through_to_ashby() -> None:
+    transport = FakeTransport(
+        {
+            "https://boards-api.greenhouse.io/v1/boards/ramp/jobs": 404,
+            "https://api.lever.co/v0/postings/ramp": 404,
+            "https://api.ashbyhq.com/posting-api/job-board/ramp": 200,
+        }
+    )
+    assert resolve_company("Ramp", transport) == ("ramp", "ashby")
+
+
+def test_resolve_company_returns_none_on_triple_404() -> None:
     transport = FakeTransport(
         {
             "https://boards-api.greenhouse.io/v1/boards/deel/jobs": 404,
             "https://api.lever.co/v0/postings/deel": 404,
+            "https://api.ashbyhq.com/posting-api/job-board/deel": 404,
         }
     )
     assert resolve_company("Deel", transport) is None
-    assert len(transport.calls) == 2
+    assert len(transport.calls) == 3
 
 
 def test_resolve_company_skips_a_transport_error_as_a_miss_not_a_crash() -> None:

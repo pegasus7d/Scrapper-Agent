@@ -17,6 +17,14 @@ paths (`boards-api.greenhouse.io/robots.txt` only disallows `/embed/`;
 needs the real per-call HTTP status (200 vs. 404), not PageFetcher's
 retry/backoff policy built for full page-content fetches, which collapses
 every non-2xx/429/5xx status into one FetchError.
+
+Ashby (PHASE13.md step 2) added as a third platform to probe, after a real
+docs check (step 1) confirmed `api.ashbyhq.com/posting-api/job-board/{slug}`
+is a documented, sanctioned public endpoint — not an accidental bypass,
+despite `api.ashbyhq.com/robots.txt` itself returning a real 401 (the
+subdomain requires auth by default; this one path is a deliberate carve
+-out). Checked last in `_ATS_URLS`, after Greenhouse and Lever, purely to
+keep the existing two platforms' hit order/test expectations unchanged.
 """
 
 import logging
@@ -44,6 +52,7 @@ _SLUG_STRIP = re.compile(r"[^a-z0-9]")
 _ATS_URLS = {
     "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs",
     "lever": "https://api.lever.co/v0/postings/{slug}",
+    "ashby": "https://api.ashbyhq.com/posting-api/job-board/{slug}",
 }
 
 
@@ -53,11 +62,11 @@ def guess_slug(name: str) -> str:
 
 
 def resolve_company(name: str, transport: HttpxTransport | None = None) -> tuple[str, str] | None:
-    """Probe Greenhouse then Lever for a company's real job board.
+    """Probe Greenhouse, then Lever, then Ashby for a company's real job board.
 
-    Returns (slug, provider) on a real hit, None when neither platform has
-    this company under the guessed slug — the normal, majority case, not an
-    error.
+    Returns (slug, provider) on a real hit, None when none of these
+    platforms have this company under the guessed slug — the normal,
+    majority case, not an error.
     """
     transport = transport if transport is not None else HttpxTransport()
     slug = guess_slug(name)
