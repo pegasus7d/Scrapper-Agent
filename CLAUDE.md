@@ -136,9 +136,12 @@ Used so far: phase 1 ([[docs/phases/PHASE1.md]], stop at step 6 — the MVP), ph
 ([[docs/phases/PHASE6.md]], stop at step 9 — done), phase 7 ([[docs/phases/PHASE7.md]], stop at
 step 8 — done), phase 8 ([[docs/phases/PHASE8.md]], stop at step 10 — done), phase 9
 ([[docs/phases/PHASE9.md]], stop at step 10 — done), phase 10
-([[docs/phases/PHASE10.md]], stop at step 1 — done; the only step in the
-file's actual build order — everything past it is deliberately unapproved
-and lives in a separate "Deferred" section, still not started).
+([[docs/phases/PHASE10.md]], stop at step 9 — steps 2-9 done, excluding
+two real hard stops reached and reported rather than routed around: step
+5 never invents real applicant data, step 9's Gmail reply-detection needs
+OAuth credentials only the user can grant. The first real application
+submission to a real company stays its own separate, explicit checkpoint
+— the "submission gate" — not part of this build order at all).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.
