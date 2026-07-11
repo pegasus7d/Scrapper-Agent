@@ -94,7 +94,53 @@ no defined stop condition today.
    twice against the same live Greenhouse posting used in PHASE11.md
    step 9's dry-run and confirm the second run hits the cache (log the
    real timing difference, don't assume one).
-   **Done.** Landed as step 1 with a small design change from what was
+   **Done.** Landed with one real design correction from the paragraph
+   above: `form_fingerprint` (a hash of `detect_fields`' own output) was
+   dropped before writing any code — a form's shape can only be known
+   *after* running detection, so a fingerprint of that output can never
+   be looked up *before* running it, a chicken-and-egg problem the
+   original draft missed. Keyed by `(ats_provider, company_id)` instead —
+   both known before opening the page, and Greenhouse/Lever forms are
+   configured at a company's ATS account level, so every posting from the
+   same company shares one real form shape in practice. `field_map` (JSON,
+   same precedent `Application.planned_fields` already set) stores
+   `dataclasses.asdict(DetectedField)` per field; a cache hit is verified
+   by checking every cached selector still resolves on the live page
+   (`page.locator(selector).count() > 0`) before being trusted — any
+   mismatch falls through to full live `detect_fields` and overwrites the
+   row, exactly as planned. New `backend/autoapply/field_cache.py`
+   (`get_cached_fields`/`save_cached_fields`/`fields_resolve_on_page`);
+   `_detect_real_fields` in `planner.py` gained the cache-check/overwrite
+   path (now needs `session`, threaded through from `run_page_planning`).
+   One Alembic migration (`9194e5155074`), vec0/FTS5 false positives
+   stripped by hand per convention, round-tripped against a scratch copy
+   of `hirable.db` per CLAUDE.md's migration-testing rule before the
+   real one-directional `upgrade head` against `hirable.db` itself. 8 new
+   tests (`test_autoapply_field_cache.py`: DB round-trip, per-company
+   isolation, real-page selector resolution against the existing local
+   test-form server) plus one new planner-level integration test
+   asserting, by real call-count (not just end-state), that a second
+   application to the same company reuses the cache — `len(calls) == 1`
+   across two real Playwright-driven `plan_application` calls. Real smoke
+   test against a genuinely live posting (Checkr/Greenhouse, extending
+   PHASE11.md step 9's dry-run companies): a fresh live call against a
+   second, never-applied-to Checkr posting (job 89) ran in 43.98s real
+   wall time, reached `awaiting_confirmation` with 16 real detected
+   fields, and wrote one real `field_detection_cache` row — kept as real,
+   legitimate history (application id 3), same precedent PHASE11.md step
+   9 set for not deleting real dry-run records. Immediately attempting a
+   second live call against a third Checkr posting (job 90) hit a real,
+   correct safety control instead of a cache-hit measurement:
+   `safety.check_pacing` raised `PacingViolation` ("only 43s since the
+   last application, minimum 300s") — the pacing gate built in PHASE10.md
+   working exactly as designed, even under a smoke test. Rather than
+   bypass a real safety control in the live dev DB just to force a timing
+   comparison, the deterministic call-count proof from the local-server
+   integration test stands as the primary verification of the caching
+   mechanism itself; the live run's contribution is proving the cache
+   write path against a genuinely live ATS page. `pytest` (484 passed,
+   +8) / `mypy` / `ruff check` / `ruff format --check` all green (no
+   frontend change this step). from what was
    written above: no `timestamp` field on `SourceHealth` (a health check
    is always run synchronously, on demand, from `GET /sources/health` —
    the response's own arrival time already tells the caller when it was

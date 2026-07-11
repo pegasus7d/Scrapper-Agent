@@ -260,3 +260,32 @@ def test_plan_application_records_every_step_through_the_event_log(
     log = events.list_events(session, application)
     assert any(event.action == "answer_field:Full name" for event in log)
     assert all(event.application_id == application.id for event in log)
+
+
+def test_plan_application_reuses_cached_fields_on_a_repeat_company(
+    session: Session, live_form_server: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A second application to the same company's ATS (PHASE12.md step 2)
+    must hit the field-detection cache — asserted by counting real calls
+    to the live `detect_fields`, not just checking the end result looks
+    the same."""
+    calls: list[None] = []
+    real_detect_fields = planner.detect_fields
+    monkeypatch.setattr(
+        planner, "detect_fields", lambda page: calls.append(None) or real_detect_fields(page)
+    )
+    # Two applications back-to-back would otherwise trip the real pacing
+    # gate (safety.check_pacing) — irrelevant to what this test verifies.
+    monkeypatch.setattr(config, "MIN_SECONDS_BETWEEN_APPLICATIONS", 0)
+
+    _set_up_resume(session)
+    company = _make_company(session, ats_provider="lever")
+    first_job = _make_job(session, company, posting_url=f"{_URL}/lever-like/30")
+    second_job = _make_job(session, company, posting_url=f"{_URL}/lever-like/31")
+
+    first = planner.plan_application(session, first_job)
+    second = planner.plan_application(session, second_job)
+
+    assert len(calls) == 1  # live detect_fields ran once, not twice
+    assert first.status == second.status == "awaiting_confirmation"
+    assert first.planned_fields == second.planned_fields

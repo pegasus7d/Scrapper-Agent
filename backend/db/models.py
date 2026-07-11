@@ -1,8 +1,9 @@
 """SQLAlchemy ORM models for the three tables (DESIGN.md §2)."""
 
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import JSON, ForeignKey
+from sqlalchemy import JSON, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from backend import config
@@ -201,6 +202,29 @@ class ApplicantProfile(Base):
     # not a second DB column — same "binary belongs on the filesystem"
     # precedent BACKUP_DIR already set.
     resume_markdown: Mapped[str | None] = mapped_column(default=None)
+
+
+class FieldDetectionCache(Base):
+    """A cached field map per (ats_provider, company) pair (PHASE12.md step
+    2) — Greenhouse/Lever forms are configured at a company's ATS account
+    level, so every posting from the same company on the same ATS shares
+    one real form shape in practice. Never trusted blindly: every cached
+    selector is re-verified against the live page before use
+    (autoapply/field_cache.py), falling through to full live detection —
+    which then overwrites this row — on any mismatch, since a company can
+    add or remove a custom question at any time."""
+
+    __tablename__ = "field_detection_cache"
+    __table_args__ = (UniqueConstraint("company_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ats_provider: Mapped[str]
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))
+    # One dict per DetectedField (name/tag/input_type/label/
+    # confirmed_by_ax_tree/selector/options) — same JSON-column precedent
+    # Application.planned_fields already set.
+    field_map: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    cached_at: Mapped[datetime]
 
 
 class Schedule(Base):

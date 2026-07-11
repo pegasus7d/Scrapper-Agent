@@ -479,7 +479,7 @@ docs instead of code:
   the user's own click, taken once real applicant data exists to answer
   with.
 - **[[docs/phases/PHASE12.md]]** — source health visibility and cached field
-  detection (step 1 done): prompted by researching two external agent
+  detection (steps 1-2 done): prompted by researching two external agent
   tools (Agent-Reach, OpenCLI), verified real rather than adopted on
   faith — neither is taken on as a dependency (one would reverse the
   phase 1 LinkedIn ToS decision, the other brings a second language

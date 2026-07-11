@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend import config
-from backend.autoapply import events, safety
+from backend.autoapply import events, field_cache, safety
 from backend.autoapply.answers import Answer, build_answer_extractor
 from backend.autoapply.answers import answer_field as answer_one_field
 from backend.autoapply.filler import DetectedField, detect_fields
@@ -138,11 +138,16 @@ def plan_application(session: Session, job: Job) -> Application:
     return application
 
 
-def _detect_real_fields(company: Company, job: Job) -> list[DetectedField] | None:
+def _detect_real_fields(session: Session, company: Company, job: Job) -> list[DetectedField] | None:
     """Real, read-only browser work: open the page, detect fields, close
     the browser. Returns None (never raises past this point) on any real
     navigation/detection failure — the caller records that as a failed
-    application, not a plan-time exception."""
+    application, not a plan-time exception.
+
+    Checks the field-detection cache first (PHASE12.md step 2): a cache
+    hit whose selectors all still resolve on this live page skips live
+    `detect_fields` entirely; a miss or a stale hit falls through to full
+    live detection, which then overwrites the cache row."""
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
@@ -151,7 +156,16 @@ def _detect_real_fields(company: Company, job: Job) -> list[DetectedField] | Non
                 # _resolve_company already guarantees this is not None.
                 assert company.ats_provider is not None
                 prepare_application_page(page, company.ats_provider, job.posting_url)
-                return detect_fields(page)
+                cached = field_cache.get_cached_fields(session, company.ats_provider, company.id)
+                if cached and field_cache.fields_resolve_on_page(page, cached):
+                    logger.info("plan_application: cached field map hit for company %d", company.id)
+                    return cached
+                fields = detect_fields(page)
+                if fields:
+                    field_cache.save_cached_fields(
+                        session, company.ats_provider, company.id, fields
+                    )
+                return fields
             except (PlaywrightError, UnknownProvider, PagePreparationFailed) as error:
                 logger.warning("plan_application: page preparation failed: %s", error)
                 return None
@@ -173,7 +187,7 @@ def run_page_planning(
     classify risk, persist the plan. Called directly by plan_application
     for the synchronous, all-in-one path, and by
     backend.autoapply.tasks' Huey task for the API's async path."""
-    fields = _detect_real_fields(company, job)
+    fields = _detect_real_fields(session, company, job)
     if not fields:
         events.finish_application(
             session, application, status="failed", error="no fillable fields detected"
