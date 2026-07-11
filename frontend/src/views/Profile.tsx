@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
 import type { ApplicantProfile } from '../api/types'
+import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
@@ -74,6 +75,16 @@ export function Profile() {
         questions. Nothing here is pre-filled or guessed -- leave a field blank to answer
         it yourself when it comes up.
       </p>
+
+      {profile.data && (
+        <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+          Resume:
+          <Badge variant={profile.data.has_resume ? 'secondary' : 'outline'}>
+            {profile.data.has_resume ? 'uploaded' : 'not uploaded'}
+          </Badge>
+          {!profile.data.has_resume && 'upload one from the Resume view to enable auto-apply'}
+        </p>
+      )}
 
       <div className="mt-6 flex max-w-md flex-col gap-4 rounded-xl border border-border bg-card p-5">
         <label className="block text-sm font-medium text-muted-foreground">

@@ -93,6 +93,9 @@ export interface ApplicantProfile {
   work_authorization: string | null
   relocation: boolean | null
   start_date_availability: string | null
+  // PHASE11.md step 1 — whether a resume has ever been uploaded; an
+  // application attempt needs one to attach to a real form.
+  has_resume: boolean
 }
 
 // Real (name, label) pairs for every company discovery source (PHASE9.md
