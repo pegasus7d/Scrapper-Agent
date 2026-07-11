@@ -4,6 +4,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { ThemeToggle } from './components/ThemeToggle'
 import { Button } from './components/ui/button'
 import { VIEWS, type View } from './lib/views'
+import { Applications } from './views/Applications'
 import { Companies } from './views/Companies'
 import { Dashboard } from './views/Dashboard'
 import { Jobs } from './views/Jobs'
@@ -61,6 +62,7 @@ export default function App() {
         {view === 'resume' && <Resume />}
         {view === 'companies' && <Companies />}
         {view === 'profile' && <Profile />}
+        {view === 'applications' && <Applications />}
       </main>
     </div>
   )

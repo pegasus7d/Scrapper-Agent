@@ -149,3 +149,41 @@ export interface ResolutionResult {
   checked: number
   resolved: number
 }
+
+// PHASE11.md step 8 — one planned field from the reviewed application
+// plan: the exact value that would be entered, and where it came from.
+export interface PlannedField {
+  field_name: string
+  label: string | null
+  input_type: string
+  answer: string | null
+  source: 'profile' | 'llm' | 'unanswered'
+}
+
+export interface Application {
+  id: number
+  company_id: number
+  company_name: string
+  job_id: number | null
+  job_title: string | null
+  status: string
+  risk_level: string
+  started_at: string
+  finished_at: string | null
+  error: string | null
+  planned_fields: PlannedField[]
+}
+
+export interface ApplicationEvent {
+  id: number
+  action: string
+  success: boolean
+  detail: string | null
+  parent_event_id: number | null
+  created_at: string
+}
+
+export interface ApplicationDetail {
+  application: Application
+  events: ApplicationEvent[]
+}
