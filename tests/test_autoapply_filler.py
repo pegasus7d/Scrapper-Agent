@@ -93,8 +93,12 @@ def test_detect_fields_works_on_a_page_with_no_form_element(page: Page) -> None:
     """Real bug found live (PHASE13.md step 4): a real Ashby application
     page has no <form> at all, which made the old `page.locator("form")`
     snapshot hang for the full 30s timeout. `test_form_server`'s
-    ashby-like route reproduces that exact shape."""
+    ashby-like route reproduces that exact shape (its field is inserted
+    by a delayed script, the same real client-rendering behavior step
+    5 found separately — waited for here since this test is about the
+    no-<form> fix specifically, not that timing fix)."""
     page.goto(f"{_URL}/ashby-like/1/application")
+    page.wait_for_selector('[name="_systemfield_name"]')
     fields = filler.detect_fields(page)
     assert len(fields) == 1
     assert fields[0].name == "_systemfield_name"

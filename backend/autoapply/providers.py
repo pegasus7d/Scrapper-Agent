@@ -29,6 +29,8 @@ from typing import Literal
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
 
+from backend.autoapply.filler import FIELD_SELECTOR
+
 _GREENHOUSE_APPLY_BUTTON = "Apply"
 # domcontentloaded, not the default "load": Greenhouse's real page has a
 # long-lived embedded iframe (a Google API proxy, found in step 8's
@@ -65,8 +67,20 @@ def prepare_application_page(page: Page, ats_provider: str, posting_url: str) ->
         # Lever's shape, not Greenhouse's: a distinct URL, every field
         # already visible on load, confirmed live (PHASE13.md step 4) —
         # {jobUrl}/application is exactly the real applyUrl the Ashby API
-        # itself returns for every posting sampled.
+        # itself returns for every posting sampled. A real timing bug
+        # found in step 5's own smoke test: Ashby's page is client-
+        # rendered (React), so `domcontentloaded` fires before the form
+        # actually paints — detect_fields ran against an empty DOM and
+        # found 0 fields. Waiting on the same selector detect_fields
+        # itself queries makes this a real readiness check, not a guessed
+        # fixed delay.
         page.goto(f"{posting_url}/application", wait_until=_GOTO_WAIT_UNTIL)
+        try:
+            page.wait_for_selector(FIELD_SELECTOR, timeout=10000)
+        except PlaywrightError as error:
+            raise PagePreparationFailed(
+                f"Ashby application page never rendered a fillable field: {error}"
+            ) from error
         return
     raise UnknownProvider(f"no page-preparation logic for ats_provider={ats_provider!r}")
 

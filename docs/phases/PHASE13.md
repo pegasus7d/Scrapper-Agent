@@ -264,6 +264,37 @@ discovered by accident later.
    or a real, honest failure — never confirmed, matching every prior
    phase's submission-gate discipline. `pytest`/`mypy`/`ruff` green before
    moving to Workday.
+   **Done.** First real run surfaced a third real bug, caught by this
+   step's own smoke test exactly as intended: `plan_application` finished
+   in 1.4s and reported `status=failed, error="no fillable fields
+   detected"` — far too fast for a real Playwright run, and wrong, since
+   step 4 had already confirmed 7 real fields exist. Root cause: Ashby's
+   application page is client-rendered (React), so its fields aren't in
+   the DOM yet when `wait_until="domcontentloaded"` fires — `detect_fields`
+   ran against a still-empty page. Fixed in `providers.py`'s `"ashby"`
+   branch: after navigating, wait on the same selector `detect_fields`
+   itself queries (`page.wait_for_selector(FIELD_SELECTOR, timeout=10000)`)
+   before returning — a real readiness check, not a guessed fixed delay.
+   `FIELD_SELECTOR` was promoted from a `filler.py`-private constant to a
+   shared one for exactly this reuse, one definition of "a fillable
+   field" instead of two that could drift. Proved this was a genuine fix,
+   not luck, by making `test_form_server.py`'s `ashby-like` application
+   route insert its field via a real delayed script (300ms) instead of
+   being present immediately — the existing
+   `test_ashby_navigates_to_the_real_application_url` test now fails
+   without the wait and passes with it, a real regression test rather
+   than a fixture that happened not to exercise the bug.
+
+   Re-run against the same live Ramp posting after the fix: real success
+   — `status=awaiting_confirmation`, `risk_level=high` (first application
+   to this company), **2.3s** real wall time, all 7 real fields answered
+   from the profile (a scripted fake LLM client, same precedent
+   `test_autoapply_planner.py`'s own smoke tests already use, since this
+   step verifies the ATS integration mechanics end-to-end, not per-field
+   answer quality — that's `test_autoapply_answers.py`'s job). Never
+   confirmed; the application only exists in an in-memory test session,
+   not `hirable.db`. `pytest` (493 passed) / `mypy` / `ruff check` /
+   `ruff format --check` all green. Ashby thread (steps 1-5) complete.
 
 ### Workday
 

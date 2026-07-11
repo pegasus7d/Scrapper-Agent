@@ -122,8 +122,20 @@ _ASHBY_LIKE_JOB_HTML = """<!doctype html>
 _ASHBY_LIKE_APPLICATION_HTML = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Ashby-like application</title></head>
 <body>
-<label for="_systemfield_name">Legal Name</label>
-<input type="text" id="_systemfield_name" name="_systemfield_name">
+<!-- Real timing bug this reproduces (PHASE13.md step 5): Ashby's actual
+     application page is client-rendered, so its fields aren't in the DOM
+     when `domcontentloaded` fires -- a fixed delay before the JS insert
+     below is what makes this fixture prove the real fix, not just its
+     structure. -->
+<script>
+setTimeout(() => {
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    '<label for="_systemfield_name">Legal Name</label>' +
+    '<input type="text" id="_systemfield_name" name="_systemfield_name">'
+  );
+}, 300);
+</script>
 </body></html>
 """
 

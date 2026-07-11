@@ -55,7 +55,11 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 _MAX_CONSECUTIVE_FAILURES = 5
-_FIELD_SELECTOR = "input:visible, select:visible, textarea:visible"
+# Not underscore-prefixed: providers.py (PHASE13.md step 5) waits on this
+# same selector before calling detect_fields on a client-rendered page
+# (Ashby's React app paints its form after `domcontentloaded` fires) --
+# one shared definition of "a fillable field", not two that could drift.
+FIELD_SELECTOR = "input:visible, select:visible, textarea:visible"
 
 
 def detect_fields(page: Page) -> list[DetectedField]:
@@ -80,7 +84,7 @@ def detect_fields(page: Page) -> list[DetectedField]:
     radio_labels: dict[str, list[str]] = {}
     radio_selectors: dict[str, str] = {}
 
-    for element in page.locator(_FIELD_SELECTOR).all():
+    for element in page.locator(FIELD_SELECTOR).all():
         name = element.get_attribute("name")
         element_id = element.get_attribute("id")
         tag = element.evaluate("el => el.tagName.toLowerCase()")
