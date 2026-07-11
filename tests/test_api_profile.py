@@ -1,14 +1,18 @@
 """Tests for the structured applicant profile endpoints (PHASE10.md step 5)."""
 
 import pytest
+import sqlite_vec
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from backend import config
+from backend.api import routes_profile
 from backend.api.main import create_app
 from backend.autoapply import profile as profile_repo
-from backend.db import migrate, vectors
+from backend.db import migrate, repo, vectors
+from backend.schemas import JobExtract
 
 
 @pytest.fixture
@@ -80,3 +84,62 @@ def test_has_resume_reflects_a_saved_resume_without_a_full_profile_save(
     response = client.get("/api/profile")
     assert response.json()["has_resume"] is True
     assert response.json()["phone"] is None  # untouched by the resume save
+
+
+def _vec(nonzero_dims: list[float]) -> bytes:
+    padded = nonzero_dims + [0.0] * (config.EMBED_DIM - len(nonzero_dims))
+    return sqlite_vec.serialize_float32(padded)
+
+
+def test_match_scores_requires_a_saved_resume(client: TestClient) -> None:
+    response = client.get("/api/profile/match-scores")
+    assert response.status_code == 422
+
+
+def test_match_scores_returns_real_jobs_sorted_highest_first(
+    client: TestClient, engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with Session(engine) as session:
+        profile_repo.save_resume_markdown(session, "Backend engineer resume")
+        run = repo.create_run(session, kind="jobs", source="hn")
+        repo.save_job(
+            session,
+            JobExtract(
+                title="Close Match",
+                company="Acme",
+                location=None,
+                salary=None,
+                requirements=["Python"],
+                apply_url=None,
+            ),
+            posting_url="https://x.com/close",
+            source="hn",
+            tier="local",
+            run=run,
+            embed=lambda _: _vec([1.0, 0.0]),
+        )
+        repo.save_job(
+            session,
+            JobExtract(
+                title="Far Match",
+                company="Beta",
+                location=None,
+                salary=None,
+                requirements=["Python"],
+                apply_url=None,
+            ),
+            posting_url="https://x.com/far",
+            source="hn",
+            tier="local",
+            run=run,
+            embed=lambda _: _vec([0.0, 1.0]),
+        )
+        repo.finish_run(session, run)
+
+    monkeypatch.setattr(routes_profile.matching, "embed_text", lambda text: _vec([1.0, 0.0]))
+    response = client.get("/api/profile/match-scores")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["threshold"] == config.MATCH_SCORE_THRESHOLD
+    assert [item["title"] for item in body["items"]] == ["Close Match", "Far Match"]
+    assert body["items"][0]["score"] > body["items"][1]["score"]

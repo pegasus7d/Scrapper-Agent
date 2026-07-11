@@ -171,6 +171,18 @@ class ApplicantProfileIn(BaseModel):
     start_date_availability: str | None = None
 
 
+class MatchScoreOut(BaseModel):
+    job_id: int
+    title: str
+    company: str
+    score: float
+
+
+class MatchScoreList(BaseModel):
+    items: list[MatchScoreOut]
+    threshold: float
+
+
 class ResumeMarkdown(BaseModel):
     markdown: str
 

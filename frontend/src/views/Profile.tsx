@@ -2,12 +2,46 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
-import type { ApplicantProfile } from '../api/types'
+import type { ApplicantProfile, MatchScoreList } from '../api/types'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { useApi } from '../hooks/useApi'
+
+// Real score distribution over scraped jobs (PHASE11.md step 4) -- lets
+// the user see, on their own real data, what MATCH_SCORE_THRESHOLD's
+// default would gate out before trusting it blindly. The fetch itself is
+// skipped (useApi's path=null) until a resume exists, not just the
+// rendered section.
+function MatchScoreSection({ hasResume }: { hasResume: boolean }) {
+  const scores = useApi<MatchScoreList>(hasResume ? '/profile/match-scores' : null)
+  if (!hasResume || !scores.data || scores.data.items.length === 0) return null
+
+  const { items, threshold } = scores.data
+  const passing = items.filter((s) => s.score >= threshold).length
+
+  return (
+    <div className="mt-6 max-w-md rounded-xl border border-border bg-card p-5">
+      <h2 className="text-sm font-semibold text-foreground">Match scores</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {passing} of {items.length} scraped jobs meet the current threshold ({threshold.toFixed(2)}).
+      </p>
+      <ul className="mt-3 divide-y divide-border text-sm">
+        {items.slice(0, 10).map((s) => (
+          <li key={s.job_id} className="flex items-center justify-between gap-2 py-1.5">
+            <span className="truncate text-foreground">
+              {s.title} · {s.company}
+            </span>
+            <Badge variant={s.score >= threshold ? 'secondary' : 'outline'}>
+              {s.score.toFixed(2)}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 
 type RelocationChoice = 'unspecified' | 'yes' | 'no'
 
@@ -155,6 +189,8 @@ export function Profile() {
           Save
         </Button>
       </div>
+
+      <MatchScoreSection hasResume={profile.data?.has_resume ?? false} />
     </div>
   )
 }

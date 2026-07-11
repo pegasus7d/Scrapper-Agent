@@ -64,3 +64,20 @@ def gate(session: Session, *, job_id: int, resume_text: str) -> MatchContext:
         score=score,
         passed=score >= config.MATCH_SCORE_THRESHOLD,
     )
+
+
+def score_all_jobs(session: Session, resume_text: str) -> list[tuple[int, float]]:
+    """Score every job with a stored embedding against one fresh resume
+    embedding (PHASE11.md step 4) — embedded once here, not once per job,
+    unlike gate()/compute_match_score() which are scoped to a single
+    application attempt. Returns (job_id, score) pairs, highest first, so
+    the user can see a real score distribution over their own data before
+    trusting MATCH_SCORE_THRESHOLD's uncalibrated default."""
+    resume_embedding = embed_text(resume_text)
+    rows = session.execute(
+        text("SELECT rowid, vec_distance_cosine(embedding, :resume_embedding) FROM job_embeddings"),
+        {"resume_embedding": resume_embedding},
+    ).all()
+    scored = [(int(row[0]), 1.0 - float(row[1])) for row in rows]
+    scored.sort(key=lambda pair: pair[1], reverse=True)
+    return scored

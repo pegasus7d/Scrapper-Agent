@@ -98,6 +98,21 @@ export interface ApplicantProfile {
   has_resume: boolean
 }
 
+// PHASE11.md step 4 — the real match-score distribution over scraped
+// jobs, so the user can see what MATCH_SCORE_THRESHOLD's default would
+// gate out before trusting it blindly.
+export interface MatchScore {
+  job_id: number
+  title: string
+  company: string
+  score: number
+}
+
+export interface MatchScoreList {
+  items: MatchScore[]
+  threshold: number
+}
+
 // Real (name, label) pairs for every company discovery source (PHASE9.md
 // step 2) — fetched from GET /companies/sources instead of a hand-mirrored
 // frontend constant, which drifted out of sync once already.
