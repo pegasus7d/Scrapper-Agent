@@ -94,6 +94,43 @@ no defined stop condition today.
    twice against the same live Greenhouse posting used in PHASE11.md
    step 9's dry-run and confirm the second run hits the cache (log the
    real timing difference, don't assume one).
+   **Done.** Landed as step 1 with a small design change from what was
+   written above: no `timestamp` field on `SourceHealth` (a health check
+   is always run synchronously, on demand, from `GET /sources/health` —
+   the response's own arrival time already tells the caller when it was
+   checked, so a stored timestamp would be redundant) and no HEAD-vs-GET
+   branching (`PageFetcher.fetch()` is reused wholesale — a HEAD-only
+   fast path would mean a second, unproven code path through the
+   fetcher, for a probe that's already cheap at one GET per source).
+   `robots.txt` handling turned out cleaner than "re-check the disallow
+   rules" implied: `fetcher.py`'s existing `FetchError` was split into a
+   `RobotsDisallowed(FetchError)` subtype (one-line change at the single
+   raise site), so `health.py` tells "blocked" from "unreachable" via
+   `except RobotsDisallowed` vs `except FetchError`, not by parsing the
+   error message — and every existing `except FetchError` caller
+   (`pipeline.py`) is unaffected since it's still a subtype. Discovery
+   sources didn't have a natural "seed URL" to probe (each is a full
+   `discover()` function, not a `Source` with `seed_urls()`), so
+   `DiscoverySource` gained a `seed_url: str` field populated from each
+   source's own already-existing `config.*_URL` constant — the same URL
+   `discover()` itself fetches first, so the probe can never drift out of
+   sync with what a real discovery run hits. Dynamic per-company sources
+   (`sources.SOURCES` keys prefixed `company:`) are excluded from the
+   probe by design — there can be thousands of them, not fixed
+   infrastructure to monitor. Frontend: the status dot landed in
+   `NewScrapeModal.tsx`'s existing per-source checkbox list (fetched
+   fresh every time the modal opens, hover shows the failure detail) —
+   simpler than a Dashboard-level list, which doesn't currently enumerate
+   individual sources at all. 8 new backend tests
+   (`test_health.py`/`test_api_sources.py`) plus one covering the new
+   `RobotsDisallowed` subtype in `test_fetcher.py`; all mock HTTP, no
+   network in the suite. Real smoke test: ran a live backend on a scratch
+   port (8001, to avoid touching the user's own already-running dev
+   server on 8000) and hit `GET /sources/health` for real — all 17
+   registered sources (9 job/question + 8 discovery) reported `ok`
+   against real live requests to their real domains. `pytest` (476
+   passed, +8) / `mypy` / `ruff check` / `ruff format --check` / `npm run
+   build` all green.
 
 3. **Loop-template hardening (docs only, `CLAUDE.md`).** Three additions to
    the reusable `/loop` prompt in the "Autonomous build loop" section,

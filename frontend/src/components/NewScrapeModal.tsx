@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import type { LocalModel, RunKind } from '../api/types'
+import type { LocalModel, RunKind, SourceHealth } from '../api/types'
 import { useApi } from '../hooks/useApi'
 import { formatSize } from '../lib/format'
 import { SOURCES } from '../lib/sources'
@@ -21,6 +21,13 @@ import {
   SelectValue,
 } from './ui/select'
 
+// PHASE12.md step 1: a source's last-checked liveness, hover for detail.
+const HEALTH_DOT_CLASS: Record<SourceHealth['status'], string> = {
+  ok: 'bg-green-500',
+  blocked: 'bg-amber-500',
+  unreachable: 'bg-red-500',
+}
+
 interface Props {
   onClose: () => void
   // The backend keeps its one-run-at-a-time invariant (DESIGN.md §6) — the
@@ -37,6 +44,11 @@ export function NewScrapeModal({ onClose, onStart }: Props) {
   // Only genuinely-installed models are ever offered (PHASE6.md step 3) —
   // never a hardcoded list.
   const models = useApi<LocalModel[]>('/models')
+  // Fetched fresh every time this modal opens (PHASE12.md step 1) — a
+  // cheap liveness probe, not cached state that could go stale while the
+  // modal sits open.
+  const health = useApi<SourceHealth[]>('/sources/health')
+  const healthByName = new Map(health.data?.map((h) => [h.name, h]))
 
   function selectKind(next: RunKind) {
     setKind(next)
@@ -77,18 +89,27 @@ export function NewScrapeModal({ onClose, onStart }: Props) {
         <div className="block text-sm font-medium text-muted-foreground">
           Sources
           <div className="mt-1 flex flex-col gap-2">
-            {SOURCES[kind].map((s) => (
-              <label
-                key={s}
-                className="flex items-center gap-2 text-sm font-normal text-foreground"
-              >
-                <Checkbox
-                  checked={selected.includes(s)}
-                  onCheckedChange={(checked) => toggleSource(s, checked === true)}
-                />
-                {s}
-              </label>
-            ))}
+            {SOURCES[kind].map((s) => {
+              const sourceHealth = healthByName.get(s)
+              return (
+                <label
+                  key={s}
+                  className="flex items-center gap-2 text-sm font-normal text-foreground"
+                  title={sourceHealth?.detail ?? undefined}
+                >
+                  <Checkbox
+                    checked={selected.includes(s)}
+                    onCheckedChange={(checked) => toggleSource(s, checked === true)}
+                  />
+                  {sourceHealth && (
+                    <span
+                      className={`inline-block size-2 rounded-full ${HEALTH_DOT_CLASS[sourceHealth.status]}`}
+                    />
+                  )}
+                  {s}
+                </label>
+              )
+            })}
           </div>
         </div>
         {SOURCES[kind].length === 0 && (

@@ -214,6 +214,13 @@ class DiscoverySourceOut(BaseModel):
     label: str
 
 
+class SourceHealthOut(BaseModel):
+    name: str
+    kind: Literal["jobs", "questions", "discovery"]
+    status: Literal["ok", "blocked", "unreachable"]
+    detail: str | None
+
+
 class DiscoveryResult(BaseModel):
     discovered: int  # newly-inserted companies this run
     total: int  # all companies now on file

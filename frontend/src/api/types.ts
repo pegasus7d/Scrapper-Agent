@@ -121,6 +121,15 @@ export interface DiscoverySource {
   label: string
 }
 
+// PHASE12.md step 1: a cheap liveness probe per registered source, not a
+// real scrape — see backend/scraper/health.py.
+export interface SourceHealth {
+  name: string
+  kind: 'jobs' | 'questions' | 'discovery'
+  status: 'ok' | 'blocked' | 'unreachable'
+  detail: string | null
+}
+
 export interface ResumeMarkdown {
   markdown: string
 }

@@ -191,6 +191,10 @@ class DiscoverySource:
     # out of sync with real, observed cost (a source shipped once without
     # its frontend label, caught only while writing FEATURES.md).
     label: str
+    # The same URL discover() itself fetches first (PHASE12.md step 1) —
+    # not a separate "health check URL," so a health probe never drifts
+    # out of sync with what discovery actually hits.
+    seed_url: str
 
 
 # The real registry (PHASE9.md step 1) — adding a source means adding one
@@ -198,22 +202,42 @@ class DiscoverySource:
 # Order matches the original DISCOVERY_SOURCES tuple so nothing that reads
 # "first source" (e.g. the frontend's default selection) changes behavior.
 _REGISTRY: dict[str, DiscoverySource] = {
-    "yc": DiscoverySource(build_yc_fetcher, _discover_yc, label="YC"),
+    "yc": DiscoverySource(
+        build_yc_fetcher, _discover_yc, label="YC", seed_url=config.YC_COMPANIES_URL
+    ),
     "largest_us_companies": DiscoverySource(
         build_largest_us_companies_fetcher,
         _discover_largest_us_companies,
         label="Largest US companies",
+        seed_url=config.LARGEST_US_COMPANIES_URL,
     ),
-    "a16z": DiscoverySource(build_a16z_fetcher, _discover_a16z, label="a16z"),
-    "sequoia": DiscoverySource(build_sequoia_fetcher, _discover_sequoia, label="Sequoia"),
+    "a16z": DiscoverySource(
+        build_a16z_fetcher, _discover_a16z, label="a16z", seed_url=config.A16Z_PORTFOLIO_URL
+    ),
+    "sequoia": DiscoverySource(
+        build_sequoia_fetcher,
+        _discover_sequoia,
+        label="Sequoia",
+        seed_url=config.SEQUOIA_COMPANIES_URL,
+    ),
     "foundersfund": DiscoverySource(
-        build_foundersfund_fetcher, _discover_foundersfund, label="Founders Fund"
+        build_foundersfund_fetcher,
+        _discover_foundersfund,
+        label="Founders Fund",
+        seed_url=config.FOUNDERSFUND_PORTFOLIO_URL,
     ),
-    "bvp": DiscoverySource(build_bvp_fetcher, _discover_bvp, label="BVP"),
+    "bvp": DiscoverySource(
+        build_bvp_fetcher, _discover_bvp, label="BVP", seed_url=config.BVP_COMPANIES_URL
+    ),
     "russell1000": DiscoverySource(
-        build_russell_1000_fetcher, _discover_russell_1000, label="Russell 1000"
+        build_russell_1000_fetcher,
+        _discover_russell_1000,
+        label="Russell 1000",
+        seed_url=config.RUSSELL_1000_URL,
     ),
-    "accel": DiscoverySource(build_accel_fetcher, _discover_accel, label="Accel"),
+    "accel": DiscoverySource(
+        build_accel_fetcher, _discover_accel, label="Accel", seed_url=config.ACCEL_PORTFOLIO_URL
+    ),
 }
 
 # The real, valid values for POST /companies/discover's source param and
@@ -227,6 +251,12 @@ def discovery_source_labels() -> list[tuple[str, str]]:
     order — the single source of truth GET /companies/sources (PHASE9.md
     step 2) serves, so the frontend never hand-mirrors this list again."""
     return [(name, entry.label) for name, entry in _REGISTRY.items()]
+
+
+def discovery_seed_urls() -> list[tuple[str, str]]:
+    """Real (name, seed_url) pairs for every discovery source, in registry
+    order — health.py's own liveness probe (PHASE12.md step 1)."""
+    return [(name, entry.seed_url) for name, entry in _REGISTRY.items()]
 
 
 def discover_and_save_companies(session: Session, source: str) -> int:

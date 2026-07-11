@@ -34,6 +34,14 @@ class FetchError(Exception):
     """A page could not be fetched politely and successfully."""
 
 
+class RobotsDisallowed(FetchError):
+    """robots.txt disallows this URL — a FetchError subtype so existing
+    `except FetchError` callers (pipeline.py) are unaffected, while callers
+    that need to tell "blocked" apart from "unreachable" (health.py,
+    PHASE12.md step 1) can catch this specifically instead of parsing the
+    error message."""
+
+
 class PageFetcher:
     """Fetches pages as cleaned text, one robots.txt check per domain."""
 
@@ -55,7 +63,7 @@ class PageFetcher:
     def fetch(self, url: str) -> Page:
         """Fetch one URL as cleaned page text; raises FetchError on any failure."""
         if not self._allowed_by_robots(url):
-            raise FetchError(f"disallowed by robots.txt: {url}")
+            raise RobotsDisallowed(f"disallowed by robots.txt: {url}")
         response = self._get_with_retry(url)
         body = response.body
         raw = body.decode("utf-8", "replace") if isinstance(body, bytes) else body

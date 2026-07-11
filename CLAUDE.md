@@ -167,9 +167,11 @@ submission gate has still never been crossed** — no application has
 ever been confirmed/submitted; the first real Confirm is the user's own
 click in the Applications view, once real applicant data exists to
 answer with), phase 12 ([[docs/phases/PHASE12.md]], stop at step 4 —
-not started: sources doctor, cached field detection for auto-apply,
-this loop template's own hardening, and a ToS review spike — no new
-runtime dependencies).
+step 1 done: `GET /sources/health` liveness probe across all 17
+registered sources, verified with a real dry-run (all `ok`); steps 2-4
+(cached field detection for auto-apply, this loop template's own
+hardening, and a ToS review spike) remain — no new runtime
+dependencies).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.

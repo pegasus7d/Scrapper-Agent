@@ -7,7 +7,7 @@ from urllib.request import Request
 import pytest
 
 from backend.scraper import fetcher as fetcher_module
-from backend.scraper.fetcher import FetchError, Page, PageFetcher
+from backend.scraper.fetcher import FetchError, Page, PageFetcher, RobotsDisallowed
 from backend.scraper.transport import TransportError, TransportResponse
 
 
@@ -103,6 +103,19 @@ def test_robots_disallowed_never_fetches(
     with pytest.raises(FetchError, match="robots.txt"):
         instance.fetch("https://x.com/private")
     assert transport.calls == []
+
+
+def test_robots_disallowed_raises_the_specific_subtype(
+    sleeps: list[float], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """RobotsDisallowed (PHASE12.md step 1) must stay a FetchError subtype
+    so pipeline.py's existing `except FetchError` is unaffected, while
+    health.py can catch it specifically to tell "blocked" apart from
+    "unreachable" without parsing the error message."""
+    instance = PageFetcher(transport=FakeTransport([]))
+    monkeypatch.setattr(instance, "_allowed_by_robots", lambda url: False)
+    with pytest.raises(RobotsDisallowed):
+        instance.fetch("https://x.com/private")
 
 
 class _FakeRobotsResponse:
