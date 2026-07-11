@@ -92,6 +92,40 @@ not a guess:
    `GET /profile` gains a real `has_resume` signal so the UI can show
    whether an attempt is even possible. Existing stateless behavior
    (return the Markdown) is unchanged.
+   **Done.** `config.RESUME_STORAGE_PATH` (`data/resume.pdf`, gitignored)
+   + `resume.save_resume_pdf()`; `ApplicantProfile.resume_markdown`
+   (migration `82281bf711fc`, both directions verified against the real
+   dev DB) + `profile.save_resume_markdown()` — a narrow update touching
+   only that one column, so a resume re-upload never clobbers
+   phone/salary/etc. the way a full `save_profile()` call would.
+   `ApplicantProfileOut` gained `has_resume` (derived from
+   `resume_markdown is not None`, built explicitly in the route rather
+   than via `model_validate`, since it isn't a real ORM column). A real
+   bug caught before it shipped: `save_resume_pdf`'s `path` parameter must
+   be read from `config` at the call site, not relied on as the
+   function's own default — a default is bound once at import time, so a
+   test monkeypatching `config.RESUME_STORAGE_PATH` would silently miss
+   it. 17 real tests across `test_resume.py`/`test_api_resume.py`/
+   `test_autoapply_profile.py`.
+   **Testing infrastructure change requested mid-step**: the user asked
+   for a fixed, reusable test resume file instead of a throwaway
+   synthetic PDF regenerated (and discarded) every time — added
+   `tests/fixtures/resume-backend.pdf` (a checked-in, synthetic "Backend
+   Engineer" persona, not real personal data) and a shared
+   `tests/conftest.py::resume_pdf_bytes` fixture, replacing every
+   per-file `_minimal_pdf_bytes()` helper and the `.txt` placeholder
+   `test_autoapply_filler.py` used for its own upload tests.
+   Real smoke test (real backend, real dev DB, the real fixture file via
+   `curl`): `GET /profile` correctly showed `has_resume: false` before
+   upload and `true` after; the real file landed at `data/resume.pdf`.
+   Per the same "stop generating and discarding" intent, **this smoke
+   test's resume was deliberately left persisted** rather than reset
+   afterward (unlike every prior phase's smoke-test cleanup) — later
+   steps in this phase (the planner, the executor) need a real resume
+   already available to build and test against, and the fixture's
+   content is clearly a synthetic test persona, not a claim about the
+   user's real background. `pytest` (425 passed) / `mypy` / `ruff check`
+   / `ruff format --check` / `npm run build` all green.
 
 2. **Provider page preparation (backend).** New
    `backend/autoapply/providers.py`: `prepare_application_page(page,
