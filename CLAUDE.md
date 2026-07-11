@@ -87,9 +87,17 @@ for anyone to review and understand. No slop.
   type gate).
 - **Smoke test at step boundaries.** Unit tests mock all I/O, so they can never prove
   the real integration works. Before a build-order step (`PHASE{N}.md`, current phase
-  is [[docs/phases/PHASE10.md]]) is called done, run the new piece once for real (real Ollama, real
+  is [[docs/phases/PHASE11.md]]) is called done, run the new piece once for real (real Ollama, real
   fetch of one page) and say what happened. Failures found here that unit tests
   missed → add the missing unit test.
+- **Never round-trip test a migration's upgrade/downgrade against the real `hirable.db`.**
+  A real incident (PHASE11.md step 5): testing a migration's downgrade against the live
+  dev DB — even one whose own `upgrade()`/`downgrade()` only touched an unrelated table —
+  silently corrupted the `job_embeddings` vec0 virtual table's shadow tables. Always
+  `cp hirable.db /tmp/scratch.db` first and run the round-trip against that copy via
+  `alembic -x db_url=sqlite:////tmp/scratch.db <command>` (`migrations/env.py`'s
+  documented override — note the key is `db_url`, not `sqlalchemy.url`). Only ever run a
+  single, one-directional `alembic upgrade head` against the real `hirable.db` itself.
 
 ## Git workflow — one feature at a time
 
