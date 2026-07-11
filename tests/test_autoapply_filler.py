@@ -62,13 +62,31 @@ def test_detect_fields_finds_real_fields_with_ax_confirmed_labels(page: Page) ->
     page.goto(_URL)
     fields = filler.detect_fields(page)
     by_name = {f.name: f for f in fields}
-    assert set(by_name) == {"full_name", "email", "phone", "role", "resume", "cover_note"}
+    assert set(by_name) == {
+        "full_name",
+        "email",
+        "phone",
+        "role",
+        "resume",
+        "cover_note",
+        "relocate",
+        "remote_ok",
+    }
     assert by_name["full_name"].label == "Full name"
     assert by_name["full_name"].confirmed_by_ax_tree is True
     assert by_name["email"].input_type == "email"
     assert by_name["role"].tag == "select"
     assert by_name["resume"].input_type == "file"
     assert by_name["cover_note"].tag == "textarea"
+    assert by_name["remote_ok"].input_type == "checkbox"
+
+
+def test_detect_fields_collapses_a_radio_group_into_one_field_with_options(page: Page) -> None:
+    page.goto(_URL)
+    fields = filler.detect_fields(page)
+    relocate = next(f for f in fields if f.name == "relocate")
+    assert relocate.input_type == "radio"
+    assert relocate.options == ["Yes", "No"]
 
 
 def test_fill_and_submit_real_happy_path(page: Page, resume_file: Path) -> None:
@@ -78,6 +96,8 @@ def test_fill_and_submit_real_happy_path(page: Page, resume_file: Path) -> None:
         "phone": "555-0100",
         "role": "backend",
         "cover_note": "Real test submission.",
+        "relocate": "Yes",  # matches the radio option's real resolved label
+        "remote_ok": "true",
     }
     result = filler.fill_and_submit(page, _URL, text_values, {"resume": str(resume_file)})
     assert result.success is True
@@ -90,8 +110,41 @@ def test_fill_and_submit_real_happy_path(page: Page, resume_file: Path) -> None:
     assert page.locator("#received-phone").inner_text() == "555-0100"
     assert page.locator("#received-role").inner_text() == "backend"
     assert page.locator("#received-cover_note").inner_text() == "Real test submission."
+    assert page.locator("#received-relocate").inner_text() == "yes"  # the real HTML value=
+    assert page.locator("#received-remote_ok").inner_text() == "True"
     assert page.locator("#received-resume_filename").inner_text() == "resume-backend.pdf"
     assert int(page.locator("#received-resume_size_bytes").inner_text()) > 0
+
+
+def test_fill_field_selects_a_radio_option_by_its_real_label(page: Page) -> None:
+    page.goto(_URL)
+    fields = filler.detect_fields(page)
+    relocate = next(f for f in fields if f.name == "relocate")
+    result = filler.fill_field(page, relocate, "No")
+    assert result.success is True
+    assert page.locator('[name="relocate"][value="no"]').is_checked()
+    assert not page.locator('[name="relocate"][value="yes"]').is_checked()
+
+
+def test_fill_field_reports_failure_for_an_unmatched_radio_option(page: Page) -> None:
+    page.goto(_URL)
+    fields = filler.detect_fields(page)
+    relocate = next(f for f in fields if f.name == "relocate")
+    result = filler.fill_field(page, relocate, "Maybe")
+    assert result.success is False
+    assert "no radio option matching" in (result.error or "")
+
+
+def test_fill_field_sets_a_checkbox_from_a_truthy_or_falsy_value(page: Page) -> None:
+    page.goto(_URL)
+    fields = filler.detect_fields(page)
+    remote_ok = next(f for f in fields if f.name == "remote_ok")
+
+    assert filler.fill_field(page, remote_ok, "true").success is True
+    assert page.locator('[name="remote_ok"]').is_checked()
+
+    assert filler.fill_field(page, remote_ok, "false").success is True
+    assert not page.locator('[name="remote_ok"]').is_checked()
 
 
 def test_fill_and_submit_is_not_flaky_across_repeated_runs(

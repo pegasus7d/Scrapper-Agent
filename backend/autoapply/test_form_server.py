@@ -58,6 +58,17 @@ _FORM_HTML = """<!doctype html>
     <label for="cover_note">Anything else you'd like us to know?</label>
     <textarea id="cover_note" name="cover_note"></textarea>
   </div>
+  <fieldset>
+    <legend>Willing to relocate?</legend>
+    <label><input type="radio" name="relocate" value="yes"> Yes</label>
+    <label><input type="radio" name="relocate" value="no"> No</label>
+  </fieldset>
+  <div>
+    <label for="remote_ok">
+      <input type="checkbox" id="remote_ok" name="remote_ok" value="true">
+      Open to fully remote roles
+    </label>
+  </div>
   <button type="submit">Submit application</button>
 </form>
 </body>
@@ -128,6 +139,8 @@ async def submit(
     resume: UploadFile,
     phone: Annotated[str, Form()] = "",
     cover_note: Annotated[str, Form()] = "",
+    relocate: Annotated[str, Form()] = "",
+    remote_ok: Annotated[bool, Form()] = False,
 ) -> str:
     """Echoes back exactly what was received — real proof a submission
     landed, not just that the endpoint returned 200. `filler.py`'s smoke
@@ -152,6 +165,8 @@ async def submit(
   <dt>phone</dt><dd id="received-phone">{phone}</dd>
   <dt>role</dt><dd id="received-role">{role}</dd>
   <dt>cover_note</dt><dd id="received-cover_note">{cover_note}</dd>
+  <dt>relocate</dt><dd id="received-relocate">{relocate}</dd>
+  <dt>remote_ok</dt><dd id="received-remote_ok">{remote_ok}</dd>
   <dt>resume_filename</dt><dd id="received-resume_filename">{resume.filename}</dd>
   <dt>resume_size_bytes</dt><dd id="received-resume_size_bytes">{len(resume_bytes)}</dd>
 </dl>

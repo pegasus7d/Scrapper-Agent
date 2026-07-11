@@ -16,100 +16,84 @@ prior-art research behind each):
     verified against real confirmation-page state, never inferred;
 (d) actions are discrete and typed (detect_fields, fill_field,
     upload_file, submit), not one opaque call (OpenHands).
+
+Split across three modules to stay under CLAUDE.md's 300-line cap:
+`filler_types.py` (dataclasses + label resolution), `filler_actions.py`
+(fill_field/upload_file/submit), and this file (detection +
+orchestration) — `ActionResult`/`DetectedField`/`DoneResult`/
+`DetectAndFillResult` are re-exported here so existing callers keep
+writing `filler.DetectedField` etc.
 """
 
 import logging
-from dataclasses import dataclass
 
 from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Page
+
+from backend.autoapply.filler_actions import fill_field, submit, upload_file
+from backend.autoapply.filler_types import (
+    ActionResult,
+    DetectAndFillResult,
+    DetectedField,
+    DoneResult,
+    resolve_label,
+)
+
+__all__ = [
+    "ActionResult",
+    "DetectAndFillResult",
+    "DetectedField",
+    "DoneResult",
+    "detect_and_fill",
+    "detect_fields",
+    "fill_and_submit",
+    "fill_field",
+    "submit",
+    "upload_file",
+]
 
 logger = logging.getLogger(__name__)
 
 _MAX_CONSECUTIVE_FAILURES = 5
 _FIELD_SELECTOR = "input:visible, select:visible, textarea:visible"
-_SUBMIT_SELECTOR = 'button[type="submit"], input[type="submit"]'
-
-# Real per-element label resolution, run in-page (Locator.evaluate) rather
-# than round-tripping each attribute check through separate Playwright
-# calls: a real <label for=id>, else a wrapping <label>, else aria-label,
-# else placeholder — in that priority, confirmed directly against the
-# real test form's markup.
-_LABEL_JS = """el => {
-    if (el.id) {
-        const byFor = document.querySelector(`label[for="${el.id}"]`);
-        if (byFor && byFor.textContent.trim()) return byFor.textContent.trim();
-    }
-    const wrapping = el.closest('label');
-    if (wrapping && wrapping.textContent.trim()) return wrapping.textContent.trim();
-    const ariaLabel = el.getAttribute('aria-label');
-    if (ariaLabel) return ariaLabel;
-    const placeholder = el.getAttribute('placeholder');
-    return placeholder || null;
-}"""
-
-
-@dataclass
-class ActionResult:
-    success: bool
-    error: str | None = None
-
-
-@dataclass
-class DetectedField:
-    # The real, stable per-field identifier: the HTML name= attribute when
-    # present, else id (PHASE10.md step 8's own real finding — Greenhouse's
-    # embedded application form has no name= attribute on any field at all,
-    # a React form submitted via JS rather than a native HTML POST; id is
-    # real and stable there instead, not a rare fallback case).
-    name: str
-    tag: str  # "input" | "select" | "textarea"
-    input_type: str  # e.g. "text", "email", "tel", "file"; "" for select/textarea
-    label: str | None
-    # Cross-referenced against a real accessibility-tree snapshot (not just
-    # trusting the DOM-computed label alone) — the actual hybrid-grounding
-    # signal, confirmed True/False per field, not assumed.
-    confirmed_by_ax_tree: bool
-    # The real Playwright selector to target this field with — computed
-    # once at detect time from whichever of name/id was actually present,
-    # rather than re-derived (and reassumed to be name=) at fill time.
-    selector: str
-
-
-@dataclass
-class DoneResult:
-    success: bool
-    reason: str
-
-
-def _resolve_label(locator: Locator) -> str | None:
-    try:
-        label = locator.evaluate(_LABEL_JS)
-    except PlaywrightError:
-        return None
-    return label.strip() if isinstance(label, str) and label.strip() else None
 
 
 def detect_fields(page: Page) -> list[DetectedField]:
     """Real DOM query (visible input/select/textarea elements) cross-
     referenced against a real accessibility-tree snapshot — the hybrid
-    grounding signal, not vision/screenshot-only and not raw-DOM-only."""
+    grounding signal, not vision/screenshot-only and not raw-DOM-only.
+
+    Radios collapse to one DetectedField per group (grouped by name=,
+    the real HTML requirement for radios to behave as a group at all) —
+    emitted after every other field, once every option's label is known.
+    """
     ax_snapshot = page.locator("form").aria_snapshot()
     fields: list[DetectedField] = []
+    radio_labels: dict[str, list[str]] = {}
+    radio_selectors: dict[str, str] = {}
+
     for element in page.locator(_FIELD_SELECTOR).all():
         name = element.get_attribute("name")
         element_id = element.get_attribute("id")
+        tag = element.evaluate("el => el.tagName.toLowerCase()")
+        input_type = element.get_attribute("type") or "" if tag == "input" else ""
+        if input_type in ("submit", "button", "hidden"):
+            continue  # not a fillable field
+
+        if input_type == "radio" and name:
+            label = resolve_label(element)
+            if label:
+                radio_labels.setdefault(name, []).append(label)
+            radio_selectors[name] = f'[name="{name}"]'
+            continue
+
         if name:
             identifier, selector = name, f'[name="{name}"]'
         elif element_id:
             identifier, selector = element_id, f'[id="{element_id}"]'
         else:
             continue  # neither identifier is present -- can't be targeted later
-        tag = element.evaluate("el => el.tagName.toLowerCase()")
-        input_type = element.get_attribute("type") or "" if tag == "input" else ""
-        if input_type in ("submit", "button", "hidden"):
-            continue  # not a fillable field
-        label = _resolve_label(element)
+        label = resolve_label(element)
         confirmed = bool(label) and f'"{label}"' in ax_snapshot
         fields.append(
             DetectedField(
@@ -121,47 +105,23 @@ def detect_fields(page: Page) -> list[DetectedField]:
                 selector=selector,
             )
         )
+
+    for name, labels in radio_labels.items():
+        confirmed = any(f'"{label}"' in ax_snapshot for label in labels)
+        fields.append(
+            DetectedField(
+                name=name,
+                tag="input",
+                input_type="radio",
+                label=None,
+                confirmed_by_ax_tree=confirmed,
+                selector=radio_selectors[name],
+                options=labels,
+            )
+        )
+
     logger.info("detect_fields: %d real fields found", len(fields))
     return fields
-
-
-def fill_field(page: Page, field: DetectedField, value: str) -> ActionResult:
-    try:
-        locator = page.locator(field.selector)
-        if field.tag == "select":
-            locator.select_option(value)
-        else:
-            locator.fill(value)
-        return ActionResult(success=True)
-    except PlaywrightError as error:
-        logger.warning("fill_field failed for %r: %s", field.name, error)
-        return ActionResult(success=False, error=str(error))
-
-
-def upload_file(page: Page, field: DetectedField, file_path: str) -> ActionResult:
-    try:
-        page.locator(field.selector).set_input_files(file_path)
-        return ActionResult(success=True)
-    except PlaywrightError as error:
-        logger.warning("upload_file failed for %r: %s", field.name, error)
-        return ActionResult(success=False, error=str(error))
-
-
-def submit(page: Page) -> ActionResult:
-    try:
-        page.locator(_SUBMIT_SELECTOR).first.click()
-        page.wait_for_load_state("networkidle")
-        return ActionResult(success=True)
-    except PlaywrightError as error:
-        logger.warning("submit failed: %s", error)
-        return ActionResult(success=False, error=str(error))
-
-
-@dataclass
-class DetectAndFillResult:
-    fields: list[DetectedField]
-    filled: list[str]  # names of fields successfully filled/uploaded
-    failed: list[str]  # names of fields that failed
 
 
 def detect_and_fill(
