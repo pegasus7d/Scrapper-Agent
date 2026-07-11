@@ -305,6 +305,34 @@ not a guess:
    The executor is never pointed at a real ATS by the loop — the only
    path to a real submission is a real human clicking Confirm in step
    8's UI, and this phase's loop never does that.
+   **Done — built ahead of step 6, since step 6's confirm endpoint
+   needs a real executor to call.** The drift check compares the exact
+   *set* of field names between the stored plan and a fresh
+   `detect_fields()` call — any real change to the live form since
+   review (a field added, removed, or renamed) fails the application
+   safe rather than filling a form nobody actually reviewed. Only fields
+   the plan actually answered get filled (an unanswered field is left
+   blank, same convention `detect_and_fill` already uses); file fields
+   attach the real, persisted resume from `config.RESUME_STORAGE_PATH`
+   regardless of the plan's own answer text for that field (the text is
+   just the "should this be filled" signal, e.g. `"resume-backend.pdf"`
+   — the real bytes always come from the one persisted file). A known,
+   honestly-documented limitation: confirmation-page verification is
+   currently tuned to the local test form's own `#confirmation` element;
+   a real ATS's confirmation-page shape is unknown until the submission
+   gate is separately crossed, and generalizing this check is real,
+   future work at that point, not solved here.
+   Added a `/apply` alias to `test_form_server.py` serving the same
+   real, fully-working form — the executor's own tests need a route
+   reachable through `prepare_application_page`'s real "lever" `/apply`
+   convention that also has a genuine, working `/submit` handler, unlike
+   the read-only `/lever-like/{id}/apply` route step 2 added.
+   5 real tests (`tests/test_autoapply_executor.py`), including a real
+   happy-path run that genuinely fills every field type (text, select,
+   file upload, radio, checkbox) and submits against the local server,
+   confirmed via the real rendered confirmation page — never against a
+   real ATS, per this step's own explicit gate discipline. `pytest` (455
+   passed) / `mypy` / `ruff check` / `ruff format --check` all green.
 
 8. **Applications view (frontend).** New nav view mirroring the
    established table+drawer pattern: attempts list (status/risk badges),
