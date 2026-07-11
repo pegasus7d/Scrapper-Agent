@@ -244,11 +244,11 @@ class ApplicationEventOut(BaseModel):
 
 
 class ApplicationOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: int
     company_id: int
+    company_name: str
     job_id: int | None
+    job_title: str | None
     status: str
     risk_level: str
     started_at: datetime
