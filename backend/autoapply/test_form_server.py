@@ -65,9 +65,59 @@ _FORM_HTML = """<!doctype html>
 """
 
 
+# Simulates Greenhouse's real quirk (PHASE10.md step 8, PHASE11.md step
+# 2): the application form is embedded on the page but hidden until a
+# real "Apply" button click reveals it — never a separate URL.
+_GREENHOUSE_LIKE_HTML = """<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Greenhouse-like posting</title></head>
+<body>
+<h1>Job at Greenhouse-like Co</h1>
+<button type="button" id="apply_button"
+        onclick="document.getElementById('gh-form').style.display='block'">Apply</button>
+<form id="gh-form" style="display:none">
+  <label for="first_name">First name</label>
+  <input type="text" id="first_name" name="first_name">
+</form>
+</body>
+</html>
+"""
+
+# Simulates Lever's real quirk: the job-description page has no form at
+# all; the real application form lives at a distinct `/apply` URL.
+_LEVER_LIKE_JOB_HTML = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Lever-like posting</title></head>
+<body><h1>Job at Lever-like Co</h1><p>No form on this page.</p></body></html>
+"""
+_LEVER_LIKE_APPLY_HTML = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Lever-like apply</title></head>
+<body>
+<form>
+  <label for="name">Full name</label>
+  <input type="text" id="name" name="name">
+</form>
+</body></html>
+"""
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return _FORM_HTML
+
+
+@app.get("/greenhouse-like", response_class=HTMLResponse)
+def greenhouse_like() -> str:
+    return _GREENHOUSE_LIKE_HTML
+
+
+@app.get("/lever-like/{job_id}", response_class=HTMLResponse)
+def lever_like_job(job_id: str) -> str:
+    return _LEVER_LIKE_JOB_HTML
+
+
+@app.get("/lever-like/{job_id}/apply", response_class=HTMLResponse)
+def lever_like_apply(job_id: str) -> str:
+    return _LEVER_LIKE_APPLY_HTML
 
 
 @app.post("/submit", response_class=HTMLResponse)
