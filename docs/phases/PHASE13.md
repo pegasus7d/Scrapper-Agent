@@ -312,13 +312,60 @@ discovered by accident later.
    Perkins precedent, [[docs/phases/PHASE9.md]]), and skip steps 7-8
    entirely — this is a legitimate, honest outcome, not a failure to
    route around.
+   **Done — no-go, real evidence gathered before deciding.** The
+   `/wday/cxs/{tenant}/{site}/jobs` API itself is real and does return
+   clean, public JSON with no auth (confirmed live against
+   `datasite.wd1.myworkdayjobs.com`: `{"total": 51, "jobPostings": [...]}`,
+   real titles/locations/paths). The blocker is resolution, not the API:
+
+   - **No guessable slug.** Unlike Greenhouse/Lever/Ashby's one
+     `guess_slug(name)` → one URL template, a Workday URL needs three
+     independent unknowns — tenant, wd-cluster number (`wd1`, `wd3`,
+     `wd5`, ...), and *site name* (the third path segment, e.g.
+     `"Workday"`, `"datasite"`, `"disneycareer"`,
+     `"panwexternalcareers"`) — and real samples show zero naming
+     convention connecting a company's name to its real site name.
+   - **Brute-forcing the cluster number partially works, but the site
+     name doesn't brute-force at all.** Tested against three real
+     companies from this project's own 2,566 unresolved list
+     (Palo Alto Networks, NRG Energy, Walt Disney) across `wd1`/`wd2`/
+     `wd3`/`wd5`: 2 of 3 found a real live tenant this way (`wd2`
+     consistently unreachable, `wd1`/`wd3` consistently `422` = "wrong
+     cluster," a real, usable miss signal). But the real site names found
+     at those tenants (`panwexternalcareers`, `disneycareer`) bear no
+     resemblance to the company name or to each other — there's no
+     template to guess them from, only real per-company research (most
+     plausibly: fetch the company's own website and follow its real
+     "Careers" link) — a fundamentally different, bigger feature than a
+     slug guesser, not a drop-in extension of `resolve.py`'s existing
+     shape.
+   - **`robots.txt` varies per real site name, not just per tenant, and
+     can reject the one real path that exists.** Palo Alto Networks'
+     *only* real career site path (`panwexternalcareers`) is explicitly
+     `Disallow`'d — a genuine, confirmed rejection, not a resolution
+     failure. Disney has two real site paths, one allowed
+     (`disneycareer`), one disallowed (`disneycareerdc`) — even a
+     correctly-resolved company needs its own real per-site robots check,
+     same discipline every other source already requires.
+
+   Conclusion: Workday's job data is real and public, but reaching it
+   requires discovering a real, unguessable tenant/cluster/site-name
+   triple per company — out of scope for this spike and not a natural
+   fit for `resolve.py`'s existing guess-and-check architecture. Skipping
+   steps 7-8 entirely, the same honest outcome PHASE9.md's VC-portfolio
+   search reached for four of five real candidates. Revisit only with a
+   real, different resolution mechanism (e.g., crawling each company's
+   own website for its real careers link) as its own, separately-scoped
+   phase — not attempted here. No code changes this step.
 
 7. **Workday resolution + job source (backend) — only if step 6 finds a
    real, working pattern.** Same shape as steps 2-3, adapted to whatever
    real tenant-resolution and JSON shape step 6 actually found.
+   **Skipped — step 6 came back no-go.** See step 6's own "Done." note.
 
 8. **Workday field-detection + end-to-end real smoke test — only if step
    7 lands.** Same shape as steps 4-5.
+   **Skipped — step 6 came back no-go.** See step 6's own "Done." note.
 
 ### WhatsApp job-link intake
 
