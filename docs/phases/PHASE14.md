@@ -223,6 +223,41 @@ and the first to hit it.
    ordering `routes_runs.py` already uses so "stream" is never captured
    as a path parameter.
 
+   **Done.** Added `application_updates()` to `stream.py`, mirroring
+   `run_updates()`'s diff-based polling shape exactly (1s poll,
+   `run_in_threadpool` for the blocking SQLAlchemy call, yields only on
+   an actual payload change, ends the generator outright if the
+   application no longer exists rather than polling forever). Extracted
+   the `Application -> ApplicationOut` conversion (previously a private
+   `_to_out` inside `routes_applications.py`) into a new shared
+   `backend/api/application_view.py` so the SSE stream and the one-shot
+   `GET /applications/{id}` produce byte-identical payloads from one
+   definition, not two independently-maintained ones — avoided a
+   circular import between `routes_applications.py` and `stream.py`
+   this way. `GET /applications/{application_id}/stream` registered
+   before `GET /applications/{application_id}` per the stated
+   ordering convention. Also found and fixed in passing:
+   `backend/api/dto.py` had already crossed CLAUDE.md's 300-line cap
+   (310 lines, from step 2's new `ApplicantProfile` fields) — split the
+   Application/kill-switch/company-block DTOs into a new
+   `dto_applications.py` (its own small commit, since it's an unrelated
+   fix). Real smoke test: ran the actual FastAPI app
+   (`uvicorn --factory backend.api.main:create_app`) from a scratch
+   working directory holding a copy of `hirable.db` — never the real
+   one, since `config.DATABASE_FILE` is a relative path resolved
+   against the process's cwd — created a real `pending` Application row
+   for job 147 (Checkr), curled `/api/applications/5/stream` and got a
+   real first frame back (`"status":"pending","company_name":"Checkr"`),
+   then called `events.mark_awaiting_confirmation` on that row from a
+   second process while the curl was still connected and watched a
+   second, live frame arrive with `"status":"awaiting_confirmation"`
+   and the real `planned_fields` payload, all within the same open SSE
+   connection. 4 new tests in `test_stream.py` (yields current state,
+   skips unchanged polls, yields again on a real status change, ends
+   the stream for a nonexistent application) mirroring the existing
+   `run_updates` test shapes. `./validate.sh` green (533 tests passed,
+   mypy clean, ruff clean).
+
 5. **Live application-progress frontend.** `useApplicationLive(id)`
    hook mirroring `useRunsLive.ts` (SSE primary, falls back to the
    existing poll on disconnect), wired into `ApplicationDrawer` in place

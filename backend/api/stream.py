@@ -1,4 +1,5 @@
-"""SSE polling/diffing for GET /runs/stream (PHASE6.md step 6).
+"""SSE polling/diffing for GET /runs/stream (PHASE6.md step 6) and
+GET /applications/{id}/stream (PHASE14.md step 4).
 
 Kept separate from routes.py so the route handler stays thin — same
 separation as export.py for CSV serialization.
@@ -12,8 +13,12 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from backend.api.application_view import to_application_out
 from backend.api.dto import RunList, RunOut
+from backend.api.dto_applications import ApplicationDetail, ApplicationEventOut
+from backend.autoapply import events
 from backend.db import repo
+from backend.db.models import Application
 
 POLL_INTERVAL_S = 1.0
 STREAM_LIMIT = 20
@@ -38,6 +43,39 @@ async def run_updates(engine: Engine, request: Request) -> AsyncIterator[str]:
     last: str | None = None
     while not await request.is_disconnected():
         payload = await run_in_threadpool(_run_list_payload, engine)
+        if payload != last:
+            last = payload
+            yield f"data: {payload}\n\n"
+        await asyncio.sleep(POLL_INTERVAL_S)
+
+
+def _application_detail_payload(engine: Engine, application_id: int) -> str | None:
+    """The same {application, events} shape GET /applications/{id}
+    returns, as a JSON string — None if the application doesn't exist,
+    so the caller can end the stream instead of polling forever."""
+    with Session(engine) as session:
+        application = session.get(Application, application_id)
+        if application is None:
+            return None
+        log = events.list_events(session, application)
+        body = ApplicationDetail(
+            application=to_application_out(session, application),
+            events=[ApplicationEventOut.model_validate(event) for event in log],
+        )
+    return body.model_dump_json()
+
+
+async def application_updates(
+    engine: Engine, request: Request, application_id: int
+) -> AsyncIterator[str]:
+    """Yield one SSE frame each time this application's detail payload
+    actually changes — same diff-based polling shape as run_updates,
+    parameterized by application_id instead of the fixed runs list."""
+    last: str | None = None
+    while not await request.is_disconnected():
+        payload = await run_in_threadpool(_application_detail_payload, engine, application_id)
+        if payload is None:
+            return
         if payload != last:
             last = payload
             yield f"data: {payload}\n\n"

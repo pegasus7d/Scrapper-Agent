@@ -7,17 +7,17 @@ creation) and enqueues a Huey task for the slow, real browser work — same
 split `backend.scraper.tasks` already uses for scrape runs.
 """
 
-from fastapi import APIRouter, HTTPException
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from sqlalchemy import Engine, func, select
 
+from backend.api.application_view import to_application_out
 from backend.api.deps import LimitParam, OffsetParam, SessionDep
 from backend.api.dto_applications import (
     ApplicationCreated,
     ApplicationDetail,
     ApplicationEventOut,
     ApplicationList,
-    ApplicationOut,
     ApplicationRequest,
     CompanyBlockOut,
     CompanyBlockRequest,
@@ -26,33 +26,12 @@ from backend.api.dto_applications import (
     KillSwitchRequest,
     Rejected,
 )
+from backend.api.stream import application_updates
 from backend.autoapply import events, planner, safety
 from backend.autoapply.tasks import execute_application_task, plan_application_page_task
 from backend.db.models import Application, Company, Job
 
 router = APIRouter()
-
-
-def _to_out(session: Session, application: Application) -> ApplicationOut:
-    """Built explicitly rather than via model_validate: company_name/
-    job_title aren't real columns on Application, they're joined in here
-    so the UI never has to make a second round-trip per row just to show
-    a real company name instead of a bare id."""
-    company = session.get(Company, application.company_id)
-    job = session.get(Job, application.job_id) if application.job_id is not None else None
-    return ApplicationOut(
-        id=application.id,
-        company_id=application.company_id,
-        company_name=company.name if company is not None else "unknown",
-        job_id=application.job_id,
-        job_title=job.title if job is not None else None,
-        status=application.status,
-        risk_level=application.risk_level,
-        started_at=application.started_at,
-        finished_at=application.finished_at,
-        error=application.error,
-        planned_fields=application.planned_fields,
-    )
 
 
 @router.post("/applications", status_code=201)
@@ -89,7 +68,20 @@ def list_applications(
     query = select(Application).order_by(Application.id.desc())
     total = session.scalar(select(func.count()).select_from(Application)) or 0
     rows = session.scalars(query.limit(limit).offset(offset)).all()
-    return ApplicationList(items=[_to_out(session, row) for row in rows], total=total)
+    return ApplicationList(items=[to_application_out(session, row) for row in rows], total=total)
+
+
+@router.get("/applications/{application_id}/stream")
+def stream_application(application_id: int, request: Request) -> StreamingResponse:
+    """SSE: a frame each time this application's detail payload changes
+    (PHASE14.md step 4), same shape as GET /applications/{id} —
+    registered before /applications/{application_id} so "stream" is
+    never captured as an application_id path parameter (same ordering
+    routes_runs.py already uses for GET /runs/stream)."""
+    engine: Engine = request.app.state.engine
+    return StreamingResponse(
+        application_updates(engine, request, application_id), media_type="text/event-stream"
+    )
 
 
 @router.get("/applications/{application_id}")
@@ -99,7 +91,7 @@ def get_application(application_id: int, session: SessionDep) -> ApplicationDeta
         raise HTTPException(404, "application not found")
     log = events.list_events(session, application)
     return ApplicationDetail(
-        application=_to_out(session, application),
+        application=to_application_out(session, application),
         events=[ApplicationEventOut.model_validate(event) for event in log],
     )
 
