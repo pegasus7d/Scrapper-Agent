@@ -192,6 +192,42 @@ def test_fill_and_submit_reports_failure_for_an_unreachable_url(page: Page) -> N
     assert "failed to load form" in result.reason
 
 
+def test_fill_and_submit_detects_a_confirmation_via_a_real_url_redirect(page: Page) -> None:
+    """PHASE14.md step 3 -- proves the heuristic generalizes past the
+    original `id="confirmation"` fixture: Greenhouse/Lever's real shape
+    is a redirect to a distinct URL with no special id or phrase at
+    all (researched via their own docs, not assumed)."""
+    result = filler.fill_and_submit(page, f"{_URL}/redirect-form", {"full_name": "X"}, {})
+    assert result.success is True
+    assert "confirmed" in result.reason
+    assert page.url == f"{_URL}/redirect-thanks"
+    assert page.locator("#confirmation").count() == 0
+
+
+def test_fill_and_submit_detects_a_confirmation_via_a_real_phrase_no_navigation(
+    page: Page,
+) -> None:
+    """Ashby's real shape -- a client-rendered SPA with no URL change at
+    all, just a real confirmation phrase swapped into the DOM."""
+    result = filler.fill_and_submit(page, f"{_URL}/phrase-form", {"full_name": "X"}, {})
+    assert result.success is True
+    assert "confirmed" in result.reason
+    assert page.url == f"{_URL}/phrase-form"
+    assert page.locator("#confirmation").count() == 0
+    assert "thank you for applying" in page.locator("body").inner_text().lower()
+
+
+def test_fill_and_submit_reports_failure_when_no_confirmation_signal_ever_appears(
+    page: Page,
+) -> None:
+    """Negative path: a submit that changes nothing (no URL change, no
+    phrase, submit button still present) must not be reported as a
+    success just because no exception was raised."""
+    result = filler.fill_and_submit(page, f"{_URL}/stuck-form", {"full_name": "X"}, {})
+    assert result.success is False
+    assert "no confirmation signal" in result.reason
+
+
 def test_detect_and_fill_fills_but_never_submits(page: Page, resume_file: Path) -> None:
     """PHASE10.md step 8's real constraint made structural: detect_and_fill
     fills real fields but has no code path that can click submit — the

@@ -26,6 +26,7 @@ writing `filler.DetectedField` etc.
 """
 
 import logging
+import time
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
@@ -60,6 +61,51 @@ _MAX_CONSECUTIVE_FAILURES = 5
 # (Ashby's React app paints its form after `domcontentloaded` fires) --
 # one shared definition of "a fillable field", not two that could drift.
 FIELD_SELECTOR = "input:visible, select:visible, textarea:visible"
+
+_CONFIRMATION_TIMEOUT_MS = 5000
+_CONFIRMATION_POLL_MS = 200
+# Researched, not assumed (PHASE14.md step 3): Greenhouse and Lever both
+# redirect to a distinct, org-configurable confirmation/success URL after
+# a real submit (support.greenhouse.io "Edit application confirmation
+# page"; help.lever.co "Configuring your Lever-hosted Job Site"'s
+# Application Success Page URL) -- a URL change is the dominant real
+# signal for those two. Ashby's application form is a client-rendered
+# SPA (developers.ashbyhq.com) with no guarantee of a URL change, so the
+# phrase/submit-button checks below cover that case instead. None of
+# these ever assume the local test fixture's own `id="confirmation"`.
+_CONFIRMATION_PHRASES = (
+    "thank you for applying",
+    "application submitted",
+    "application received",
+    "received your application",
+)
+
+
+def _confirmation_signal_present(page: Page, apply_url: str) -> bool:
+    """True if any of the three generic, ATS-agnostic confirmation
+    signals is present right now: the URL moved away from the apply
+    page, the submit control is gone, or a common confirmation phrase
+    appears in the page's visible text."""
+    if page.url != apply_url:
+        return True
+    if page.locator('button[type="submit"], input[type="submit"]').count() == 0:
+        return True
+    body_text = page.locator("body").inner_text().lower()
+    return any(phrase in body_text for phrase in _CONFIRMATION_PHRASES)
+
+
+def _wait_for_confirmation(page: Page, apply_url: str) -> bool:
+    """Polls `_confirmation_signal_present` for up to
+    `_CONFIRMATION_TIMEOUT_MS` -- real ATS pages take a moment to
+    navigate or re-render after a submit click, the same real-world
+    reason the old `wait_for_selector` call used a timeout."""
+    deadline = time.monotonic() + (_CONFIRMATION_TIMEOUT_MS / 1000)
+    while True:
+        if _confirmation_signal_present(page, apply_url):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        page.wait_for_timeout(_CONFIRMATION_POLL_MS)
 
 
 def detect_fields(page: Page) -> list[DetectedField]:
@@ -180,6 +226,7 @@ def fill_and_submit(
         page.goto(url)
     except PlaywrightError as error:
         return DoneResult(success=False, reason=f"failed to load form: {error}")
+    apply_url = page.url
 
     fields = detect_fields(page)
     if not fields:
@@ -212,11 +259,9 @@ def fill_and_submit(
     if not submit_result.success:
         return DoneResult(success=False, reason=f"submit failed: {submit_result.error}")
 
-    try:
-        page.wait_for_selector("#confirmation", timeout=5000)
-    except PlaywrightError:
+    if not _wait_for_confirmation(page, apply_url):
         return DoneResult(
-            success=False, reason="no confirmation element found on the page after submit"
+            success=False, reason="no confirmation signal found on the page after submit"
         )
 
     return DoneResult(success=True, reason="submission confirmed")

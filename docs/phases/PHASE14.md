@@ -182,6 +182,38 @@ and the first to hit it.
    new heuristic actually generalizes, not just re-passes the original
    fixture.
 
+   **Done.** Researched real ATS post-submit behavior first (web search,
+   not assumed): Greenhouse's own "Edit application confirmation page"
+   docs and Lever's "Application Success Page URL" setting both confirm
+   a real HTTP redirect to a distinct, org-configurable confirmation URL
+   after submit; Ashby's application form is a client-rendered SPA
+   (developers.ashbyhq.com) with no guaranteed URL change at all. That
+   directly grounds the three-signal heuristic implemented in
+   `filler.py`'s new `_confirmation_signal_present`/
+   `_wait_for_confirmation`: the URL moved away from the apply page, OR
+   the submit button/input is gone, OR the page's visible text contains
+   one of a small set of real confirmation phrases ("thank you for
+   applying", "application submitted", "application received",
+   "received your application") — polled for up to 5s (the same timeout
+   the old `wait_for_selector` used), replacing the single hardcoded
+   `#confirmation` id match. The submission gate stayed sacred — every
+   verification ran against local test fixtures, never a real ATS.
+   `test_form_server.py`'s new fixtures (split into a new
+   `test_form_server_confirmations.py` module to stay under CLAUDE.md's
+   300-line cap) prove real generalization, not just a re-pass: a
+   redirect-based confirmation with no id or phrase at all
+   (Greenhouse/Lever's real shape), a same-URL SPA-style confirmation
+   with a real phrase and no navigation (Ashby's real shape), and a
+   negative-path fixture that gives no confirmation signal at all,
+   proving the heuristic can still correctly report `success=False`
+   rather than always succeeding. All three are real, live-browser tests
+   (genuine Playwright + a real local uvicorn server, not mocked) — 3 new
+   tests, `./validate.sh` green (529 tests passed, mypy clean, ruff
+   clean, frontend build clean). The original `id="confirmation"`
+   happy-path test still passes unchanged, now via the URL-change signal
+   (the browser's real POST navigation to `/submit` changes `page.url`)
+   rather than the id match specifically.
+
 4. **Live application-progress backend (SSE).** `GET
    /applications/{id}/stream`, mirroring `stream.py`'s `run_updates`
    exactly (diff-based polling of the same payload

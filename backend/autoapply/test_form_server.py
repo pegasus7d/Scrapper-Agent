@@ -21,7 +21,12 @@ from typing import Annotated
 from fastapi import FastAPI, Form, UploadFile
 from fastapi.responses import HTMLResponse
 
+from backend.autoapply.test_form_server_confirmations import router as confirmations_router
+
 app = FastAPI(title="Hirable auto-apply test form (local only, PHASE10.md step 1)")
+# PHASE14.md step 3's confirmation-heuristic fixtures -- split into their
+# own module to stay under CLAUDE.md's 300-line cap.
+app.include_router(confirmations_router)
 
 _FORM_HTML = """<!doctype html>
 <html lang="en">
