@@ -54,7 +54,7 @@ export function Resume() {
     setResults(null)
     try {
       const page = await apiGet<Paginated<Job>>(
-        `/search?q=${encodeURIComponent(position)}&kind=jobs&limit=10`
+        `/search?q=${encodeURIComponent(position)}&kind=jobs&limit=10`,
       )
       setResults(page.items)
     } catch (err) {

@@ -32,10 +32,10 @@ export function CompanyDrawer({
   onClose: () => void
 }) {
   const jobs = useApi<Paginated<Job>>(
-    `/jobs?source=company:${company.slug ?? 'unresolved'}&limit=10`
+    `/jobs?source=company:${company.slug ?? 'unresolved'}&limit=10`,
   )
   const questions = useApi<Paginated<Question>>(
-    `/questions?company=${encodeURIComponent(company.name)}&limit=10`
+    `/questions?company=${encodeURIComponent(company.name)}&limit=10`,
   )
 
   return (

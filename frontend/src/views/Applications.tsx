@@ -86,7 +86,10 @@ function ApplicationDrawer({
   const current = detail.data?.application ?? application
 
   return (
-    <Drawer title={`${current.company_name}${current.job_title ? ` — ${current.job_title}` : ''}`} onClose={onClose}>
+    <Drawer
+      title={`${current.company_name}${current.job_title ? ` — ${current.job_title}` : ''}`}
+      onClose={onClose}
+    >
       <div className="mt-1 flex items-center gap-2 text-sm">
         <Badge variant={statusBadgeVariant(current.status)}>{current.status}</Badge>
         <Badge variant={riskBadgeVariant(current.risk_level)}>{current.risk_level} risk</Badge>
@@ -99,9 +102,7 @@ function ApplicationDrawer({
 
       {current.status === 'awaiting_confirmation' && (
         <>
-          <h3 className="mt-6 text-sm font-semibold text-foreground">
-            Review before confirming
-          </h3>
+          <h3 className="mt-6 text-sm font-semibold text-foreground">Review before confirming</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Exactly what would be entered and submitted -- nothing is sent until you confirm.
           </p>

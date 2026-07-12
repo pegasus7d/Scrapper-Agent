@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/debayanbiswas/hirable && OUTPUT=$(./validate.sh 2>&1); CODE=$?; if [ $CODE -ne 0 ]; then printf '%s' \"$OUTPUT\" | tail -c 3000 | jq -Rs '{decision: \"block\", reason: (\"validate.sh failed:\\n\" + .)}'; else echo '{}'; fi",
+            "timeout": 180,
+            "statusMessage": "Running validate.sh (pytest/mypy/ruff/build)…"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "if": "Bash(git commit *)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/debayanbiswas/hirable/pre-commit-guard.sh",
+            "timeout": 180,
+            "statusMessage": "Validating before commit…"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/debayanbiswas/hirable/pre-migration-guard.sh",
+            "timeout": 10,
+            "statusMessage": "Checking migration safety…"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -6,7 +6,13 @@ import type { ApplicantProfile, MatchScoreList } from '../api/types'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
 import { useApi } from '../hooks/useApi'
 
 // Real score distribution over scraped jobs (PHASE11.md step 4) -- lets
@@ -25,7 +31,8 @@ function MatchScoreSection({ hasResume }: { hasResume: boolean }) {
     <div className="mt-6 max-w-md rounded-xl border border-border bg-card p-5">
       <h2 className="text-sm font-semibold text-foreground">Match scores</h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        {passing} of {items.length} scraped jobs meet the current threshold ({threshold.toFixed(2)}).
+        {passing} of {items.length} scraped jobs meet the current threshold ({threshold.toFixed(2)}
+        ).
       </p>
       <ul className="mt-3 divide-y divide-border text-sm">
         {items.slice(0, 10).map((s) => (
@@ -105,9 +112,9 @@ export function Profile() {
     <div className="p-8">
       <h1 className="text-2xl font-semibold text-foreground">Applicant profile</h1>
       <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-        Your own real answers, used by auto-apply's form-filler to answer application
-        questions. Nothing here is pre-filled or guessed -- leave a field blank to answer
-        it yourself when it comes up.
+        Your own real answers, used by auto-apply's form-filler to answer application questions.
+        Nothing here is pre-filled or guessed -- leave a field blank to answer it yourself when it
+        comes up.
       </p>
 
       {profile.data && (

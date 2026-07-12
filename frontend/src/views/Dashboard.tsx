@@ -11,7 +11,14 @@ import { SchedulesPanel } from '../components/SchedulesPanel'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Skeleton } from '../components/ui/skeleton'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table'
 import { useApi } from '../hooks/useApi'
 import { useRunsLive } from '../hooks/useRunsLive'
 import { formatPercent, formatTime } from '../lib/format'
@@ -99,7 +106,8 @@ function useRunLifecycleToasts(runs: Run[]) {
       const before = previous.current.get(run.id)
       if (before === 'running' && run.status !== 'running') {
         const label = `Run #${run.id} (${run.kind}/${run.source})`
-        if (run.status === 'completed') toast.success(`${label} completed — ${run.items_saved} saved`)
+        if (run.status === 'completed')
+          toast.success(`${label} completed — ${run.items_saved} saved`)
         else if (run.status === 'failed') toast.error(`${label} failed`)
         else toast.info(`${label} cancelled`)
       }
@@ -136,7 +144,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (view: View) => void }) 
         (run) =>
           queue.sources.includes(run.source) &&
           run.status !== 'running' &&
-          new Date(run.started_at).getTime() >= queue.startedAt
+          new Date(run.started_at).getTime() >= queue.startedAt,
       ).length
     : 0
 

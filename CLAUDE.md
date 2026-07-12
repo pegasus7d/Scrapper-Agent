@@ -83,8 +83,13 @@ for anyone to review and understand. No slop.
 - Definition of done for any change: `pytest` green + `mypy` clean + `ruff check` +
   `ruff format --check` pass. (mypy is what makes "type hints everywhere" enforceable
   — ruff alone does not check type correctness.) Any change touching `frontend/`
-  additionally requires `npm run build` to pass (strict `tsc` is the frontend's
-  type gate).
+  additionally requires `oxlint` (via `npm run lint` — a fast, ESLint-rule-compatible
+  linter; no separate ESLint install, that would just be a redundant second linter),
+  `prettier --check` (via `npm run format:check`), and `npm run build` to pass (strict
+  `tsc` is the frontend's type gate). All of the above run in one command via
+  `./validate.sh` at the repo root, wired as a `Stop` hook (`.claude/settings.json`) so
+  it runs automatically and blocks on failure — a low-token guardrail instead of
+  Claude manually invoking each check separately every iteration.
 - **Smoke test at step boundaries.** Unit tests mock all I/O, so they can never prove
   the real integration works. Before a build-order step (`PHASE{N}.md`, current phase
   is [[docs/phases/PHASE11.md]]) is called done, run the new piece once for real (real Ollama, real
@@ -135,7 +140,7 @@ exact prompt, swapping the phase file and its final step number for the phase
 being built:
 
 ```
-/loop Work on the project at /Users/debayanbiswas/hirable. Each iteration: read CLAUDE.md, DESIGN.md, and PHASE{N}.md, look at git log to see what is already done, then implement ONLY the smallest next unit from PHASE{N}.md's build order. Validate with pytest, mypy, ruff check, ruff format --check, and npm run build for frontend changes; fix until green; then make one small commit, appending a "Done." writeup (what actually happened, real numbers, any bug found) to that step in PHASE{N}.md in the same commit. At each step boundary, run the real smoke test described in CLAUDE.md before moving to the next step. If the same validation check fails three consecutive attempts on the same step, stop the loop and report instead of continuing to iterate. If the next unbuilt step requires data, credentials, or an irreversible action only the user can supply, stop and report rather than inventing a placeholder or routing around it. Follow every rule in CLAUDE.md strictly. Stop the loop when PHASE{N}.md step M is complete and all checks pass.
+/loop Work on the project at /Users/debayanbiswas/hirable. Each iteration: read CLAUDE.md, DESIGN.md, and PHASE{N}.md, look at git log to see what is already done, then implement ONLY the smallest next unit from PHASE{N}.md's build order. Validate with ./validate.sh (pytest, mypy, ruff check, ruff format --check, and oxlint/prettier/npm run build when frontend changed — also enforced automatically by a Stop hook, but run it yourself before committing rather than relying on the hook to catch it after the fact); fix until green; then make one small commit, appending a "Done." writeup (what actually happened, real numbers, any bug found) to that step in PHASE{N}.md in the same commit. At each step boundary, run the real smoke test described in CLAUDE.md before moving to the next step. If the same validation check fails three consecutive attempts on the same step, stop the loop and report instead of continuing to iterate. If the next unbuilt step requires data, credentials, or an irreversible action only the user can supply, stop and report rather than inventing a placeholder or routing around it. Follow every rule in CLAUDE.md strictly. Stop the loop when PHASE{N}.md step M is complete and all checks pass.
 ```
 
 Three rules folded into that prompt are easy to lose in a long unattended

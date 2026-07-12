@@ -6,20 +6,8 @@ import { formatSize } from '../lib/format'
 import { SOURCES } from '../lib/sources'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 
 // PHASE12.md step 1: a source's last-checked liveness, hover for detail.
 const HEALTH_DOT_CLASS: Record<SourceHealth['status'], string> = {
@@ -56,9 +44,7 @@ export function NewScrapeModal({ onClose, onStart }: Props) {
   }
 
   function toggleSource(source: string, checked: boolean) {
-    setSelected((prev) =>
-      checked ? [...prev, source] : prev.filter((s) => s !== source)
-    )
+    setSelected((prev) => (checked ? [...prev, source] : prev.filter((s) => s !== source)))
   }
 
   function start() {

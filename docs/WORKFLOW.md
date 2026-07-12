@@ -38,9 +38,15 @@ Every phase of work (MVP, phase 2, phase 3, ...) follows the same loop:
    recorded in CLAUDE.md's "Autonomous build loop" section, pointing it at
    the new `PHASE{N}.md` file and its final step. Each iteration: read
    CLAUDE.md + DESIGN.md + `PHASE{N}.md` + `git log` to see what's already
-   done, implement ONLY the smallest next unit, validate (`pytest`, `mypy`,
-   `ruff check`, `ruff format --check`, `npm run build` for frontend
-   changes), commit, repeat.
+   done, implement ONLY the smallest next unit, validate (`./validate.sh`
+   at the repo root — pytest/mypy/ruff, plus oxlint/prettier/npm run
+   build when frontend changed, all in one command), commit, repeat.
+   `./validate.sh` also runs automatically as a `Stop` hook
+   (`.claude/settings.json`), blocking completion on failure — a
+   low-token guardrail (pure shell, no extra LLM calls) chosen over
+   spawning subagents for this, which Anthropic's own context-engineering
+   guidance reserves for open-ended investigation, not a fixed,
+   deterministic check.
 5. **Real smoke test at every step boundary — no exceptions.** Unit tests mock
    every I/O boundary; only a real fetch plus a real Ollama call proves the
    integration actually works. This is where real bugs get found, not

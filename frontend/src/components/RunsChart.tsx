@@ -35,7 +35,7 @@ export function RunsChart({ runs }: Props) {
   }
 
   const ticks = Array.from({ length: TICK_COUNT + 1 }, (_, i) =>
-    Math.round((maxValue / TICK_COUNT) * i)
+    Math.round((maxValue / TICK_COUNT) * i),
   )
 
   return (

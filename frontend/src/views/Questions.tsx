@@ -122,7 +122,9 @@ export function Questions() {
                 </td>
                 <td className="px-4 py-3">{question.company ?? 'General'}</td>
                 <td className="px-4 py-3 text-muted-foreground">{question.role ?? '—'}</td>
-                <td className="px-4 py-3 text-muted-foreground">{formatTime(question.scraped_at)}</td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {formatTime(question.scraped_at)}
+                </td>
               </tr>
             ))}
           </tbody>

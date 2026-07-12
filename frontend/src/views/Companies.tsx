@@ -14,7 +14,13 @@ import { CompanyDrawer, ProviderBadge } from '../components/CompanyDrawer'
 import { Pagination } from '../components/Pagination'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
 import { Skeleton } from '../components/ui/skeleton'
 import { useApi } from '../hooks/useApi'
 import { formatTime } from '../lib/format'
@@ -65,9 +71,7 @@ export function Companies() {
   async function discover(discoverySource: string) {
     setDiscovering(discoverySource)
     try {
-      const result = await apiPost<DiscoveryResult>(
-        `/companies/discover?source=${discoverySource}`
-      )
+      const result = await apiPost<DiscoveryResult>(`/companies/discover?source=${discoverySource}`)
       toast.success(`Discovered ${result.discovered} new companies (${result.total} total)`)
       companies.reload()
     } catch (err) {
@@ -129,7 +133,10 @@ export function Companies() {
               <SelectItem value="lever">lever</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={source} onValueChange={(value) => updateFilter(setSource)(value ?? ALL_SOURCES)}>
+          <Select
+            value={source}
+            onValueChange={(value) => updateFilter(setSource)(value ?? ALL_SOURCES)}
+          >
             <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
@@ -196,7 +203,9 @@ export function Companies() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-foreground">{company.name}</span>
                     <ProviderBadge company={company} />
-                    <Badge variant="outline">{labelFor(discoverySources.data, company.source)}</Badge>
+                    <Badge variant="outline">
+                      {labelFor(discoverySources.data, company.source)}
+                    </Badge>
                     {company.batch && <Badge variant="outline">{company.batch}</Badge>}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">

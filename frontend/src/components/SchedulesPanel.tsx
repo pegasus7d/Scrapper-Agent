@@ -24,7 +24,7 @@ type ScheduleKind = RunKind | 'companies'
 // refactor.
 function sourceOptionsFor(
   kind: ScheduleKind,
-  discoverySources: DiscoverySource[] | null
+  discoverySources: DiscoverySource[] | null,
 ): { value: string; label: string }[] {
   if (kind === 'companies') {
     return (discoverySources ?? []).map((s) => ({ value: s.name, label: s.label }))
@@ -53,7 +53,11 @@ function ScheduleRow({ schedule, onToggled }: { schedule: Schedule; onToggled: (
           last run: {schedule.last_run_at ? formatTime(schedule.last_run_at) : 'never'}
         </p>
       </div>
-      <Button variant={schedule.enabled ? 'secondary' : 'outline'} size="sm" onClick={() => void toggle()}>
+      <Button
+        variant={schedule.enabled ? 'secondary' : 'outline'}
+        size="sm"
+        onClick={() => void toggle()}
+      >
         {schedule.enabled ? 'Enabled' : 'Paused'}
       </Button>
     </li>

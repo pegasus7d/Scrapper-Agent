@@ -30,12 +30,22 @@ one simple grouped bar chart a hand-rolled SVG component replaces).
   hand-rolled tween before adding a library back.
 - **No state library** — server data via plain `fetch` + a small `useApi`
   hook.
+- **Lint via `oxlint`, format via `prettier`** — `oxlint` (Rust, ESLint-rule-
+  compatible, already fast enough to run on every check) is this project's
+  linter; don't add real ESLint alongside it, that's just a redundant
+  second linter for the same job. `prettier` (`.prettierrc.json` at the
+  frontend root: `semi: false`, `singleQuote: true`, `printWidth: 100` —
+  matching the style every file already used, and backend's own `ruff`
+  line length) is the one formatter; run `npm run format` to fix, `npm run
+  format:check` to verify.
 
 ## Testing
 
 TypeScript strict mode is the safety net; no unit tests — the UI is thin
 (fetch → render) and all logic lives behind the tested API (revisit if
 UI-side logic grows). Any change touching `frontend/` must pass `npm run
-build` (strict `tsc` + Vite build) as part of the definition of done — this
-is the frontend's actual type gate, referenced from root CLAUDE.md's Testing
-section.
+lint` (oxlint), `npm run format:check` (prettier), and `npm run build`
+(strict `tsc` + Vite build) as part of the definition of done — this is
+the frontend's actual type gate, referenced from root CLAUDE.md's Testing
+section. All three run automatically via `./validate.sh` (repo root),
+wired as a `Stop` hook.

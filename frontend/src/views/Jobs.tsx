@@ -9,7 +9,13 @@ import { Drawer } from '../components/Drawer'
 import { Pagination } from '../components/Pagination'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
 import { useApi } from '../hooks/useApi'
 import { formatTime } from '../lib/format'
 import { JOB_STATUSES, statusLabel } from '../lib/jobStatus'
@@ -22,7 +28,7 @@ function jobsPath(
   company: string,
   starredOnly: boolean,
   status: string,
-  offset: number
+  offset: number,
 ): string {
   const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) })
   if (q) params.set('q', q)
@@ -37,7 +43,7 @@ function exportPath(
   q: string,
   company: string,
   starredOnly: boolean,
-  status: string
+  status: string,
 ): string {
   const params = new URLSearchParams({ format })
   if (q) params.set('q', q)
@@ -112,7 +118,7 @@ function StatusControl({ job, onChanged }: { job: Job; onChanged: (job: Job) => 
 // the rendered section.
 function InterviewQuestions({ job }: { job: Job }) {
   const questions = useApi<Paginated<Question>>(
-    job.status === 'interviewing' ? `/jobs/${job.id}/interview-questions` : null
+    job.status === 'interviewing' ? `/jobs/${job.id}/interview-questions` : null,
   )
   if (job.status !== 'interviewing' || !questions.data || questions.data.items.length === 0) {
     return null
@@ -306,7 +312,9 @@ export function Jobs() {
                 <td className="px-4 py-3 text-muted-foreground">{job.salary ?? '—'}</td>
                 <td className="px-4 py-3">
                   {job.status !== 'none' && (
-                    <Badge variant={statusBadgeVariant(job.status)}>{statusLabel(job.status)}</Badge>
+                    <Badge variant={statusBadgeVariant(job.status)}>
+                      {statusLabel(job.status)}
+                    </Badge>
                   )}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{job.source}</td>
@@ -319,17 +327,16 @@ export function Jobs() {
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">No jobs match.</p>
         )}
         {jobs.data && (
-          <Pagination
-            offset={offset}
-            limit={LIMIT}
-            total={jobs.data.total}
-            onOffset={setOffset}
-          />
+          <Pagination offset={offset} limit={LIMIT} total={jobs.data.total} onOffset={setOffset} />
         )}
       </div>
 
       {selected && (
-        <JobDrawer job={selected} onClose={() => setSelected(null)} onStatusChanged={onStatusChanged} />
+        <JobDrawer
+          job={selected}
+          onClose={() => setSelected(null)}
+          onStatusChanged={onStatusChanged}
+        />
       )}
     </div>
   )
