@@ -16,6 +16,7 @@ from backend.scraper.fetcher import Page
 # Skip one-liners ("email me!") that cannot possibly hold a job posting.
 MIN_CHUNK_CHARS = 80
 
+_SCRIPT_STYLE_BLOCKS = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
 _TAGS = re.compile(r"<[^>]+>")
 _WHITESPACE = re.compile(r"\s+")
 
@@ -46,7 +47,13 @@ class Source(Protocol):
 
 
 def clean_html(text: str) -> str:
-    """Strip tags and entities from HTML, collapsing whitespace."""
+    """Strip tags and entities from HTML, collapsing whitespace.
+
+    `<script>`/`<style>` blocks are dropped *with* their content first —
+    the generic tag stripper below only removes the tags themselves, which
+    left raw JS/CSS in the output for any source that runs this against a
+    whole page rather than an isolated JSON field (PHASE14.md step 1)."""
+    text = _SCRIPT_STYLE_BLOCKS.sub(" ", text)
     return _WHITESPACE.sub(" ", html.unescape(_TAGS.sub(" ", text))).strip()
 
 

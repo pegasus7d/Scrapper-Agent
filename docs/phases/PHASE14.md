@@ -74,6 +74,33 @@ and the first to hit it.
    measured, not assumed — only build the heavier step if this fix alone
    genuinely isn't enough.
 
+   **Done.** Added `_SCRIPT_STYLE_BLOCKS = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)`
+   to `backend/scraper/sources/_base.py`, applied before the existing
+   `_TAGS` stripper in `clean_html()`. Re-fetched the real WeWorkRemotely
+   posting that originally surfaced the bug
+   (`weworkremotely.com/remote-jobs/coin-market-cap-technical-ai-product-manager`,
+   92,045 raw chars, 35 `<script>` tags): old logic produced 53,209
+   cleaned chars with `newrelic` literally present in the output; new
+   logic produces 5,551 clean chars with no analytics JS. Tested against
+   two more real, varied pages to check generalization and decide on the
+   readability-extraction question: a second WeWorkRemotely posting
+   (98,593 → 8,315 chars, clean) and a real Greenhouse boards page
+   (`job-boards.greenhouse.io/checkr`, 63,641 → 5,467 chars, clean). All
+   three came back as mostly job-relevant text with only minor nav-menu
+   boilerplate at the start (~5-10% of output) — good enough
+   signal-to-noise for the LLM extractor as-is. Decision: the heavier
+   readability/content-isolation step is **not** needed; the
+   script/style fix alone is enough, based on this real measured
+   evidence rather than assumption. Confirmed backward-compatible: all
+   22 existing Greenhouse/Lever/Ashby tests in
+   `tests/sources/jobs/test_companies.py` pass unchanged (their chunks
+   are isolated JSON field values with no `<script>`/`<style>` tags, so
+   the new regex is a no-op for them). Added
+   `tests/sources/test_base.py` (7 new tests) covering the script/style
+   strip, case-insensitivity, multiple blocks, and the no-op case for
+   plain snippets. `./validate.sh` green (519 tests passed, mypy clean,
+   ruff clean).
+
 2. **Extend the applicant profile with name/email/LinkedIn/location
    (backend + frontend).** New `ApplicantProfile` columns — a single
    `full_name` field (not separate first/last: real names don't always
