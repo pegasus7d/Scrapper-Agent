@@ -196,7 +196,14 @@ vec0 table was partially corrupted, breaking real production search —
 repaired with the user's explicit sign-off at each destructive step,
 verified against the live dev server afterward. First phase requiring
 an internet-reachable endpoint (a tunnel for the WhatsApp webhook) — a
-named, explicit exception to this app's local-tool design).
+named, explicit exception to this app's local-tool design), phase 14
+([[docs/phases/PHASE14.md]], stop at step 6 — not started: live SSE
+progress for the Applications view (reusing phase 6's `GET /runs/stream`
+pattern), plus three real bugs phase 13's own first real application
+attempt found — the confirmation-detection check only ever recognized
+the local test fixture, the applicant profile has no name/email/
+LinkedIn/location fields, and `clean_html()` leaks raw JS into
+extraction text for anything that isn't a small isolated JSON snippet).
 When a new phase's build order
 is written, add its (file, final
 step) pair here rather than re-deriving the prompt from scratch.

@@ -541,6 +541,22 @@ docs instead of code:
   with the user's explicit sign-off, verified against the real, live
   dev server afterward.
 
+- **[[docs/phases/PHASE14.md]]** — live application visibility, and three
+  real bugs found testing it (not started): phase 13's own first real
+  application attempt (Checkr, via the live app) surfaced three real
+  problems on top of the user's explicit ask (watching an application
+  happen live, not a static drawer snapshot). Confirmed live: the
+  confirmation-detection check only recognizes the local test fixture's
+  `id="confirmation"`, never any real ATS page; the applicant profile has
+  no name/email/LinkedIn/location fields at all (today's real plan came
+  back with all of those unanswered); and `clean_html()` leaks raw
+  minified JavaScript into extraction text for any source that isn't a
+  small, isolated JSON snippet (confirmed: 49KB of mostly New Relic
+  analytics JS from one real WeWorkRemotely fetch) — invisible until
+  phase 13's WhatsApp single-URL intake became the first thing to run it
+  against a whole real page. Live progress reuses the existing `GET
+  /runs/stream` SSE pattern from phase 6, not a new mechanism.
+
 When starting a new phase: write its build order into a new `PHASE{N}.md`
 (copy the header/workflow-rules boilerplate from the latest one), add it to
 the list above, and amend the sections above it in *this* file wherever the
