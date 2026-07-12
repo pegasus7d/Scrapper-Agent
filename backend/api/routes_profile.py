@@ -22,6 +22,10 @@ router = APIRouter()
 
 def _to_out(row: ApplicantProfile) -> ApplicantProfileOut:
     return ApplicantProfileOut(
+        full_name=row.full_name,
+        email=row.email,
+        linkedin_url=row.linkedin_url,
+        location=row.location,
         phone=row.phone,
         current_salary=row.current_salary,
         expected_salary=row.expected_salary,
@@ -43,6 +47,10 @@ def update_profile(body: ApplicantProfileIn, session: SessionDep) -> ApplicantPr
     """Overwrite the profile with exactly the given values — never invents any."""
     row = save_profile(
         session,
+        full_name=body.full_name,
+        email=body.email,
+        linkedin_url=body.linkedin_url,
+        location=body.location,
         phone=body.phone,
         current_salary=body.current_salary,
         expected_salary=body.expected_salary,

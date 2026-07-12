@@ -70,6 +70,10 @@ function choiceToRelocation(choice: RelocationChoice): boolean | null {
 // from whatever is saved here.
 export function Profile() {
   const profile = useApi<ApplicantProfile>('/profile')
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [linkedinUrl, setLinkedinUrl] = useState('')
+  const [location, setLocation] = useState('')
   const [phone, setPhone] = useState('')
   const [currentSalary, setCurrentSalary] = useState('')
   const [expectedSalary, setExpectedSalary] = useState('')
@@ -80,6 +84,10 @@ export function Profile() {
 
   useEffect(() => {
     if (!profile.data) return
+    setFullName(profile.data.full_name ?? '')
+    setEmail(profile.data.email ?? '')
+    setLinkedinUrl(profile.data.linkedin_url ?? '')
+    setLocation(profile.data.location ?? '')
     setPhone(profile.data.phone ?? '')
     setCurrentSalary(profile.data.current_salary ?? '')
     setExpectedSalary(profile.data.expected_salary ?? '')
@@ -92,6 +100,10 @@ export function Profile() {
     setBusy(true)
     try {
       await apiPost('/profile', {
+        full_name: fullName || null,
+        email: email || null,
+        linkedin_url: linkedinUrl || null,
+        location: location || null,
         phone: phone || null,
         current_salary: currentSalary || null,
         expected_salary: expectedSalary || null,
@@ -128,6 +140,47 @@ export function Profile() {
       )}
 
       <div className="mt-6 flex max-w-md flex-col gap-4 rounded-xl border border-border bg-card p-5">
+        <label className="block text-sm font-medium text-muted-foreground">
+          Full name
+          <Input
+            className="mt-1"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="e.g. Jane Doe"
+          />
+        </label>
+
+        <label className="block text-sm font-medium text-muted-foreground">
+          Email
+          <Input
+            className="mt-1"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="e.g. jane@example.com"
+          />
+        </label>
+
+        <label className="block text-sm font-medium text-muted-foreground">
+          LinkedIn profile URL
+          <Input
+            className="mt-1"
+            value={linkedinUrl}
+            onChange={(e) => setLinkedinUrl(e.target.value)}
+            placeholder="e.g. https://linkedin.com/in/janedoe"
+          />
+        </label>
+
+        <label className="block text-sm font-medium text-muted-foreground">
+          Location
+          <Input
+            className="mt-1"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="e.g. San Francisco, CA"
+          />
+        </label>
+
         <label className="block text-sm font-medium text-muted-foreground">
           Phone
           <Input

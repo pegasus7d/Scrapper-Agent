@@ -82,6 +82,10 @@ def _make_ready_company_and_job(engine: Engine, monkeypatch: pytest.MonkeyPatch)
 
         save_profile(
             session,
+            full_name=None,
+            email=None,
+            linkedin_url=None,
+            location=None,
             phone="555-0100",
             current_salary=None,
             expected_salary=None,

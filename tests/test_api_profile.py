@@ -35,6 +35,10 @@ def test_get_profile_returns_all_unset_before_any_save(client: TestClient) -> No
     response = client.get("/api/profile")
     assert response.status_code == 200
     assert response.json() == {
+        "full_name": None,
+        "email": None,
+        "linkedin_url": None,
+        "location": None,
         "phone": None,
         "current_salary": None,
         "expected_salary": None,
@@ -47,6 +51,10 @@ def test_get_profile_returns_all_unset_before_any_save(client: TestClient) -> No
 
 def test_post_profile_saves_and_returns_the_given_values(client: TestClient) -> None:
     body = {
+        "full_name": "Jane Doe",
+        "email": "jane@example.com",
+        "linkedin_url": "https://linkedin.com/in/janedoe",
+        "location": "San Francisco, CA",
         "phone": "555-0100",
         "current_salary": "$120,000",
         "expected_salary": "$140,000",

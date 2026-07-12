@@ -176,3 +176,53 @@ def test_get_relocation_willingness_reports_yes_no_or_unset() -> None:
     assert answers.get_relocation_willingness(answers.ApplicantProfile(relocation=True)) == "Yes"
     assert answers.get_relocation_willingness(answers.ApplicantProfile(relocation=False)) == "No"
     assert answers.get_relocation_willingness(answers.ApplicantProfile(relocation=None)) is None
+
+
+def test_get_full_name_returns_the_stored_value() -> None:
+    assert answers.get_full_name(answers.ApplicantProfile(full_name="Jane Doe")) == "Jane Doe"
+    assert answers.get_full_name(answers.ApplicantProfile(full_name=None)) is None
+
+
+def test_get_first_name_splits_naively_on_the_first_whitespace_run() -> None:
+    assert answers.get_first_name(answers.ApplicantProfile(full_name="Jane Doe")) == "Jane"
+    assert (
+        answers.get_first_name(answers.ApplicantProfile(full_name="Maria Del Carmen Lopez"))
+        == "Maria"
+    )
+    assert answers.get_first_name(answers.ApplicantProfile(full_name=None)) is None
+
+
+def test_get_last_name_splits_naively_on_the_first_whitespace_run() -> None:
+    assert answers.get_last_name(answers.ApplicantProfile(full_name="Jane Doe")) == "Doe"
+    assert (
+        answers.get_last_name(answers.ApplicantProfile(full_name="Maria Del Carmen Lopez"))
+        == "Del Carmen Lopez"
+    )
+    assert answers.get_last_name(answers.ApplicantProfile(full_name=None)) is None
+
+
+def test_get_first_and_last_name_handle_a_single_word_name() -> None:
+    # An honest, documented limitation (PHASE14.md step 2) -- a one-word
+    # name has no real "last name" to split off.
+    assert answers.get_first_name(answers.ApplicantProfile(full_name="Cher")) == "Cher"
+    assert answers.get_last_name(answers.ApplicantProfile(full_name="Cher")) is None
+
+
+def test_get_email_returns_the_stored_value() -> None:
+    assert answers.get_email(answers.ApplicantProfile(email="jane@example.com")) == (
+        "jane@example.com"
+    )
+    assert answers.get_email(answers.ApplicantProfile(email=None)) is None
+
+
+def test_get_linkedin_url_returns_the_stored_value() -> None:
+    url = "https://linkedin.com/in/janedoe"
+    assert answers.get_linkedin_url(answers.ApplicantProfile(linkedin_url=url)) == url
+    assert answers.get_linkedin_url(answers.ApplicantProfile(linkedin_url=None)) is None
+
+
+def test_get_location_returns_the_stored_value() -> None:
+    assert answers.get_location(answers.ApplicantProfile(location="San Francisco, CA")) == (
+        "San Francisco, CA"
+    )
+    assert answers.get_location(answers.ApplicantProfile(location=None)) is None

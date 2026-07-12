@@ -120,6 +120,49 @@ and the first to hit it.
    filled in, and confirm First Name/Last Name/Email/LinkedIn now
    resolve from the profile instead of coming back unanswered.
 
+   **Done.** Added `full_name`/`email`/`linkedin_url`/`location` columns
+   to `ApplicantProfile` (migration `59409f1af06f`, vec0/FTS5
+   false-positive drops stripped by hand, round-tripped upgrade+downgrade
+   against a scratch copy of `hirable.db` before the real `upgrade
+   head`). Added six answer-tools to `answers.py`: `get_full_name`,
+   `get_email`, `get_linkedin_url`, `get_location`, plus
+   `get_first_name`/`get_last_name` (not in the original plan text, but
+   needed in practice — a form asking for separate First/Last Name
+   inputs needs its own tools, not just `get_full_name`; each does the
+   documented naive split on the first whitespace run, e.g. "Maria Del
+   Carmen Lopez" → first="Maria", last="Del Carmen Lopez"). Wired through
+   `ApplicantProfileIn`/`Out`, `routes_profile.py`, and four new fields
+   in the Profile view's form. Real smoke test: ran the actual planner
+   (`planner.plan_application`, real Ollama cascade, real Playwright
+   fetch of the live Checkr posting) against a scratch copy of
+   `hirable.db` — never the real one, per PHASE10.md step 5's hard stop
+   against inventing real applicant data — with a test profile filled
+   in for every new field. Result: `application.status =
+   awaiting_confirmation` (a complete plan, not `failed`). Confirmed the
+   exact fields named in this step's own acceptance check now resolve
+   from the profile instead of `unanswered`: `First Name*` → "Test"
+   (source=profile), `Last Name*` → "Applicant", `Email*` →
+   "test.applicant@example.com", `LinkedIn Profile*` →
+   "https://linkedin.com/in/testapplicant". Also observed, out of this
+   step's scope: `Phone*` still came back unanswered even with
+   `profile.phone` set — the local LLM cascade didn't select the
+   pre-existing `get_phone` tool for that field on this run, a cascade
+   accuracy question unrelated to the new fields added here, not
+   investigated further. `./validate.sh` green (526 tests passed, mypy
+   clean, ruff clean, frontend build clean).
+
+   **Also found and fixed along the way**: a real, unrelated bug in this
+   project's own `.claude/settings.json` — the `PreToolUse` hook
+   restricting `pre-commit-guard.sh` (which runs the full `validate.sh`
+   and blocks on failure) to only `git commit *` commands had its `"if"`
+   field nested at the wrong level (on the hook-group entry instead of
+   inside the individual hook object), so it was silently ignored and
+   the hook fired on *every* Bash command instead. Confirmed via a
+   `claude-code-guide` agent that `if` is a real, supported field but
+   must live inside the hook object; fixed with the user's explicit
+   sign-off (a change to guardrail config, correctly blocked by the auto
+   mode self-modification classifier until approved).
+
 3. **Fix the confirmation-detection bug (backend).** Research first,
    without ever triggering a real, complete submission just to observe
    it (the submission gate stays sacred — this is investigated, not

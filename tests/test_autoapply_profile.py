@@ -15,6 +15,10 @@ def session() -> Session:
 
 def test_get_profile_defaults_to_all_unset(session: Session) -> None:
     row = profile.get_profile(session)
+    assert row.full_name is None
+    assert row.email is None
+    assert row.linkedin_url is None
+    assert row.location is None
     assert row.phone is None
     assert row.current_salary is None
     assert row.expected_salary is None
@@ -32,6 +36,10 @@ def test_get_profile_is_idempotent(session: Session) -> None:
 def test_save_profile_stores_exactly_the_given_values(session: Session) -> None:
     row = profile.save_profile(
         session,
+        full_name="Jane Doe",
+        email="jane@example.com",
+        linkedin_url="https://linkedin.com/in/janedoe",
+        location="San Francisco, CA",
         phone="555-0100",
         current_salary="$120,000",
         expected_salary="$140,000",
@@ -39,6 +47,10 @@ def test_save_profile_stores_exactly_the_given_values(session: Session) -> None:
         relocation=True,
         start_date_availability="2 weeks notice",
     )
+    assert row.full_name == "Jane Doe"
+    assert row.email == "jane@example.com"
+    assert row.linkedin_url == "https://linkedin.com/in/janedoe"
+    assert row.location == "San Francisco, CA"
     assert row.phone == "555-0100"
     assert row.current_salary == "$120,000"
     assert row.expected_salary == "$140,000"
@@ -50,6 +62,10 @@ def test_save_profile_stores_exactly_the_given_values(session: Session) -> None:
 def test_save_profile_overwrites_a_prior_save(session: Session) -> None:
     profile.save_profile(
         session,
+        full_name="Jane Doe",
+        email=None,
+        linkedin_url=None,
+        location=None,
         phone="555-0100",
         current_salary=None,
         expected_salary=None,
@@ -59,6 +75,10 @@ def test_save_profile_overwrites_a_prior_save(session: Session) -> None:
     )
     profile.save_profile(
         session,
+        full_name="Jane Smith",
+        email=None,
+        linkedin_url=None,
+        location=None,
         phone="555-0200",
         current_salary=None,
         expected_salary=None,
@@ -67,6 +87,7 @@ def test_save_profile_overwrites_a_prior_save(session: Session) -> None:
         start_date_availability=None,
     )
     row = profile.get_profile(session)
+    assert row.full_name == "Jane Smith"
     assert row.phone == "555-0200"
     assert row.relocation is False
 
@@ -83,6 +104,10 @@ def test_save_resume_markdown_stores_the_given_markdown(session: Session) -> Non
 def test_save_resume_markdown_does_not_touch_other_fields(session: Session) -> None:
     profile.save_profile(
         session,
+        full_name="Jane Doe",
+        email=None,
+        linkedin_url=None,
+        location=None,
         phone="555-0100",
         current_salary=None,
         expected_salary=None,
@@ -92,6 +117,7 @@ def test_save_resume_markdown_does_not_touch_other_fields(session: Session) -> N
     )
     profile.save_resume_markdown(session, "# Resume\nBackend engineer.")
     row = profile.get_profile(session)
+    assert row.full_name == "Jane Doe"
     assert row.phone == "555-0100"
     assert row.resume_markdown == "# Resume\nBackend engineer."
 

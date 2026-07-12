@@ -191,6 +191,15 @@ class ApplicantProfile(Base):
     __tablename__ = "applicant_profile"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # A single field, not separate first/last (PHASE14.md step 2): real
+    # names don't always split into exactly two parts. Answer-tools that
+    # need a first/last split (answers.py) do it naively at answer time
+    # instead — an honest, documented limitation for compound/non-Western
+    # names rather than over-engineering a name parser.
+    full_name: Mapped[str | None] = mapped_column(default=None)
+    email: Mapped[str | None] = mapped_column(default=None)
+    linkedin_url: Mapped[str | None] = mapped_column(default=None)
+    location: Mapped[str | None] = mapped_column(default=None)
     phone: Mapped[str | None] = mapped_column(default=None)
     current_salary: Mapped[str | None] = mapped_column(default=None)
     expected_salary: Mapped[str | None] = mapped_column(default=None)

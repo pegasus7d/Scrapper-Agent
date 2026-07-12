@@ -25,6 +25,10 @@ def get_profile(session: Session) -> ApplicantProfile:
 def save_profile(
     session: Session,
     *,
+    full_name: str | None,
+    email: str | None,
+    linkedin_url: str | None,
+    location: str | None,
     phone: str | None,
     current_salary: str | None,
     expected_salary: str | None,
@@ -34,6 +38,10 @@ def save_profile(
 ) -> ApplicantProfile:
     """Overwrite the profile with exactly the given values."""
     row = get_profile(session)
+    row.full_name = full_name
+    row.email = email
+    row.linkedin_url = linkedin_url
+    row.location = location
     row.phone = phone
     row.current_salary = current_salary
     row.expected_salary = expected_salary

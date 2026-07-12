@@ -37,6 +37,55 @@ def build_answer_extractor(model: str = config.LOCAL_MODEL) -> Extractor[FormAns
     return Extractor[FormAnswerChoice](local, frontier=frontier)
 
 
+def _split_full_name(full_name: str) -> tuple[str, str]:
+    """Naive first/last split on the first whitespace run — an honest,
+    documented limitation for compound or non-Western names that don't
+    split into exactly two parts (PHASE14.md step 2), rather than
+    over-engineering a real name parser."""
+    parts = full_name.split(None, 1)
+    if len(parts) == 1:
+        return parts[0], ""
+    return parts[0], parts[1]
+
+
+def get_full_name(profile: ApplicantProfile) -> str | None:
+    """The applicant's full name."""
+    return profile.full_name
+
+
+def get_first_name(profile: ApplicantProfile) -> str | None:
+    """The applicant's first name, for a form with separate first/last
+    name fields."""
+    if profile.full_name is None:
+        return None
+    first, _ = _split_full_name(profile.full_name)
+    return first or None
+
+
+def get_last_name(profile: ApplicantProfile) -> str | None:
+    """The applicant's last name, for a form with separate first/last
+    name fields."""
+    if profile.full_name is None:
+        return None
+    _, last = _split_full_name(profile.full_name)
+    return last or None
+
+
+def get_email(profile: ApplicantProfile) -> str | None:
+    """The applicant's email address."""
+    return profile.email
+
+
+def get_linkedin_url(profile: ApplicantProfile) -> str | None:
+    """The applicant's LinkedIn profile URL."""
+    return profile.linkedin_url
+
+
+def get_location(profile: ApplicantProfile) -> str | None:
+    """The applicant's current city/location."""
+    return profile.location
+
+
 def get_phone(profile: ApplicantProfile) -> str | None:
     """The applicant's phone number."""
     return profile.phone
@@ -85,6 +134,12 @@ def _tool(func: Callable[[ApplicantProfile], str | None]) -> AnswerTool:
 
 
 ANSWER_TOOLS: list[AnswerTool] = [
+    _tool(get_full_name),
+    _tool(get_first_name),
+    _tool(get_last_name),
+    _tool(get_email),
+    _tool(get_linkedin_url),
+    _tool(get_location),
     _tool(get_phone),
     _tool(get_current_salary),
     _tool(get_expected_salary),

@@ -87,6 +87,13 @@ export interface LocalModel {
 // PHASE10.md step 5 — every field starts unset (null) until the user fills
 // it in themselves via the Profile view; nothing invents real data here.
 export interface ApplicantProfile {
+  // A single field, not separate first/last (PHASE14.md step 2) -- the
+  // answer-tool system splits this naively at answer time for a form
+  // that wants separate first/last fields.
+  full_name: string | null
+  email: string | null
+  linkedin_url: string | null
+  location: string | null
   phone: string | null
   current_salary: string | null
   expected_salary: string | null

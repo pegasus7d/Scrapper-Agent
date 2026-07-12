@@ -118,6 +118,10 @@ def _make_job(session: Session, company: Company, *, posting_url: str) -> Job:
 def _set_up_resume(session: Session) -> None:
     save_profile(
         session,
+        full_name=None,
+        email=None,
+        linkedin_url=None,
+        location=None,
         phone="555-0100",
         current_salary=None,
         expected_salary=None,

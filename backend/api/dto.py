@@ -150,6 +150,14 @@ class ScheduleOut(BaseModel):
 
 
 class ApplicantProfileOut(BaseModel):
+    # A single field, not separate first/last (PHASE14.md step 2): real
+    # names don't always split into exactly two parts. answers.py's
+    # get_first_name/get_last_name tools split this naively at answer
+    # time for a form that wants separate fields.
+    full_name: str | None
+    email: str | None
+    linkedin_url: str | None
+    location: str | None
     phone: str | None
     current_salary: str | None
     expected_salary: str | None
@@ -163,6 +171,10 @@ class ApplicantProfileOut(BaseModel):
 
 
 class ApplicantProfileIn(BaseModel):
+    full_name: str | None = None
+    email: str | None = None
+    linkedin_url: str | None = None
+    location: str | None = None
     phone: str | None = None
     current_salary: str | None = None
     expected_salary: str | None = None
