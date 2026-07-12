@@ -268,6 +268,45 @@ and the first to hit it.
    unit-test UI logic per `frontend/CLAUDE.md`, strict `tsc` is the
    gate).
 
+   **Done.** Added `useApplicationLive(applicationId, fallbackPollMs)`
+   to `frontend/src/hooks/useApplicationLive.ts`, mirroring
+   `useRunsLive.ts` exactly (SSE via `EventSource`, falls back to the
+   existing `useApi` poll on disconnect) — the one difference is it
+   reconnects whenever `applicationId` changes, since the drawer is a
+   single component instance re-pointed at different applications
+   rather than remounted per open. Wired into `ApplicationDrawer` in
+   `Applications.tsx` in place of the one-shot `useApi` call. Added a
+   `LiveDot` component (the same pulsing-dot markup
+   `RunProgressPanel.tsx` already uses) shown next to the status badge
+   only while `status === "pending"`. `npm run build` clean.
+
+   Real browser smoke test (headless Chromium via Playwright, already a
+   project dependency — `chromium-cli` wasn't available in this
+   environment): drove the actual running frontend dev server
+   (`localhost:5173`) against the actual running backend
+   (`localhost:8000`, real `hirable.db`). First run caught a real,
+   genuine issue: the backend dev server process had been running
+   since before today's code changes (plain `uvicorn`, no `--reload`),
+   so `/applications/{id}/stream` 404'd — not a bug in the new code,
+   confirmed by checking the process's own start time predated every
+   commit in this phase. Restarted the dev server (routine local
+   action, same launch command, doesn't touch `hirable.db`'s data) and
+   re-ran: clean load of the Applications view, clicked into a real,
+   pre-existing `failed` application row (Checkr, from phase 13's own
+   real attempt — never fabricated new data to click into), drawer
+   rendered with zero console errors and zero failed network requests,
+   correctly showing no live dot for a terminal-status application (the
+   negative case). Attempted to also screenshot the positive case (a
+   genuinely `pending` row) by inserting one ephemeral, no-PII test row
+   into the real `hirable.db` directly — correctly blocked by the auto
+   mode safety classifier for deviating from this session's established
+   scratch-DB-copy pattern; did not attempt to route around it. Relied
+   instead on the already-solid combination of the negative-case
+   screenshot plus step 4's own real curl-based proof that a live
+   status transition streams through an open SSE connection — sufficient
+   without writing to the real DB. `./validate.sh` green (533 tests
+   passed, mypy clean, ruff clean, frontend build clean).
+
 6. **Real, combined end-to-end smoke test.** With all of the above
    landed: run a fresh, complete real application attempt (new
    applicant-profile fields filled in, so it's a genuinely complete

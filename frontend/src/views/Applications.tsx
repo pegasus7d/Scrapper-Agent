@@ -2,12 +2,25 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { apiPost } from '../api/client'
-import type { Application, ApplicationDetail, Paginated, PlannedField } from '../api/types'
+import type { Application, Paginated, PlannedField } from '../api/types'
 import { Drawer } from '../components/Drawer'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { useApi } from '../hooks/useApi'
+import { useApplicationLive } from '../hooks/useApplicationLive'
 import { formatTime } from '../lib/format'
+
+// Same pulsing-dot pattern RunProgressPanel.tsx already uses -- shown
+// while the application is genuinely mid-flight (planning or
+// executing), not yet at a terminal or awaiting-confirmation state.
+function LiveDot() {
+  return (
+    <span className="relative flex size-2">
+      <span className="absolute inline-flex size-full animate-ping rounded-full bg-indigo-500 opacity-75" />
+      <span className="relative inline-flex size-2 rounded-full bg-indigo-600" />
+    </span>
+  )
+}
 
 function statusBadgeVariant(status: string): 'outline' | 'secondary' | 'default' | 'destructive' {
   if (status === 'awaiting_confirmation') return 'default'
@@ -52,7 +65,7 @@ function ApplicationDrawer({
   onClose: () => void
   onChanged: () => void
 }) {
-  const detail = useApi<ApplicationDetail>(`/applications/${application.id}`)
+  const detail = useApplicationLive(application.id, 5000)
   const [busy, setBusy] = useState(false)
 
   async function confirm() {
@@ -91,6 +104,7 @@ function ApplicationDrawer({
       onClose={onClose}
     >
       <div className="mt-1 flex items-center gap-2 text-sm">
+        {current.status === 'pending' && <LiveDot />}
         <Badge variant={statusBadgeVariant(current.status)}>{current.status}</Badge>
         <Badge variant={riskBadgeVariant(current.risk_level)}>{current.risk_level} risk</Badge>
       </div>
