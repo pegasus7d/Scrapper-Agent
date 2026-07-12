@@ -15,10 +15,10 @@
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "if": "Bash(git commit *)",
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(git commit *)",
             "command": "/Users/debayanbiswas/hirable/pre-commit-guard.sh",
             "timeout": 180,
             "statusMessage": "Validating before commit…"
