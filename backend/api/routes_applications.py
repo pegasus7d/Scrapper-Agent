@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.api.deps import LimitParam, OffsetParam, SessionDep
-from backend.api.dto import (
+from backend.api.dto_applications import (
     ApplicationCreated,
     ApplicationDetail,
     ApplicationEventOut,
